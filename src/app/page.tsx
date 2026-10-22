@@ -1,69 +1,72 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Suspense } from "react";
+import { Browse } from "@/components/Browse";
+import { getWhatsOn } from "@/lib/data";
+import { isValidDate } from "@/lib/dates";
+import { LISTING, rupees } from "@/lib/site";
 
-export default function Home() {
+export default function Home({ searchParams }: PageProps<"/">) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="paper-grain">
+      <div className="mx-auto max-w-7xl px-4">
+        <section className="pt-5 pb-2 sm:pt-10 sm:pb-3">
+          <p className="text-sm font-semibold text-saffron-ink">Tapovan · Laxman Jhula · Rishikesh</p>
+          <h1 className="mt-1 max-w-3xl font-display text-[28px] leading-[1.08] font-extrabold tracking-tight sm:text-5xl">
+            What&apos;s on in Tapovan — find out <span className="text-saffron">before</span> it&apos;s over.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 max-w-2xl text-sm text-ink-2 sm:mt-3 sm:text-base">
+            Live music, ecstatic dance, sound healing, kirtan, cacao, workshops — the flyers from every cafe wall and WhatsApp group, on one map.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        </section>
+        <Suspense fallback={<BrowseSkeleton />}>
+          <Results searchParams={searchParams} />
+        </Suspense>
+        <section className="my-10 grid gap-3 sm:grid-cols-2">
+          <Link href="/alerts" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
+            <p className="font-display text-lg font-bold">🔔 Never miss your favourite musician</p>
+            <p className="mt-1 text-sm text-muted">Follow artists, cafes or a vibe (say, ecstatic dance) and get an email the moment a new flyer goes up.</p>
+          </Link>
+          <Link href="/post" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
+            <p className="font-display text-lg font-bold">📸 Running an event? Snap your flyer.</p>
+            <p className="mt-1 text-sm text-muted">
+              We read the date, time and price for you. {rupees(LISTING.pricePaise)} keeps it on the map for {LISTING.days / 7} weeks.
+            </p>
+          </Link>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+async function Results({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
+  const sp = await searchParams;
+  const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const whenParam = one("when");
+  const when = whenParam && (["today", "tomorrow", "weekend", "week", "all"].includes(whenParam) || isValidDate(whenParam)) ? whenParam : "week";
+  const data = await getWhatsOn({
+    when,
+    cat: one("cat")?.split(","),
+    area: one("area"),
+    price: one("price"),
+    time: one("time"),
+    q: one("q"),
+  });
+  return <Browse today={data.today} agenda={data.agenda} wall={data.wall} pins={data.pins} when={when} />;
+}
+
+function BrowseSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="flex gap-2 py-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-8 w-24 rounded-full bg-paper-2" />
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="aspect-[4/6] rounded-2xl bg-paper-2" />
+        ))}
+      </div>
     </div>
   );
 }

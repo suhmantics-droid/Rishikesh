@@ -1,0 +1,66 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { FlyerGrid } from "@/components/FlyerCard";
+import { FollowButton } from "@/components/Follow";
+import { MiniMap } from "@/components/MiniMap";
+import { getVenue, getWhatsOn } from "@/lib/data";
+import { area } from "@/lib/site";
+import { directionsLink, instagramHandle } from "@/lib/util";
+
+export async function generateMetadata({ params }: PageProps<"/v/[slug]">): Promise<Metadata> {
+  const v = await getVenue((await params).slug);
+  return v ? { title: `${v.name} — events`, description: `What's on at ${v.name}, ${area(v.area).label}, Rishikesh.` } : { title: "Venue not found" };
+}
+
+export default function VenuePage({ params }: PageProps<"/v/[slug]">) {
+  return (
+    <Suspense fallback={<div className="mx-auto h-96 max-w-6xl animate-pulse rounded-2xl bg-paper-2" />}>
+      <Venue params={params} />
+    </Suspense>
+  );
+}
+
+async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
+  const v = await getVenue((await params).slug);
+  if (!v) notFound();
+  const { wall, today } = await getWhatsOn({ when: "all", venue: v.slug });
+  const ig = instagramHandle(v.instagram);
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <Link href="/" className="text-sm text-muted hover:text-ink">
+        ← All flyers
+      </Link>
+      <div className="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div>
+          <p className="text-sm font-semibold text-saffron-ink">{area(v.area).label}</p>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{v.name}</h1>
+          {v.description ? <p className="mt-2 max-w-xl text-ink-2">{v.description}</p> : null}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <FollowButton kind="venue" target={v.slug} label={v.name} />
+            <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-white">
+              Directions ↗
+            </a>
+            {ig ? (
+              <a href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="rounded-full border border-line px-3 py-1.5 text-[13px] font-bold">
+                @{ig}
+              </a>
+            ) : null}
+          </div>
+          <h2 className="mt-8 mb-3 font-display text-xl font-extrabold">Upcoming here</h2>
+          {wall.length ? (
+            <FlyerGrid items={wall} today={today} />
+          ) : (
+            <p className="rounded-2xl border border-dashed border-line p-6 text-muted">
+              No flyers up right now. Follow {v.name} and we&apos;ll email you when one goes up.
+            </p>
+          )}
+        </div>
+        {v.lat != null && v.lng != null ? (
+          <MiniMap className="h-72 lg:sticky lg:top-20" today={today} pins={[{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, events: wall.map((e) => ({ slug: e.slug, title: e.title, category: e.category, date: e.next.date, start_time: e.next.start_time })) }]} />
+        ) : null}
+      </div>
+    </div>
+  );
+}

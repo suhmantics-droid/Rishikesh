@@ -1,0 +1,35 @@
+# One server, two containers: the app, and Caddy in front for automatic HTTPS.
+#   cp .env.example .env   # fill it in
+#   docker compose up -d --build
+services:
+  app:
+    build:
+      context: .
+      args:
+        SITE_URL: https://${DOMAIN:-rishikesh.suhmantics.com}
+    env_file: .env
+    environment:
+      SITE_URL: https://${DOMAIN:-rishikesh.suhmantics.com}
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-rishikesh.suhmantics.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
