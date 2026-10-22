@@ -17,6 +17,7 @@ export async function saveFlyer(input: Buffer) {
     .toBuffer({ resolveWithObject: true });
   const small = await base.clone().resize({ width: 640, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
 
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, `${id}.webp`), large.data);
   await fs.writeFile(path.join(UPLOAD_DIR, `${id}-sm.webp`), small);
   db().prepare("INSERT INTO uploads (id, w, h) VALUES (?, ?, ?)").run(id, large.info.width, large.info.height);

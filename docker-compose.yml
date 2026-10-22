@@ -7,6 +7,7 @@ services:
       context: .
       args:
         SITE_URL: https://${DOMAIN:-rishikesh.suhmantics.com}
+        GIT_SHA: ${GIT_SHA:-dev}
     env_file: .env
     environment:
       SITE_URL: https://${DOMAIN:-rishikesh.suhmantics.com}

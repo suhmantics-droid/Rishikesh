@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { LoginForm, VenueEditor } from "@/components/AdminClient";
 import { isAdmin } from "@/lib/admin";
+import { config, configSource, SETTINGS } from "@/lib/config";
 import { db } from "@/lib/db";
 import { formatDayLong, todayIST } from "@/lib/dates";
 import { payMode } from "@/lib/payments";
@@ -20,6 +21,7 @@ import {
   reject,
   resolveReport,
   runDailyJobs,
+  saveSettings,
   setListingStatus,
   toggleFeatured,
 } from "./actions";
@@ -31,6 +33,7 @@ const TABS = [
   ["listings", "Listings"],
   ["venues", "Venues & pins"],
   ["emails", "Email log"],
+  ["settings", "Settings"],
 ] as const;
 
 export default function AdminPage({ searchParams }: PageProps<"/admin">) {
@@ -68,6 +71,7 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-3xl font-extrabold">Admin</h1>
         <span className="rounded-full bg-paper-2 px-3 py-1 text-xs font-bold">Payments: {payMode()}</span>
+        <span className="text-xs text-muted">version {process.env.GIT_SHA || "dev"}</span>
         <Link href="/post" className="ml-auto rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">
           + Post a flyer
         </Link>
@@ -91,9 +95,9 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
         ))}
       </div>
 
-      <nav className="flex gap-1 border-b border-line">
+      <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map(([k, l]) => (
-          <Link key={k} href={`/admin?tab=${k}`} className={`-mb-px border-b-2 px-3 py-2 text-sm font-bold ${tab === k ? "border-saffron" : "border-transparent text-muted"}`}>
+          <Link key={k} href={`/admin?tab=${k}`} className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-bold whitespace-nowrap ${tab === k ? "border-saffron" : "border-transparent text-muted"}`}>
             {l}
           </Link>
         ))}
@@ -103,6 +107,7 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
       {tab === "listings" ? <Listings today={today} /> : null}
       {tab === "venues" ? <Venues today={today} /> : null}
       {tab === "emails" ? <Emails /> : null}
+      {tab === "settings" ? <Settings /> : null}
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-4">
         <form action={runDailyJobs}>
@@ -330,7 +335,7 @@ function Emails() {
   return (
     <div className="grid gap-2">
       <p className="text-sm text-muted">
-        {process.env.RESEND_API_KEY ? "Emails are sent through Resend." : "RESEND_API_KEY isn't set, so emails are only logged here, not sent."}
+        {config("RESEND_API_KEY") ? "Emails are sent through Resend." : "No Resend key yet (Settings tab), so emails are only logged here, not sent."}
       </p>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
         {rows.map((r) => (
@@ -344,5 +349,66 @@ function Emails() {
         ))}
       </ul>
     </div>
+  );
+}
+
+function Settings() {
+  const groups = [...new Set(SETTINGS.map((s) => s.group))];
+  const input = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm disabled:opacity-60";
+  return (
+    <form action={saveSettings} className="grid max-w-2xl gap-6">
+      <p className="text-sm text-muted">
+        Changes apply immediately. Secret keys are never shown again after saving — leave them blank to keep the saved value.
+      </p>
+      {groups.map((g) => (
+        <section key={g} className="grid gap-3 rounded-2xl border border-line bg-card p-4">
+          <h2 className="font-display text-lg font-extrabold">{g}</h2>
+          {SETTINGS.filter((s) => s.group === g).map((s) => {
+            const source = configSource(s.key);
+            const secret = "secret" in s && s.secret;
+            const options = "options" in s ? s.options : null;
+            const current = secret ? "" : (config(s.key) ?? "");
+            return (
+              <label key={s.key} className="grid gap-1 text-sm">
+                <span className="font-bold">
+                  {s.label}{" "}
+                  {source === "env" ? (
+                    <span className="font-normal text-muted">· set on the server (.env)</span>
+                  ) : secret && source === "admin" ? (
+                    <span className="font-normal text-ganga">· saved ✓</span>
+                  ) : null}
+                </span>
+                {options ? (
+                  <select name={s.key} defaultValue={current || "cash"} disabled={source === "env"} className={input}>
+                    {options.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name={s.key}
+                    type={secret ? "password" : "text"}
+                    defaultValue={current}
+                    placeholder={secret && source === "admin" ? "•••••••• (saved — type to replace)" : ""}
+                    disabled={source === "env"}
+                    autoComplete="off"
+                    className={input}
+                  />
+                )}
+                {s.help ? <span className="text-xs text-muted">{s.help}</span> : null}
+                {secret && source === "admin" ? (
+                  <span className="flex items-center gap-1.5 text-xs text-muted">
+                    <input type="checkbox" name={`clear_${s.key}`} value="1" /> Remove saved key
+                  </span>
+                ) : null}
+              </label>
+            );
+          })}
+        </section>
+      ))}
+      <button className="justify-self-start rounded-xl bg-ink px-5 py-2.5 font-bold text-paper">Save settings</button>
+    </form>
   );
 }

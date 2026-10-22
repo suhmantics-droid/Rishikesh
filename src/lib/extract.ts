@@ -4,6 +4,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
+import { config } from "./config";
 import { addDays, isValidDate, isValidTime, todayIST, weekday } from "./dates";
 import { CATEGORIES, CATEGORY_KEYS } from "./site";
 
@@ -44,7 +45,7 @@ const FlyerSchema = z.object({
 export type FlyerFields = z.infer<typeof FlyerSchema>;
 
 export function aiEnabled() {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  return Boolean(config("ANTHROPIC_API_KEY"));
 }
 
 const SYSTEM = `You read photos of event flyers and posters from Tapovan, Rishikesh (India) and turn them into a structured listing.
@@ -60,7 +61,7 @@ Guidelines:
 - If the image isn't an event flyer, set is_event_flyer to false and fill other fields with empty values.`;
 
 export async function extractFlyer(image: Buffer, venues: { slug: string; name: string }[]): Promise<FlyerFields> {
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey: config("ANTHROPIC_API_KEY") });
   const today = todayIST();
   const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday(today)];
 

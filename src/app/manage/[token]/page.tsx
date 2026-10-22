@@ -7,8 +7,8 @@ import { isAdmin } from "@/lib/admin";
 import { getEventByToken } from "@/lib/data";
 import { addDays, formatDayLong, formatTimeRange, todayIST } from "@/lib/dates";
 import { payMode } from "@/lib/payments";
-import { LISTING, rupees } from "@/lib/site";
-import { flyerUrl, priceLabel } from "@/lib/util";
+import { LISTING, rupees, SITE } from "@/lib/site";
+import { flyerUrl, priceLabel, whatsappNumber } from "@/lib/util";
 
 export const metadata: Metadata = { title: "Manage your flyer", robots: { index: false } };
 
@@ -100,6 +100,19 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
           </div>
         </div>
       </div>
+
+      {admin && whatsappNumber(event.contact_phone) ? (
+        <a
+          href={`https://wa.me/${whatsappNumber(event.contact_phone)}?text=${encodeURIComponent(
+            `Hi! Your flyer "${event.title}" is on ${SITE.name}. Here's your private link to edit it, see how many people viewed it, or renew: ${SITE.url}/manage/${token}`,
+          )}`}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-2xl bg-[#25D366] px-4 py-3 text-center font-bold text-white"
+        >
+          Send the organiser this edit link on WhatsApp
+        </a>
+      ) : null}
 
       {event.status === "pending_payment" ? (
         <section className="rounded-2xl border border-line bg-card p-5">

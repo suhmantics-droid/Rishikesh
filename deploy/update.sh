@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 git pull --ff-only
-sudo docker compose up -d --build
+export GIT_SHA=$(git rev-parse --short HEAD)
+sudo -E docker compose up -d --build
 sudo docker image prune -f >/dev/null
 echo "Updated."

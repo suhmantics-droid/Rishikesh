@@ -1,13 +1,14 @@
 // Sends email through Resend when RESEND_API_KEY is set; otherwise only records it.
 // Every message is written to the `emails` table so /admin/outbox shows what went out.
 
+import { config } from "./config";
 import { db } from "./db";
 import { SITE } from "./site";
 import { escapeHtml } from "./util";
 
 export async function sendEmail(to: string, subject: string, html: string) {
-  const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || `${SITE.name} ${SITE.place} <alerts@suhmantics.com>`;
+  const key = config("RESEND_API_KEY");
+  const from = config("EMAIL_FROM") || `${SITE.name} ${SITE.place} <alerts@suhmantics.com>`;
   let status = "logged";
   let error: string | null = null;
   if (key) {

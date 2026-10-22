@@ -19,8 +19,8 @@ fi
 echo "==> 3/5 Open ports 80 and 443 on the server firewall"
 # Oracle's Ubuntu images ship iptables rules that block everything except SSH.
 if sudo iptables -L INPUT -n | grep -q "REJECT"; then
-  sudo iptables -I INPUT 5 -p tcp --dport 80 -m state --state NEW -j ACCEPT || true
-  sudo iptables -I INPUT 5 -p tcp --dport 443 -m state --state NEW -j ACCEPT || true
+  sudo iptables -I INPUT 1 -p tcp --dport 80 -m state --state NEW -j ACCEPT || true
+  sudo iptables -I INPUT 1 -p tcp --dport 443 -m state --state NEW -j ACCEPT || true
   sudo apt-get install -y iptables-persistent >/dev/null 2>&1 || true
   sudo netfilter-persistent save >/dev/null 2>&1 || true
 fi
@@ -41,7 +41,8 @@ fi
 mkdir -p data && sudo chown -R 1000:1000 data
 
 echo "==> 5/5 Build and start (first build takes a few minutes)"
-sudo docker compose up -d --build
+export GIT_SHA=$(git rev-parse --short HEAD)
+sudo -E docker compose up -d --build
 
 # Nightly backup at 03:15 server time.
 ( crontab -l 2>/dev/null | grep -v deploy/backup.sh; echo "15 3 * * * cd $(pwd) && bash deploy/backup.sh >> deploy/backup.log 2>&1" ) | crontab -

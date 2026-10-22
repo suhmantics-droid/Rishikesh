@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { checkPassword, clearAdminCookie, isAdmin, setAdminCookie } from "@/lib/admin";
+import { configSource, setConfig, SETTINGS } from "@/lib/config";
 import { sendDailyDigests, sendExpiryReminders } from "@/lib/alerts";
 import { db } from "@/lib/db";
 import { addDays, todayIST } from "@/lib/dates";
@@ -106,6 +107,20 @@ export async function deleteVenue(form: FormData) {
   await guard();
   const used = db().prepare("SELECT 1 FROM events WHERE venue_id = ? LIMIT 1").get(id(form));
   if (!used) db().prepare("DELETE FROM venues WHERE id = ?").run(id(form));
+  refresh();
+}
+
+export async function saveSettings(form: FormData) {
+  await guard();
+  for (const s of SETTINGS) {
+    if (configSource(s.key) === "env") continue; // .env wins; nothing to save
+    const raw = form.get(s.key);
+    if (raw === null) continue;
+    const value = String(raw).trim();
+    const isSecret = "secret" in s && s.secret;
+    if (isSecret && !value && !form.get(`clear_${s.key}`)) continue; // blank = keep the saved secret
+    setConfig(s.key, value);
+  }
   refresh();
 }
 

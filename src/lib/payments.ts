@@ -8,6 +8,7 @@
 
 import crypto from "node:crypto";
 import QRCode from "qrcode";
+import { config } from "./config";
 import { db } from "./db";
 import { ListingError, publishOrRenew } from "./listings";
 import { onPublished } from "./alerts";
@@ -16,16 +17,16 @@ import { LISTING, SITE } from "./site";
 export type PayMode = "razorpay" | "upi" | "cash";
 
 export function payMode(): PayMode {
-  const forced = process.env.PAYMENTS_MODE;
+  const forced = config("PAYMENTS_MODE");
   if (forced === "razorpay" || forced === "upi" || forced === "cash") return forced;
-  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) return "razorpay";
-  if (process.env.UPI_ID) return "upi";
+  if (config("RAZORPAY_KEY_ID") && config("RAZORPAY_KEY_SECRET")) return "razorpay";
+  if (config("UPI_ID")) return "upi";
   return "cash";
 }
 
 /** Who organisers should contact to pay or send flyers (shown in cash/UPI mode). */
 export function ownerContact() {
-  return { name: process.env.OWNER_NAME || null, whatsapp: process.env.OWNER_WHATSAPP || null };
+  return { name: config("OWNER_NAME") || null, whatsapp: config("OWNER_WHATSAPP") || null };
 }
 
 type EventForPay = { id: number; slug: string; title: string; organiser_email: string | null; organiser_name: string | null };
@@ -43,7 +44,7 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
-        Authorization: "Basic " + Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString("base64"),
+        Authorization: "Basic " + Buffer.from(`${config("RAZORPAY_KEY_ID")}:${config("RAZORPAY_KEY_SECRET")}`).toString("base64"),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ amount, currency: "INR", receipt: ref, notes: { event_id: String(event.id), purpose } }),
@@ -56,7 +57,7 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
       paymentId,
       amount,
       razorpay: {
-        key: process.env.RAZORPAY_KEY_ID!,
+        key: config("RAZORPAY_KEY_ID")!,
         order_id: order.id,
         amount,
         currency: "INR",
@@ -72,8 +73,8 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
   }
 
   if (mode === "upi") {
-    const vpa = process.env.UPI_ID!;
-    const payee = process.env.UPI_PAYEE_NAME || `${SITE.name} ${SITE.place}`;
+    const vpa = config("UPI_ID")!;
+    const payee = config("UPI_PAYEE_NAME") || `${SITE.name} ${SITE.place}`;
     const uri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payee)}&am=${(amount / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(ref)}`;
     const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, width: 220 });
     return { mode, paymentId, amount, upi: { vpa, payee, uri, qrSvg, ref } };
@@ -101,7 +102,7 @@ function markPaid(paymentId: number, fields: { payment_id?: string; status?: "pa
 
 export function verifyRazorpay(orderId: string, razorpayPaymentId: string, signature: string) {
   const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+    .createHmac("sha256", config("RAZORPAY_KEY_SECRET")!)
     .update(`${orderId}|${razorpayPaymentId}`)
     .digest("hex");
   if (!safeEqual(expected, signature)) return false;
@@ -112,7 +113,7 @@ export function verifyRazorpay(orderId: string, razorpayPaymentId: string, signa
 }
 
 export function handleRazorpayWebhook(rawBody: string, signature: string | null) {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const secret = config("RAZORPAY_WEBHOOK_SECRET");
   if (!secret || !signature) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   if (!safeEqual(expected, signature)) return false;

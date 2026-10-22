@@ -133,7 +133,11 @@ function toCard(r: Row, artists: Map<number, { slug: string; name: string }[]>):
 /** Everything the browse page needs: agenda (one row per date), wall (one card per flyer), map pins. */
 export async function getWhatsOn(f: Filters) {
   await connection();
-  const today = todayIST();
+  return queryWhatsOn(f, todayIST(), nowTimeIST());
+}
+
+/** The query behind getWhatsOn, with "today" and "now" passed in so it can be tested. */
+export function queryWhatsOn(f: Filters, today: string, now: string) {
   const { from, to } = whenRange(f.when, today);
   const where = [LIVE, "d.date BETWEEN @from AND @to"];
   const params: Record<string, unknown> = { today, from, to };
@@ -173,7 +177,6 @@ export async function getWhatsOn(f: Filters) {
       SELECT 1 FROM event_artists ea JOIN artists a ON a.id = ea.artist_id WHERE ea.event_id = e.id AND a.name LIKE @q))`);
     params.q = `%${f.q.trim()}%`;
   }
-  const now = nowTimeIST();
   const rows = (db()
     .prepare(
       `SELECT e.*, d.date, d.start_time, d.end_time,

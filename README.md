@@ -15,61 +15,66 @@ Built for **rishikesh.suhmantics.com**.
 
 ---
 
-## Going live on rishikesh.suhmantics.com (trial run)
+## Going live on rishikesh.suhmantics.com (trial run) — all from a browser
 
-The site is one small server: the app plus [Caddy](https://caddyserver.com) for automatic HTTPS. The
-database (SQLite) and flyer photos live in `./data` on that server.
+The site runs on one small server: the app plus [Caddy](https://caddyserver.com) for automatic HTTPS. The
+database (SQLite) and flyer photos live on that server. You never need a terminal: the server installs itself
+from a script you paste into a web form, and it pulls new code from GitHub every 15 minutes.
 
-### 1. Get a free server
+### 1. Code on GitHub
+The code lives at `github.com/suhmantics-droid/rishikesh`. If the repo is **private**, create a read-only token
+for the server: GitHub → Settings → Developer settings → *Fine-grained tokens* → *Generate* → Repository access:
+only `rishikesh` → Permissions: *Contents: Read-only*. Copy the token. (A **public** repo needs no token — the
+code contains no passwords or keys.)
 
-**Oracle Cloud "Always Free"** gives you a small server at no cost, with a **Mumbai** region close to Rishikesh.
+### 2. A free server (Oracle Cloud "Always Free")
+1. Sign up at <https://www.oracle.com/cloud/free/> (needs a card for an identity check; Always Free resources
+   aren't charged). Choose **India West (Mumbai)** as your home region — it can't be changed later.
+2. *Menu → Compute → Instances → Create instance*
+   - **Image:** Ubuntu 24.04
+   - **Shape:** *VM.Standard.A1.Flex* (Ampere, 1–2 OCPU) if it's available, otherwise *VM.Standard.E2.1.Micro*
+     (always available; the script adds swap so it can build).
+   - **SSH keys:** "Generate a key pair for me" and download it (you won't need it, but keep it).
+   - **Show advanced options → Management → Paste cloud-init script:** paste the whole of
+     [`deploy/cloud-init.sh`](deploy/cloud-init.sh), then edit its top four lines: your admin password, and the
+     GitHub token if the repo is private.
+   - *Create*, and note the **Public IP address** shown on the instance page.
+3. Open the web ports: on the instance page click the **subnet** → *Security Lists* → *Default Security List* →
+   *Add Ingress Rules*: Source CIDR `0.0.0.0/0`, IP protocol TCP, Destination port range `80,443` → *Add*.
 
-1. Sign up at <https://www.oracle.com/cloud/free/> (needs a card for identity check; Always Free resources aren't
-   charged). Pick **India West (Mumbai)** as your home region — it can't be changed later.
-2. *Compute → Instances → Create instance*:
-   - Image: **Ubuntu 24.04**
-   - Shape: **VM.Standard.A1.Flex** (Ampere, 1–2 OCPU, 6–12 GB) if available; otherwise
-     **VM.Standard.E2.1.Micro** (always available — the setup script adds swap so it can build).
-   - Add your SSH key, create, and note the **public IP address**.
-3. *Networking → Virtual cloud network → your subnet → Security list → Add ingress rules*:
-   source `0.0.0.0/0`, TCP, destination ports **80** and **443**.
+The server now installs itself (about 10–15 minutes).
 
-Any Ubuntu server works the same way (Hetzner, DigitalOcean, a ₹500/month VPS) if you'd rather pay for one.
-
-### 2. Point the domain at it
-
-Wherever **suhmantics.com**'s DNS is managed (your registrar, Cloudflare, …) add:
+### 3. Point the domain at it
+Wherever **suhmantics.com**'s DNS is managed (your registrar's website, or Cloudflare), add a record:
 
 | Type | Name | Value |
 | --- | --- | --- |
-| `A` | `rishikesh` | *your server's public IP* |
+| `A` | `rishikesh` | *the server's public IP* |
 
-If you use Cloudflare, set the record to **DNS only** (grey cloud) so Caddy can get the certificate.
+On Cloudflare, set it to **DNS only** (grey cloud). Within a few minutes **https://rishikesh.suhmantics.com**
+loads, with HTTPS set up automatically.
 
-### 3. Put the code on the server and run setup
+### 4. Set it up from your phone
+1. Open **/admin** and sign in with the password from the script.
+2. **Settings tab:** your name and WhatsApp number (shown to organisers), and later your Claude, Resend, UPI or
+   Razorpay keys. Everything here takes effect immediately.
+3. **Seed the board before you share the link.** Walk Tapovan, and for each flyer on a cafe wall:
+   **Post a flyer** → photo → check details → **Publish free**. Twenty or thirty flyers make it feel alive.
+4. **Venues & pins tab:** fix any pin that's off (the 12 starter venues have *approximate* pins).
+5. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
+6. Offer organisers their first month free; then ₹50 cash.
+
+<details>
+<summary>Prefer a terminal, or a different server?</summary>
+
+Any Ubuntu server works (Hetzner, DigitalOcean, a ₹500/month VPS):
 
 ```bash
-ssh ubuntu@YOUR_SERVER_IP
-git clone https://github.com/suhmantics-droid/rishikesh.git   # or upload the folder with scp
-cd rishikesh
-bash deploy/setup.sh
+git clone https://github.com/suhmantics-droid/rishikesh.git && cd rishikesh
+bash deploy/setup.sh      # installs Docker, asks for an admin password, builds and starts
 ```
-
-The script installs Docker, opens ports 80/443, asks for an admin password and your WhatsApp number, builds
-the app and starts it. Give DNS a few minutes, then open **https://rishikesh.suhmantics.com**. The HTTPS
-certificate is issued automatically on the first visit.
-
-### 4. Seed the board before you tell anyone
-
-An empty board is the fastest way to lose a visitor. Before sharing the link:
-
-1. Sign in at **/admin**.
-2. Walk Tapovan with your phone. For each flyer on a cafe wall: **Post a flyer** → photo → check details →
-   **Publish free (seeding)**. Twenty or thirty flyers make the site feel alive.
-3. In **Admin → Venues & pins**, fix any pins that are off (the starter list of 12 Tapovan venues has
-   *approximate* pins). Tap the right spot, save.
-4. Print the **/poster** page and pin it on cafe and hostel noticeboards — the QR code brings travellers in.
-5. Offer organisers their first month free; then it's ₹50 cash.
+`bash deploy/update.sh` pulls and rebuilds by hand; `bash deploy/backup.sh` takes a backup now.
+</details>
 
 ---
 
@@ -91,37 +96,39 @@ for them, open it from Admin → Listings and send them the link.
 **Automatic jobs** (run inside the app every 15 min): the morning "what's on today" email from 07:30 IST, and a
 renewal reminder to organisers 2 days before their listing ends.
 
-**Backups** run nightly at 03:15 into `deploy/backups/` (last 14 kept). Copy that folder off the server now
-and then. Run one any time with `bash deploy/backup.sh`.
+**Backups** run nightly at 03:15 into `deploy/backups/` on the server (last 14 kept).
 
-**Updates:** `bash deploy/update.sh` pulls the latest code and rebuilds. Your data is untouched.
+**Updates:** the server checks GitHub every 15 minutes and rebuilds when there's new code on `main`; the
+version is shown at the top of the admin page. If a build ever fails, the previous version keeps running.
+Your data is never touched by updates.
 
 ---
 
 ## Switching things on later
 
-All settings live in `.env` on the server. After editing it run `sudo docker compose up -d`.
+Everything below is set in **/admin → Settings** (no server access needed). A value in the server's `.env`
+file overrides the admin page.
 
 ### Flyer auto-fill (reads the photo for you)
-Set `ANTHROPIC_API_KEY` (from <https://console.anthropic.com>). Uploading a flyer then fills in the title, dates
+Add a Claude API key (from <https://console.anthropic.com>). Uploading a flyer then fills in the title, dates
 (including "every Saturday"), times, venue, price, artists and contact details for the organiser to check.
 It uses Claude Opus 5.5 at low effort with an automatic fallback model; expect roughly ₹1–2 per flyer read.
 Results are cached per upload.
 
 ### Email alerts
-Set `RESEND_API_KEY` from <https://resend.com> (free tier: 3,000 emails/month) and verify **suhmantics.com** in
+Add a Resend API key from <https://resend.com> (free tier: 3,000 emails/month) and verify **suhmantics.com** in
 Resend (it gives you DNS records to add). Until then, emails are only recorded in **Admin → Email log**, not sent.
 
 ### Payments
-`PAYMENTS_MODE` picks how organisers pay:
+*Payment mode* picks how organisers pay:
 
 | Mode | How it works | Needs |
 | --- | --- | --- |
 | `cash` *(now)* | Organiser submits; you collect cash and tap **Received** in Admin | nothing |
-| `upi` | Organiser scans a QR for your UPI ID and enters the UTR; you approve in Admin. No fees. | `UPI_ID`, `UPI_PAYEE_NAME` |
-| `razorpay` | UPI, cards, netbanking; goes live instantly, no manual step. ~2% fee. | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and a webhook to `/api/webhooks/razorpay` (events `payment.captured`, `order.paid`) with `RAZORPAY_WEBHOOK_SECRET` |
+| `upi` | Organiser scans a QR for your UPI ID and enters the UTR; you approve in Admin. No fees. | UPI ID and payee name |
+| `razorpay` | UPI, cards, netbanking; goes live instantly, no manual step. ~2% fee. | Razorpay key ID and secret, plus a webhook to `/api/webhooks/razorpay` (events `payment.captured`, `order.paid`) and its secret |
 
-Price and length: `LISTING_PRICE_PAISE` (5000 = ₹50) and `LISTING_DAYS` (28).
+Price and length are set in the server's `.env`: `LISTING_PRICE_PAISE` (5000 = ₹50) and `LISTING_DAYS` (28).
 
 ### Map tiles
 The map uses OpenStreetMap tiles, which is fine for a small site. If traffic grows, get a free key from MapTiler or
@@ -135,6 +142,7 @@ Stadia Maps and set `NEXT_PUBLIC_MAP_TILES` (rebuild needed). Directions always 
 npm install
 npm run seed:demo        # optional: 14 sample flyers at fictional venues (marked "Sample")
 npm run dev              # http://localhost:3000  — admin password in dev is "admin"
+npm test                 # unit + listing-lifecycle tests
 ```
 
 `npm run seed:demo -- --clear` removes the samples (or use the button in Admin).
@@ -153,7 +161,8 @@ src/app/            pages: / (browse), /e/[slug] (event), /v/[slug] (venue), /a/
                     /post, /manage/[token], /alerts, /admin, /about, /poster; api/ routes
 src/components/     Browse (filters + views), MapView, FlyerCard, PostFlow, PayWidget, AlertsForm …
 src/lib/            db (schema), data (queries), listings, payments, alerts, extract, cron, site (config)
-deploy/             setup.sh, backup.sh, update.sh, Caddyfile
+deploy/             cloud-init.sh (browser setup), setup.sh, auto-update.sh, backup.sh, update.sh, Caddyfile
+tests/              node:test suites (dates, utils, listing lifecycle, filters, payments)
 ```
 
 Product settings (name, tagline, areas, categories, map centre) are in `src/lib/site.ts`.
