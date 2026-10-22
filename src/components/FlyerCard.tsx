@@ -23,7 +23,7 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
   return (
     <Link
       href={`/e/${e.slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-card shadow-card transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-saffron"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-card shadow-card transition hover:-translate-y-0.5 hover:border-ganga/50 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-saffron"
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-paper-2">
         {src ? (
@@ -35,17 +35,17 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
             className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="flex h-full items-center justify-center p-4 text-center font-display text-lg font-bold">{e.title}</div>
+          <div className="flex h-full items-center justify-center p-4 text-center font-display text-lg font-semibold">{e.title}</div>
         )}
         <div
           className={`absolute top-2 left-2 rounded-xl px-1.5 py-1 text-center leading-none shadow-card sm:px-2 ${isToday ? "bg-saffron text-white" : "bg-card text-ink"}`}
         >
           <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{isToday ? "Today" : wd}</div>
-          <div className="font-display text-lg font-extrabold sm:text-xl">{day}</div>
+          <div className="font-display text-lg font-semibold sm:text-xl">{day}</div>
           <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{mon}</div>
         </div>
         {e.featured ? (
-          <span className="absolute top-2 right-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-paper uppercase">Pinned</span>
+          <span className="absolute top-2 right-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-paper uppercase">Featured</span>
         ) : null}
         {e.is_demo ? (
           <span className="absolute right-2 bottom-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white uppercase">Sample</span>
@@ -53,7 +53,7 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3">
         <CategoryTag cat={e.category} />
-        <h3 className="line-clamp-2 font-display text-[15px] leading-snug font-bold">{e.title}</h3>
+        <h3 className="line-clamp-2 font-display text-[15px] leading-snug font-semibold">{e.title}</h3>
         <p className="line-clamp-1 text-[13px] text-muted">{e.venue.name}</p>
         <div className="mt-auto flex items-center justify-between pt-1 text-[13px] font-semibold">
           <span>{formatTimeRange(e.next.start_time, e.next.end_time) || "All day"}</span>

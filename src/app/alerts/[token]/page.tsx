@@ -29,12 +29,12 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/alerts/[token]"
   return (
     <>
       {sp.confirmed ? (
-        <div className="mb-6 rounded-2xl bg-ganga p-5 text-white">
-          <p className="font-display text-2xl font-extrabold">Alerts are on ✓</p>
-          <p className="text-white/90">Bookmark this page to change what you follow.</p>
+        <div className="mb-6 rounded-2xl bg-ganga p-5 text-on-ganga">
+          <p className="font-display text-2xl font-semibold">Alerts are on ✓</p>
+          <p className="text-on-ganga/90">Bookmark this page to change what you follow.</p>
         </div>
       ) : null}
-      <h1 className="mb-6 font-display text-3xl font-extrabold tracking-tight">Your alerts</h1>
+      <h1 className="mb-6 font-display text-3xl font-semibold tracking-tight">Your alerts</h1>
       {!sub.confirmed ? <p className="mb-4 rounded-xl bg-saffron-soft p-3 text-sm text-saffron-ink">Not confirmed yet — tap the link in the email we sent you.</p> : null}
       <AlertsForm
         token={token}

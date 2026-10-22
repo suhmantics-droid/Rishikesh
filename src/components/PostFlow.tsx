@@ -285,7 +285,7 @@ export function PostFlow({
     return (
       <div className="mx-auto max-w-xl">
         <Steps step={1} />
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Pin your flyer</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Pin your flyer</h1>
         <p className="mt-2 text-ink-2">
           Snap a photo of the poster or upload the image you share on WhatsApp. We&apos;ll read the date, time, venue and price for you.
         </p>
@@ -296,7 +296,7 @@ export function PostFlow({
           className="mt-6 flex w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-line bg-card px-6 py-14 text-center transition hover:border-saffron"
         >
           <span className="text-4xl">📸</span>
-          <span className="font-display text-xl font-extrabold">{reading ? "Uploading…" : "Take a photo or choose an image"}</span>
+          <span className="font-display text-xl font-semibold">{reading ? "Uploading…" : "Take a photo or choose an image"}</span>
           <span className="text-sm text-muted">JPG, PNG or screenshot · up to 12 MB</span>
         </button>
         <input
@@ -339,7 +339,7 @@ export function PostFlow({
     return (
       <div className="mx-auto max-w-md">
         <Steps step={3} />
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Almost pinned</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">Almost pinned</h1>
         <div className="my-5 flex gap-4 rounded-2xl border border-line bg-card p-3">
           {upload ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -400,7 +400,7 @@ export function PostFlow({
 
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">{editToken ? "Edit your listing" : "Check the details"}</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">{editToken ? "Edit your listing" : "Check the details"}</h1>
           {reading ? (
             <p className="mt-2 flex items-center gap-2 rounded-xl bg-ganga-soft px-3 py-2 text-sm font-semibold text-ganga">
               <span className="h-3 w-3 animate-spin rounded-full border-2 border-ganga border-t-transparent" /> Reading your flyer…
@@ -444,7 +444,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-extrabold">When</h2>
+            <h2 className="font-display text-lg font-semibold">When</h2>
             {form.dates.map((d, i) => (
               <div key={i} className="grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2">
                 <div>
@@ -511,7 +511,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-extrabold">Where</h2>
+            <h2 className="font-display text-lg font-semibold">Where</h2>
             <select className={input} value={form.venueSlug} onChange={(e) => set("venueSlug", e.target.value)} aria-label="Venue">
               <option value="">Choose the venue…</option>
               {venueGroups.map((g) => (
@@ -548,7 +548,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-extrabold">Price</h2>
+            <h2 className="font-display text-lg font-semibold">Price</h2>
             <div className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-card p-1 text-sm font-bold">
               {(
                 [
@@ -584,7 +584,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-extrabold">Who&apos;s playing / leading</h2>
+            <h2 className="font-display text-lg font-semibold">Who&apos;s playing / leading</h2>
             <p className="-mt-2 text-sm text-muted">People who follow these artists get an alert when your flyer goes live.</p>
             <div className="flex flex-wrap gap-2">
               {form.artists.map((a) => (
@@ -626,7 +626,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-extrabold">How people reach you</h2>
+            <h2 className="font-display text-lg font-semibold">How people reach you</h2>
             <div className="grid gap-2 sm:grid-cols-2">
               <input className={input} inputMode="tel" placeholder="WhatsApp / phone" value={form.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} />
               <input className={input} placeholder="Instagram handle" value={form.contact_instagram} onChange={(e) => set("contact_instagram", e.target.value)} />
@@ -635,7 +635,7 @@ export function PostFlow({
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-saffron/40 bg-saffron-soft/40 p-4">
-            <h2 className="font-display text-lg font-extrabold">You</h2>
+            <h2 className="font-display text-lg font-semibold">You</h2>
             <div className="grid gap-2 sm:grid-cols-2">
               <input className={input} placeholder="Your name or organisation (shown)" value={form.organiser_name} onChange={(e) => set("organiser_name", e.target.value)} />
               <input className={input} type="email" inputMode="email" placeholder={isAdmin ? "Organiser email (optional)" : "Email (private — for your edit link)"} value={form.organiser_email} onChange={(e) => set("organiser_email", e.target.value)} />

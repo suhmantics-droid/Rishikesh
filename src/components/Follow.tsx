@@ -60,14 +60,14 @@ export function FollowButton({
         onClick={toggle}
         aria-pressed={on}
         className={`rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${
-          on ? "border-ganga bg-ganga text-white" : "border-line bg-card text-ink-2 hover:border-ink-2"
+          on ? "border-ganga bg-ganga text-on-ganga" : "border-line bg-card text-ink-2 hover:border-ink-2"
         }`}
       >
         {chip ? `${on ? "✓" : "+"} ${label}` : on ? "✓ Following" : compact ? "+ Follow" : `+ Follow ${label}`}
       </button>
       {on && !compact && !chip ? (
         <Link href="/alerts" className="text-[13px] font-semibold text-saffron-ink underline">
-          Get email alerts
+          Get alerts
         </Link>
       ) : null}
     </span>

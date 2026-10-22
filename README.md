@@ -10,8 +10,9 @@ Built for **rishikesh.suhmantics.com**.
 | --- | --- | --- |
 | Flyer wall, day-by-day agenda and map | Snap a flyer → details are read from the photo (optional AI) | Post flyers yourself and record cash in one tap |
 | Filter: today / tomorrow / weekend / date, category, area, price, time of day | ₹50 = 4 weeks; recurring events show on every date | Approve organiser submissions once they've paid |
-| Follow artists, venues, vibes → email alerts | Private link to edit, see views, renew | Fix map pins, feature/hide listings, handle reports |
-| Share a flyer or the whole day's list to WhatsApp; add to calendar; directions | Followers get emailed when the flyer goes live | Revenue, views and subscriber counts |
+| Follow artists, venues, vibes → **phone notifications** or email | Private link to edit, renew, and see views, "interested", WhatsApp and directions taps | Visitors per day, most-viewed flyers, revenue |
+| **/today** — the day's list, shareable to WhatsApp with a picture preview | Followers are notified the moment the flyer goes live | Fix map pins, feature/hide listings, handle reports |
+| Ganga Aarti times and directions; add to calendar; directions | Listed in Google's event results | Upload the site's photos; CSV exports |
 
 ---
 
@@ -56,13 +57,16 @@ loads, with HTTPS set up automatically.
 
 ### 4. Set it up from your phone
 1. Open **/admin** and sign in with the password from the script.
-2. **Settings tab:** your name and WhatsApp number (shown to organisers), and later your Claude, Resend, UPI or
+2. **Settings tab → Photos:** upload your own photos — the home banner (the Ganga at Laxman Jhula or Tapovan,
+   landscape) and the Ganga Aarti card. Until then a plain placeholder shows in their place. These photos are the
+   first thing people see, so make them good ones.
+3. **Settings tab:** your name and WhatsApp number (shown to organisers), and later your Claude, Resend, UPI or
    Razorpay keys. Everything here takes effect immediately.
-3. **Seed the board before you share the link.** Walk Tapovan, and for each flyer on a cafe wall:
+4. **Seed the board before you share the link.** Walk Tapovan, and for each flyer on a cafe wall:
    **Post a flyer** → photo → check details → **Publish free**. Twenty or thirty flyers make it feel alive.
-4. **Venues & pins tab:** fix any pin that's off (the 12 starter venues have *approximate* pins).
-5. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
-6. Offer organisers their first month free; then ₹50 cash.
+5. **Venues & pins tab:** fix any pin that's off (the 12 starter venues have *approximate* pins).
+6. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
+7. Offer organisers their first month free; then ₹50 cash.
 
 <details>
 <summary>Prefer a terminal, or a different server?</summary>
@@ -103,6 +107,16 @@ version is shown at the top of the admin page. If a build ever fails, the previo
 Your data is never touched by updates.
 
 ---
+
+## Growth tools built in
+
+- **/today** is made for WhatsApp groups: the link preview is a picture of today's list. "Share this list on
+  WhatsApp" on the home page uses it automatically when "Today" is selected.
+- **Phone notifications** need no account: visitors tap Follow, then "Notify me on this phone". Works on Android
+  browsers, and on iPhone once the site is added to the home screen (the site explains how).
+- **Stats** (Admin): visitors per day, page views, flyer views and taps — counted without cookies; visitors are
+  counted with a daily-rotating anonymous hash. Organisers see their own flyer's numbers on their manage page.
+- **Google:** every live flyer carries schema.org Event data, so it can appear in Google's event search.
 
 ## Switching things on later
 
@@ -151,7 +165,8 @@ npm test                 # unit + listing-lifecycle tests
 
 - **Next.js 16** (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - **SQLite** via better-sqlite3 (`data/app.db`); flyers resized to WebP with sharp (`data/uploads/`)
-- **Leaflet** + OpenStreetMap for the map
+- **Leaflet** + OpenStreetMap for the map; Web Push (`web-push`, VAPID keys generated on first use) for phone notifications
+- Share images generated with `next/og`; type set in Fraunces (headings) and Inter
 - **Claude** (`@anthropic-ai/sdk`, structured outputs) for reading flyers — `src/lib/extract.ts`
 - **Resend** for email — `src/lib/email.ts`
 - Payments — `src/lib/payments.ts` (cash / UPI QR / Razorpay)

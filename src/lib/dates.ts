@@ -83,6 +83,12 @@ export function formatDayLong(date: string, today = todayIST()): string {
   return base;
 }
 
+/** "Thu 22 Oct" — no "Today"/"Tomorrow" wording. */
+export function formatDate(date: string): string {
+  const d = toUTC(date);
+  return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`;
+}
+
 export function dateParts(date: string) {
   const d = toUTC(date);
   return { wd: WD[d.getUTCDay()], day: d.getUTCDate(), mon: MON[d.getUTCMonth()] };

@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { checkPassword, clearAdminCookie, isAdmin, setAdminCookie } from "@/lib/admin";
 import { configSource, setConfig, SETTINGS } from "@/lib/config";
-import { sendDailyDigests, sendExpiryReminders } from "@/lib/alerts";
+import { runJobs } from "@/lib/cron";
 import { db } from "@/lib/db";
 import { addDays, todayIST } from "@/lib/dates";
 import { setStatus } from "@/lib/listings";
@@ -126,8 +126,7 @@ export async function saveSettings(form: FormData) {
 
 export async function runDailyJobs() {
   await guard();
-  await sendExpiryReminders();
-  await sendDailyDigests();
+  await runJobs({ force: true });
   refresh();
 }
 

@@ -13,14 +13,14 @@ const weeks = LISTING.days / 7;
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
-      <h1 className="font-display text-4xl font-extrabold tracking-tight">Every flyer in Tapovan, in one place.</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tight">Every flyer in Tapovan, in one place.</h1>
       <p className="mt-4 text-lg text-ink-2">
         In Rishikesh the best things — a kirtan by the river, a jam on a rooftop, an ecstatic dance up the hill — are announced on paper flyers, cafe
         noticeboards and forwarded WhatsApp images. Unless you walked past the right wall, you usually hear about it the day after.
       </p>
       <p className="mt-3 text-lg text-ink-2">{SITE.name} puts those flyers on one map you can filter by date, price, area and vibe.</p>
 
-      <h2 className="mt-10 font-display text-2xl font-extrabold">For visitors</h2>
+      <h2 className="mt-10 font-display text-2xl font-semibold">For visitors</h2>
       <ul className="mt-3 grid gap-2 text-ink-2">
         <li>📅 <b>Today, tomorrow, this weekend</b> — see what&apos;s on, as flyers or as a day-by-day agenda.</li>
         <li>🗺️ <b>Map</b> — pins for every venue with something on, and walking directions.</li>
@@ -29,11 +29,11 @@ export default function AboutPage() {
         <li>Free for visitors. No account, no app to install — add it to your home screen if you like.</li>
       </ul>
 
-      <h2 id="organisers" className="mt-10 scroll-mt-20 font-display text-2xl font-extrabold">
+      <h2 id="organisers" className="mt-10 scroll-mt-20 font-display text-2xl font-semibold">
         For organisers, cafes & artists
       </h2>
       <div className="mt-3 rounded-2xl border border-line bg-card p-5">
-        <p className="font-display text-3xl font-extrabold">
+        <p className="font-display text-3xl font-semibold">
           {price} <span className="text-lg font-semibold text-muted">for {weeks} weeks on the map</span>
         </p>
         <ul className="mt-3 grid gap-1.5 text-ink-2">
@@ -56,7 +56,7 @@ export default function AboutPage() {
         as it&apos;s received.
       </p>
 
-      <h2 className="mt-10 font-display text-2xl font-extrabold">Questions</h2>
+      <h2 className="mt-10 font-display text-2xl font-semibold">Questions</h2>
       <dl className="mt-3 grid gap-4 text-ink-2">
         <div>
           <dt className="font-bold text-ink">Which areas do you cover?</dt>

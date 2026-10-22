@@ -15,7 +15,7 @@ export default function PosterPage() {
       <div className="flex aspect-[210/297] flex-col items-center justify-between rounded-3xl border-4 border-ink bg-[#f6f1e7] p-[8%] text-center text-[#1d1b16] print:rounded-none">
         <div>
           <p className="text-[2.2vmin] font-bold tracking-[0.3em] text-[#b4441a] uppercase print:text-sm">Tapovan · Laxman Jhula · Rishikesh</p>
-          <h1 className="mt-4 font-display text-[7vmin] leading-[1.02] font-extrabold tracking-tight print:text-6xl">What&apos;s on tonight?</h1>
+          <h1 className="mt-4 font-display text-[7vmin] leading-[1.02] font-semibold tracking-tight print:text-6xl">What&apos;s on tonight?</h1>
           <p className="mt-3 text-[2.6vmin] print:text-xl">Every event flyer in town — music, dance, sound healing, kirtan, workshops — on one map.</p>
         </div>
         <Suspense fallback={<div className="aspect-square w-[55%] bg-white" />}>
@@ -36,7 +36,7 @@ async function Qr() {
   return (
     <div className="w-[55%]">
       <div className="rounded-2xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
-      <p className="mt-2 font-display text-[3vmin] font-extrabold print:text-2xl">{SITE.url.replace(/^https?:\/\//, "")}</p>
+      <p className="mt-2 font-display text-[3vmin] font-semibold print:text-2xl">{SITE.url.replace(/^https?:\/\//, "")}</p>
     </div>
   );
 }

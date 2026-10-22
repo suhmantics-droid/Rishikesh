@@ -30,7 +30,7 @@ function Chip({ active, onClick, children, color }: { active: boolean; onClick: 
       onClick={onClick}
       aria-pressed={active}
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap transition ${
-        active ? "border-ink bg-ink text-paper" : "border-line bg-card text-ink-2 hover:border-ink-2"
+        active ? "border-ganga bg-ganga text-on-ganga" : "border-line bg-card text-ink-2 hover:border-ganga/60"
       }`}
     >
       {color ? <span className="h-2 w-2 rounded-full" style={{ background: color }} /> : null}
@@ -78,7 +78,9 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
       (e) => `• ${formatTimeRange(e.occ.start_time, e.occ.end_time) || "All day"} ${e.title} @ ${e.venue.name}`,
     );
     const label = WHEN_OPTIONS.find((w) => w.key === when)?.label ?? formatDayLong(when, today);
-    const text = `📌 ${label} in Tapovan (${agenda.length} events)\n${lines.join("\n")}${agenda.length > 15 ? "\n…and more" : ""}\n\nAll flyers + map: ${window.location.href}`;
+    // "Today" shares the /today page, whose link preview is a picture of the day's list.
+    const link = when === "today" ? `${window.location.origin}/today?d=${today}` : window.location.href;
+    const text = `📌 ${label} in Tapovan (${agenda.length} events)\n${lines.join("\n")}${agenda.length > 15 ? "\n…and more" : ""}\n\nAll flyers + map: ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 
@@ -201,7 +203,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
               key={v}
               type="button"
               onClick={() => chooseView(v)}
-              className={`rounded-full px-3 py-1 ${v === "map" ? "lg:hidden" : ""} ${view === v ? "bg-ink text-paper" : "text-ink-2"}`}
+              className={`rounded-full px-3 py-1 ${v === "map" ? "lg:hidden" : ""} ${view === v ? "bg-ganga text-on-ganga" : "text-ink-2"}`}
             >
               {v === "wall" ? "Flyers" : v === "list" ? "Agenda" : "Map"}
             </button>
@@ -242,7 +244,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
 function Empty({ when }: { when: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-line bg-card/60 p-8 text-center">
-      <p className="font-display text-xl font-bold">Nothing pinned here yet</p>
+      <p className="font-display text-xl font-semibold">Nothing pinned here yet</p>
       <p className="mt-1 text-sm text-muted">
         {when === "today" ? "Quiet day — or nobody has posted tonight's flyer. " : "Try a wider date range or fewer filters. "}
         Seen a flyer on a cafe wall?

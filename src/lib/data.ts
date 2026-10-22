@@ -289,11 +289,6 @@ export function getEventById(id: number) {
   return loadDetail("id", id);
 }
 
-export async function recordView(id: number) {
-  await connection();
-  db().prepare("UPDATE events SET views = views + 1 WHERE id = ?").run(id);
-}
-
 export async function getVenue(slug: string) {
   await connection();
   return (db().prepare("SELECT * FROM venues WHERE slug = ?").get(slug) as Venue | undefined) ?? null;

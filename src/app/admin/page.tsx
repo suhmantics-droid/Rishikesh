@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { LoginForm, VenueEditor } from "@/components/AdminClient";
+import { LoginForm, PhotoUploader, VenueEditor } from "@/components/AdminClient";
+import { getPhoto, PHOTO_SLOTS } from "@/lib/photos";
+import { VisitorsChart } from "@/components/VisitorsChart";
+import { dailySeries } from "@/lib/stats";
 import { isAdmin } from "@/lib/admin";
 import { config, configSource, SETTINGS } from "@/lib/config";
 import { db } from "@/lib/db";
@@ -61,7 +64,9 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
     live: (d.prepare("SELECT COUNT(*) n FROM events WHERE status='live' AND live_until >= ? AND is_demo = 0").get(today) as { n: number }).n,
     revenueMonth: (d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved') AND paid_at >= date('now','start of month')").get() as { n: number }).n,
     revenueTotal: (d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved')").get() as { n: number }).n,
-    subscribers: (d.prepare("SELECT COUNT(*) n FROM subscribers WHERE confirmed = 1").get() as { n: number }).n,
+    subscribers:
+      (d.prepare("SELECT COUNT(*) n FROM subscribers WHERE confirmed = 1").get() as { n: number }).n +
+      (d.prepare("SELECT COUNT(*) n FROM push_subscriptions").get() as { n: number }).n,
     views: (d.prepare("SELECT COALESCE(SUM(views),0) n FROM events WHERE is_demo = 0").get() as { n: number }).n,
     demo: (d.prepare("SELECT COUNT(*) n FROM events WHERE is_demo = 1").get() as { n: number }).n,
   };
@@ -69,7 +74,7 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-3xl font-extrabold">Admin</h1>
+        <h1 className="font-display text-3xl font-semibold">Admin</h1>
         <span className="rounded-full bg-paper-2 px-3 py-1 text-xs font-bold">Payments: {payMode()}</span>
         <span className="text-xs text-muted">version {process.env.GIT_SHA || "dev"}</span>
         <Link href="/post" className="ml-auto rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">
@@ -85,15 +90,18 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
           ["Live flyers", String(stats.live)],
           ["Revenue this month", rupees(stats.revenueMonth)],
           ["Revenue all time", rupees(stats.revenueTotal)],
-          ["Alert subscribers", String(stats.subscribers)],
+          ["Alert subscribers (email + phone)", String(stats.subscribers)],
           ["Flyer views", stats.views.toLocaleString("en-IN")],
         ].map(([l, v]) => (
           <div key={l} className="rounded-2xl border border-line bg-card p-3">
             <div className="text-xs font-semibold text-muted">{l}</div>
-            <div className="font-display text-2xl font-extrabold">{v}</div>
+            <div className="font-display text-2xl font-semibold">{v}</div>
           </div>
         ))}
       </div>
+
+      <VisitorsChart data={dailySeries(14)} today={today} />
+      <TopFlyers today={today} />
 
       <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map(([k, l]) => (
@@ -110,6 +118,15 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
       {tab === "settings" ? <Settings /> : null}
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+        <a href="/api/admin/export?type=listings" className={btn}>
+          Download listings (CSV)
+        </a>
+        <a href="/api/admin/export?type=payments" className={btn}>
+          Payments (CSV)
+        </a>
+        <a href="/api/admin/export?type=subscribers" className={btn}>
+          Email subscribers (CSV)
+        </a>
         <form action={runDailyJobs}>
           <button className={btn}>Send today&apos;s digests & renewal reminders now</button>
         </form>
@@ -146,7 +163,7 @@ function Queue({ today }: { today: string }) {
   return (
     <div className="grid gap-8">
       <section>
-        <h2 className="mb-2 font-display text-xl font-extrabold">Waiting for payment confirmation ({submitted.length})</h2>
+        <h2 className="mb-2 font-display text-xl font-semibold">Waiting for payment confirmation ({submitted.length})</h2>
         {submitted.length === 0 ? <p className="text-sm text-muted">Nothing waiting. 🎉</p> : null}
         <ul className="grid gap-2">
           {submitted.map((r) => (
@@ -178,7 +195,7 @@ function Queue({ today }: { today: string }) {
       </section>
 
       <section>
-        <h2 className="mb-2 font-display text-xl font-extrabold">Reports ({reports.length})</h2>
+        <h2 className="mb-2 font-display text-xl font-semibold">Reports ({reports.length})</h2>
         <ul className="grid gap-2">
           {reports.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card p-3 text-sm">
@@ -200,7 +217,7 @@ function Queue({ today }: { today: string }) {
       </section>
 
       <section>
-        <h2 className="mb-1 font-display text-xl font-extrabold">Started but not submitted ({unpaid.length})</h2>
+        <h2 className="mb-1 font-display text-xl font-semibold">Started but not submitted ({unpaid.length})</h2>
         <p className="mb-2 text-sm text-muted">Organisers who filled in a flyer but didn&apos;t finish. If they pay you in person, publish here.</p>
         <ul className="grid gap-2">
           {unpaid.map((r) => (
@@ -356,13 +373,21 @@ function Settings() {
   const groups = [...new Set(SETTINGS.map((s) => s.group))];
   const input = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm disabled:opacity-60";
   return (
-    <form action={saveSettings} className="grid max-w-2xl gap-6">
+    <div className="grid max-w-2xl gap-6">
+    <section className="grid gap-3">
+      <h2 className="font-display text-xl font-semibold">Photos</h2>
+      <p className="-mt-2 text-sm text-muted">Your own photos of Rishikesh. Until you add them, a plain placeholder shows in their place.</p>
+      {PHOTO_SLOTS.map((p) => (
+        <PhotoUploader key={p.key} slot={p.key} label={p.label} want={p.want} current={getPhoto(p.key)} />
+      ))}
+    </section>
+    <form action={saveSettings} className="grid gap-6">
       <p className="text-sm text-muted">
         Changes apply immediately. Secret keys are never shown again after saving — leave them blank to keep the saved value.
       </p>
       {groups.map((g) => (
         <section key={g} className="grid gap-3 rounded-2xl border border-line bg-card p-4">
-          <h2 className="font-display text-lg font-extrabold">{g}</h2>
+          <h2 className="font-display text-lg font-semibold">{g}</h2>
           {SETTINGS.filter((s) => s.group === g).map((s) => {
             const source = configSource(s.key);
             const secret = "secret" in s && s.secret;
@@ -410,5 +435,51 @@ function Settings() {
       ))}
       <button className="justify-self-start rounded-xl bg-ink px-5 py-2.5 font-bold text-paper">Save settings</button>
     </form>
+    </div>
+  );
+}
+
+/** Which live flyers people actually look at and act on. */
+function TopFlyers({ today }: { today: string }) {
+  const rows = db()
+    .prepare(
+      `SELECT e.id, e.title, e.manage_token, e.views,
+              COALESCE(SUM(CASE WHEN s.kind = 'interested' THEN s.n END), 0) AS interested,
+              COALESCE(SUM(CASE WHEN s.kind IN ('whatsapp','directions','booking','instagram','calendar','share') THEN s.n END), 0) AS taps
+       FROM events e LEFT JOIN event_stats s ON s.event_id = e.id
+       WHERE e.status = 'live' AND e.live_until >= ?
+       GROUP BY e.id ORDER BY e.views DESC LIMIT 8`,
+    )
+    .all(today) as { id: number; title: string; manage_token: string; views: number; interested: number; taps: number }[];
+  if (!rows.length) return null;
+  return (
+    <section className="rounded-2xl border border-line bg-card p-4">
+      <h2 className="font-display text-lg font-semibold">Most viewed live flyers</h2>
+      <table className="mt-2 w-full text-left text-sm">
+        <thead className="text-xs text-muted">
+          <tr>
+            <th className="py-1">Flyer</th>
+            <th className="text-right">Views</th>
+            <th className="text-right">Interested</th>
+            <th className="text-right">Taps</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.id} className="border-t border-line">
+              <td className="py-1.5">
+                <Link href={`/manage/${r.manage_token}`} className="underline">
+                  {r.title}
+                </Link>
+              </td>
+              <td className="text-right">{r.views}</td>
+              <td className="text-right">{r.interested}</td>
+              <td className="text-right">{r.taps}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-muted">Taps = WhatsApp, directions, booking, Instagram, calendar and share buttons.</p>
+    </section>
   );
 }

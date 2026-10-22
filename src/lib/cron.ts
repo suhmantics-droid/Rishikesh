@@ -5,11 +5,14 @@
 
 import { sendDailyDigests, sendExpiryReminders } from "./alerts";
 import { nowTimeIST } from "./dates";
+import { sendPushDigests } from "./push";
 
 export async function runJobs({ force = false } = {}) {
   const reminders = await sendExpiryReminders();
-  const digests = force || nowTimeIST() >= "07:30" ? await sendDailyDigests() : 0;
-  return { reminders, digests };
+  const morning = force || nowTimeIST() >= "07:30";
+  const digests = morning ? await sendDailyDigests() : 0;
+  const pushDigests = morning ? await sendPushDigests() : 0;
+  return { reminders, digests, pushDigests };
 }
 
 let started = false;

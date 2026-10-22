@@ -25,15 +25,16 @@ export function ShareBar({ title, text, calendarHref }: { title: string; text: s
     <div className="grid grid-cols-3 gap-2">
       <button
         type="button"
+        data-track="share"
         className={btn}
         onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${pageUrl()}`)}`, "_blank")}
       >
         <WhatsAppIcon className="h-4 w-4" /> WhatsApp
       </button>
-      <a className={btn} href={calendarHref}>
+      <a data-track="calendar" className={btn} href={calendarHref}>
         📅 Calendar
       </a>
-      <button type="button" className={btn} onClick={share}>
+      <button type="button" data-track="share" className={btn} onClick={share}>
         {copied ? "Copied ✓" : "↗ Share"}
       </button>
     </div>

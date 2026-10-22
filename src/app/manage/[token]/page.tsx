@@ -8,6 +8,7 @@ import { getEventByToken } from "@/lib/data";
 import { addDays, formatDayLong, formatTimeRange, todayIST } from "@/lib/dates";
 import { payMode } from "@/lib/payments";
 import { LISTING, rupees, SITE } from "@/lib/site";
+import { eventStats } from "@/lib/stats";
 import { flyerUrl, priceLabel, whatsappNumber } from "@/lib/util";
 
 export const metadata: Metadata = { title: "Manage your flyer", robots: { index: false } };
@@ -34,6 +35,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
   const expiringSoon = d.isLive && event.live_until! <= addDays(today, 5);
   const needsRenewalForDates = d.isLive && lastDate && lastDate > event.live_until!;
   const admin = await isAdmin();
+  const stats = eventStats(event.id);
 
   const status =
     event.status === "live" && d.isLive
@@ -49,14 +51,14 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
   return (
     <div className="flex flex-col gap-6">
       {sp.paid ? (
-        <div className="rounded-2xl bg-ganga p-5 text-white shadow-card">
-          <p className="font-display text-2xl font-extrabold">You&apos;re pinned! 🎉</p>
-          <p className="mt-1 text-white/90">Your flyer is live. We&apos;ve emailed this private page&apos;s link to {event.organiser_email} — bookmark it to edit or renew.</p>
+        <div className="rounded-2xl bg-ganga p-5 text-on-ganga shadow-card">
+          <p className="font-display text-2xl font-semibold">You&apos;re pinned! 🎉</p>
+          <p className="mt-1 text-on-ganga/90">Your flyer is live. We&apos;ve emailed this private page&apos;s link to {event.organiser_email} — bookmark it to edit or renew.</p>
         </div>
       ) : null}
       {sp.pending ? (
         <div className="rounded-2xl bg-saffron-soft p-5 text-saffron-ink">
-          <p className="font-display text-2xl font-extrabold">Submitted ✓</p>
+          <p className="font-display text-2xl font-semibold">Submitted ✓</p>
           <p className="mt-1">Your flyer goes live as soon as the {rupees(LISTING.pricePaise)} is received. Bookmark this page — it&apos;s your private link to edit or renew.</p>
         </div>
       ) : null}
@@ -64,7 +66,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
 
       <div>
         <p className="text-sm font-semibold text-muted">Your listing · private page, don&apos;t share this link</p>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">{event.title}</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">{event.title}</h1>
         <p className={`mt-3 inline-block rounded-full px-3 py-1.5 text-sm font-bold ${status.tone}`}>{status.text}</p>
       </div>
 
@@ -74,9 +76,13 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
           <img src={flyerUrl(event.flyer, "sm")!} alt="" className="w-full rounded-2xl border border-line max-sm:max-w-[180px]" />
         ) : null}
         <div className="grid content-start gap-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <Stat label="Views" value={event.views.toLocaleString("en-IN")} />
-            <Stat label="Upcoming dates" value={String(upcoming.length)} />
+            <Stat label="Interested" value={String(stats.interested ?? 0)} />
+            <Stat label="WhatsApp taps" value={String(stats.whatsapp ?? 0)} />
+            <Stat label="Directions" value={String(stats.directions ?? 0)} />
+            <Stat label="Calendar adds" value={String(stats.calendar ?? 0)} />
+            <Stat label="Shares" value={String(stats.share ?? 0)} />
           </div>
           <p className="text-sm text-ink-2">
             📍 {venue.name} · {priceLabel(event)}
@@ -116,14 +122,14 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
 
       {event.status === "pending_payment" ? (
         <section className="rounded-2xl border border-line bg-card p-5">
-          <h2 className="mb-3 font-display text-xl font-extrabold">Publish for {rupees(LISTING.pricePaise)}</h2>
+          <h2 className="mb-3 font-display text-xl font-semibold">Publish for {rupees(LISTING.pricePaise)}</h2>
           <ManageActions token={token} purpose="new" priceLabel={rupees(LISTING.pricePaise)} isAdmin={admin} mode={payMode()} />
         </section>
       ) : null}
 
       {event.status === "live" ? (
         <section className="rounded-2xl border border-line bg-card p-5">
-          <h2 className="font-display text-xl font-extrabold">{d.isLive ? "Keep it up longer" : "Put it back up"}</h2>
+          <h2 className="font-display text-xl font-semibold">{d.isLive ? "Keep it up longer" : "Put it back up"}</h2>
           <p className="mt-1 mb-3 text-sm text-ink-2">
             {needsRenewalForDates
               ? `Your last date (${formatDayLong(lastDate!, today)}) is after the listing ends — renew so it stays visible until then.`
@@ -142,7 +148,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-line bg-card p-3">
       <div className="text-xs font-semibold text-muted">{label}</div>
-      <div className="font-display text-2xl font-extrabold">{value}</div>
+      <div className="font-display text-2xl font-semibold">{value}</div>
     </div>
   );
 }

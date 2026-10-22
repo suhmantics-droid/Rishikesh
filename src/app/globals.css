@@ -12,8 +12,14 @@
   --saffron: #e8672a;
   --saffron-ink: #b4441a;
   --saffron-soft: #fbe3d5;
-  --ganga: #0f6e6e;
-  --ganga-soft: #d7ecea;
+  /* The Ganga at Rishikesh: clear emerald-turquoise water. */
+  --ganga: #0c7268;
+  --ganga-soft: #d6efea;
+  --on-ganga: #ffffff;
+  --river-1: #3cc4b1;
+  --river-2: #0f8a7e;
+  --river-deep: #0b5550;
+  --chart: #008f87; /* validated: lightness band, chroma floor, contrast vs card */
   --shadow: 0 1px 2px rgb(60 40 10 / 0.08), 0 6px 18px -8px rgb(60 40 10 / 0.25);
 }
 
@@ -29,8 +35,13 @@
     --saffron: #f27c43;
     --saffron-ink: #ffa173;
     --saffron-soft: #3d2416;
-    --ganga: #4fbab4;
-    --ganga-soft: #15302f;
+    --ganga: #4fc3b4;
+    --ganga-soft: #143330;
+    --on-ganga: #0f1412;
+    --river-1: #1f8f84;
+    --river-2: #0c524c;
+    --river-deep: #0a3b37;
+    --chart: #14a39a;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -10px rgb(0 0 0 / 0.7);
   }
 }
@@ -48,6 +59,11 @@
   --color-saffron-soft: var(--saffron-soft);
   --color-ganga: var(--ganga);
   --color-ganga-soft: var(--ganga-soft);
+  --color-on-ganga: var(--on-ganga);
+  --color-river-1: var(--river-1);
+  --color-river-2: var(--river-2);
+  --color-river-deep: var(--river-deep);
+  --color-chart: var(--chart);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --shadow-card: var(--shadow);
@@ -100,3 +116,4 @@ body {
     display: none !important;
   }
 }
+

@@ -5,9 +5,12 @@ import { Suspense } from "react";
 import { CategoryTag } from "@/components/FlyerCard";
 import { FollowButton } from "@/components/Follow";
 import { MiniMap } from "@/components/MiniMap";
+import { PushToggle } from "@/components/PushToggle";
 import { ReportLink, ShareBar } from "@/components/ShareBar";
 import { WhatsAppIcon } from "@/components/Browse";
-import { getEventBySlug, recordView } from "@/lib/data";
+import { EventTracker, InterestedButton } from "@/components/Track";
+import { getEventBySlug } from "@/lib/data";
+import { eventStats } from "@/lib/stats";
 import { formatDayLong, formatTimeRange, todayIST } from "@/lib/dates";
 import { area, category, SITE } from "@/lib/site";
 import { directionsLink, flyerUrl, instagramHandle, priceLabel, safeUrl, whatsappNumber } from "@/lib/util";
@@ -39,7 +42,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
   const d = await getEventBySlug(slug);
   // Expired listings keep their page (links in WhatsApp groups live forever); unpaid/hidden ones don't.
   if (!d || d.event.status !== "live") notFound();
-  await recordView(d.event.id);
+  const stats = eventStats(d.event.id);
 
   const { event, venue, artists, isLive } = d;
   const today = todayIST();
@@ -54,6 +57,12 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-5 sm:py-8">
+      {isLive ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(d, upcoming.slice(0, 10))).replace(/</g, "\\u003c") }}
+        />
+      ) : null}
       <nav className="mb-3 text-sm text-muted">
         <Link href="/" className="hover:text-ink">
           ← All flyers
@@ -90,7 +99,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
         <div className="flex flex-col gap-5">
           <div>
             <CategoryTag cat={event.category} />
-            <h1 className="mt-1 font-display text-3xl leading-tight font-extrabold tracking-tight sm:text-4xl">{event.title}</h1>
+            <h1 className="mt-1 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{event.title}</h1>
             {event.organiser_name ? <p className="mt-1 text-sm text-muted">by {event.organiser_name}</p> : null}
           </div>
 
@@ -150,6 +159,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             <div className="flex flex-wrap gap-2">
               {wa ? (
                 <a
+                  data-track="whatsapp"
                   href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi! I saw your flyer for "${event.title}" on ${SITE.name}. `)}`}
                   target="_blank"
                   rel="noreferrer"
@@ -159,17 +169,21 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 </a>
               ) : null}
               {ig ? (
-                <a href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-bold">
+                <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-bold">
                   @{ig}
                 </a>
               ) : null}
               {booking ? (
-                <a href={booking} target="_blank" rel="noreferrer" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-paper">
+                <a data-track="booking" href={booking} target="_blank" rel="noreferrer" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-paper">
                   Book / more info ↗
                 </a>
               ) : null}
             </div>
           ) : null}
+
+          <div>
+            <InterestedButton eventId={event.id} initial={stats.interested ?? 0} />
+          </div>
 
           <ShareBar title={event.title} text={shareText} calendarHref={`/e/${event.slug}/calendar`} />
 
@@ -180,7 +194,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 pins={[{ slug: venue.slug, name: venue.name, area: venue.area, lat: venue.lat, lng: venue.lng, events: [{ slug: event.slug, title: event.title, category: event.category, date: next?.date ?? today, start_time: next?.start_time ?? null }] }]}
               />
             ) : null}
-            <a href={directionsLink(venue)} target="_blank" rel="noreferrer" className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-white">
+            <a data-track="directions" href={directionsLink(venue)} target="_blank" rel="noreferrer" className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
               Directions (Google Maps) ↗
             </a>
             {!venue.coords_verified ? <p className="text-xs text-muted">Map pin is approximate — use Directions for the exact spot.</p> : null}
@@ -188,7 +202,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
 
           <div className="rounded-2xl border border-line bg-card p-4">
             <p className="text-sm font-bold">Hear about the next one</p>
-            <p className="mb-3 text-sm text-muted">Follow, then turn on email alerts — no account needed.</p>
+            <p className="mb-3 text-sm text-muted">Follow, then get a notification on your phone (or an email) when their next flyer goes up.</p>
             <div className="flex flex-wrap gap-2">
               <FollowButton kind="venue" target={venue.slug} label={venue.name} chip />
               <FollowButton kind="category" target={event.category} label={cat.label} chip />
@@ -196,14 +210,54 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 <FollowButton key={a.slug} kind="artist" target={a.slug} label={a.name} chip />
               ))}
             </div>
-            <Link href="/alerts" className="mt-3 inline-block text-sm font-bold text-saffron-ink underline">
-              Set up email alerts →
+            <div className="mt-3">
+              <PushToggle compact />
+            </div>
+            <Link href="/alerts" className="mt-2 inline-block text-sm font-bold text-saffron-ink underline">
+              More alert options →
             </Link>
           </div>
 
           <ReportLink eventId={event.id} />
+          <EventTracker eventId={event.id} />
         </div>
       </div>
     </div>
   );
+}
+
+/** schema.org Event data so search engines can list each date in their event results. */
+function eventJsonLd(d: NonNullable<Awaited<ReturnType<typeof getEventBySlug>>>, dates: { date: string; start_time: string | null; end_time: string | null }[]) {
+  const { event, venue, artists } = d;
+  const url = new URL(`/e/${event.slug}`, SITE.url).toString();
+  const at = (date: string, time: string | null) => (time ? `${date}T${time}:00+05:30` : date);
+  const place = {
+    "@type": "Place",
+    name: venue.name,
+    address: { "@type": "PostalAddress", streetAddress: venue.address ?? undefined, addressLocality: "Rishikesh", addressRegion: "Uttarakhand", addressCountry: "IN" },
+    geo: venue.lat != null && venue.lng != null ? { "@type": "GeoCoordinates", latitude: venue.lat, longitude: venue.lng } : undefined,
+  };
+  const offers =
+    event.price_type === "free"
+      ? { "@type": "Offer", price: 0, priceCurrency: "INR", url, availability: "https://schema.org/InStock" }
+      : event.price_type === "paid" && event.price_min
+        ? { "@type": "Offer", price: event.price_min, priceCurrency: "INR", url, availability: "https://schema.org/InStock" }
+        : undefined;
+  return dates.map((o) => ({
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: event.title,
+    description: event.description ?? undefined,
+    startDate: at(o.date, o.start_time),
+    endDate: o.end_time && o.start_time && o.end_time > o.start_time ? at(o.date, o.end_time) : undefined,
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: place,
+    image: event.flyer ? [new URL(`/f/${event.flyer}.webp`, SITE.url).toString()] : undefined,
+    offers,
+    isAccessibleForFree: event.price_type === "free" || event.price_type === "donation" ? true : undefined,
+    performer: artists.length ? artists.map((a) => ({ "@type": "PerformingGroup", name: a.name })) : undefined,
+    organizer: event.organiser_name ? { "@type": "Organization", name: event.organiser_name, url } : undefined,
+    url,
+  }));
 }

@@ -31,7 +31,7 @@ async function ArtistView({ params }: { params: PageProps<"/a/[slug]">["params"]
         ← All flyers
       </Link>
       <p className="mt-3 text-sm font-semibold text-saffron-ink">Artist · facilitator</p>
-      <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{a.name}</h1>
+      <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{a.name}</h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <FollowButton kind="artist" target={a.slug} label={a.name} />
         {ig ? (
@@ -40,7 +40,7 @@ async function ArtistView({ params }: { params: PageProps<"/a/[slug]">["params"]
           </a>
         ) : null}
       </div>
-      <h2 className="mt-8 mb-3 font-display text-xl font-extrabold">Upcoming</h2>
+      <h2 className="mt-8 mb-3 font-display text-xl font-semibold">Upcoming</h2>
       {wall.length ? (
         <div className="lg:max-w-4xl">
           <FlyerGrid items={wall} today={today} />

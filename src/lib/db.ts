@@ -142,6 +142,46 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- Privacy-friendly analytics: daily counters, no cookies, no stored IPs.
+CREATE TABLE IF NOT EXISTS daily_stats (
+  day TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, metric)
+);
+CREATE TABLE IF NOT EXISTS visitor_hashes (
+  day TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  PRIMARY KEY (day, hash)
+);
+CREATE TABLE IF NOT EXISTS event_stats (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (event_id, kind)
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY,
+  endpoint TEXT UNIQUE NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  daily_digest INTEGER NOT NULL DEFAULT 0,
+  last_digest_on TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS push_follows (
+  push_id INTEGER NOT NULL REFERENCES push_subscriptions(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  target TEXT NOT NULL,
+  PRIMARY KEY (push_id, kind, target)
+);
+CREATE TABLE IF NOT EXISTS push_notified (
+  push_id INTEGER NOT NULL REFERENCES push_subscriptions(id) ON DELETE CASCADE,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  PRIMARY KEY (push_id, event_id)
+);
+
 CREATE TABLE IF NOT EXISTS emails (
   id INTEGER PRIMARY KEY,
   to_addr TEXT NOT NULL,

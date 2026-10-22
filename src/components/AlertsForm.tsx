@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CATEGORIES } from "@/lib/site";
 import { useFollows, writeFollows, type LocalFollow } from "./Follow";
+import { PushToggle } from "./PushToggle";
 
 type Opt = { slug: string; name: string };
 type Follow = { kind: "venue" | "artist" | "category"; target: string };
@@ -72,7 +73,7 @@ export function AlertsForm({
     return (
       <div className="rounded-2xl border border-line bg-card p-6 text-center">
         <p className="text-4xl">{state === "gone" ? "👋" : "📬"}</p>
-        <p className="mt-2 font-display text-2xl font-extrabold">
+        <p className="mt-2 font-display text-2xl font-semibold">
           {state === "gone" ? "You're unsubscribed" : state === "sent" ? "Check your inbox" : "We've emailed you a link"}
         </p>
         <p className="mt-1 text-ink-2">
@@ -90,12 +91,12 @@ export function AlertsForm({
   }
 
   const chip = (on: boolean) =>
-    `rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${on ? "border-ganga bg-ganga text-white" : "border-line bg-card text-ink-2 hover:border-ink-2"}`;
+    `rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${on ? "border-ganga bg-ganga text-on-ganga" : "border-line bg-card text-ink-2 hover:border-ink-2"}`;
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
       <section>
-        <h2 className="font-display text-lg font-extrabold">Vibes</h2>
+        <h2 className="font-display text-lg font-semibold">Vibes</h2>
         <p className="mb-2 text-sm text-muted">Get an email when any new flyer of this kind goes up.</p>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.filter((c) => c.key !== "other").map((c) => (
@@ -115,7 +116,7 @@ export function AlertsForm({
       />
 
       <section>
-        <h2 className="font-display text-lg font-extrabold">Cafes & venues</h2>
+        <h2 className="font-display text-lg font-semibold">Cafes & venues</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           {shownVenues.map((v) => (
             <button key={v.slug} type="button" className={chip(has("venue", v.slug))} onClick={() => toggle("venue", v.slug, v.name)}>
@@ -127,7 +128,7 @@ export function AlertsForm({
       </section>
 
       <section>
-        <h2 className="font-display text-lg font-extrabold">Musicians & facilitators</h2>
+        <h2 className="font-display text-lg font-semibold">Musicians & facilitators</h2>
         {artists.length === 0 ? <p className="text-sm text-muted">Artists appear here as flyers go up — or tap Follow on any artist&apos;s page.</p> : null}
         <div className="mt-2 flex flex-wrap gap-2">
           {shownArtists.map((a) => (
@@ -139,7 +140,16 @@ export function AlertsForm({
         </div>
       </section>
 
+      {!token ? (
+        <section className="grid gap-2 rounded-2xl border border-ganga/40 bg-ganga-soft/50 p-4">
+          <h2 className="font-display text-lg font-semibold">Get them on this phone</h2>
+          <p className="-mt-1 text-sm text-ink-2">Instant notifications, no email or account needed.</p>
+          <PushToggle />
+        </section>
+      ) : null}
+
       <section className="grid gap-3 rounded-2xl border border-saffron/40 bg-saffron-soft/40 p-4">
+        {!token ? <h2 className="font-display text-lg font-semibold">…or by email</h2> : null}
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--saffron)]" />
           <span>

@@ -170,7 +170,11 @@ export function onPublished(eventId: number, firstPublish: boolean) {
         ),
       );
     }
-    if (firstPublish) await notifyFollowers(eventId);
+    if (firstPublish) {
+      await notifyFollowers(eventId);
+      const { pushFollowers } = await import("./push");
+      await pushFollowers(eventId);
+    }
   })().catch((e) => console.error("onPublished failed", e));
 }
 

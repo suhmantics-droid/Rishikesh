@@ -35,11 +35,11 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
       <div className="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div>
           <p className="text-sm font-semibold text-saffron-ink">{area(v.area).label}</p>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{v.name}</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{v.name}</h1>
           {v.description ? <p className="mt-2 max-w-xl text-ink-2">{v.description}</p> : null}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <FollowButton kind="venue" target={v.slug} label={v.name} />
-            <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-white">
+            <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-on-ganga">
               Directions ↗
             </a>
             {ig ? (
@@ -48,7 +48,7 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
               </a>
             ) : null}
           </div>
-          <h2 className="mt-8 mb-3 font-display text-xl font-extrabold">Upcoming here</h2>
+          <h2 className="mt-8 mb-3 font-display text-xl font-semibold">Upcoming here</h2>
           {wall.length ? (
             <FlyerGrid items={wall} today={today} />
           ) : (
