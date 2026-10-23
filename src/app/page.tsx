@@ -34,6 +34,17 @@ export default function Home({ searchParams }: PageProps<"/">) {
         <Suspense fallback={null}>
           <GangaDaily className="mt-10" />
         </Suspense>
+        <nav className="mt-6 flex flex-wrap gap-2 text-sm font-semibold" aria-label="Browse">
+          <Link href="/venues" className="rounded-full border border-line bg-card px-4 py-2 hover:border-ganga/60">
+            All venues →
+          </Link>
+          <Link href="/artists" className="rounded-full border border-line bg-card px-4 py-2 hover:border-ganga/60">
+            All artists →
+          </Link>
+          <Link href="/today" className="rounded-full border border-line bg-card px-4 py-2 hover:border-ganga/60">
+            Today&apos;s list →
+          </Link>
+        </nav>
         <section className="my-6 grid gap-3 sm:grid-cols-2">
           <Link href="/alerts" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
             <p className="font-display text-lg font-semibold">🔔 Never miss your favourite musician</p>

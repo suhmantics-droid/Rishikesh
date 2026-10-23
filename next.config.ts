@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   // Self-contained server bundle for the Docker image (includes better-sqlite3 and sharp).
   output: "standalone",
   cacheComponents: true,
+  experimental: {
+    // Tapovan's internet drops a lot: keep taps pending and retry them when the connection returns.
+    useOffline: true,
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

@@ -106,6 +106,15 @@ body {
 .leaflet-popup-content {
   margin: 12px 14px;
 }
+/* Soften OpenStreetMap's bright colours to sit with the paper palette; a dark map in dark mode. */
+.leaflet-tile-pane {
+  filter: saturate(0.7) sepia(0.12) contrast(0.96);
+}
+@media (prefers-color-scheme: dark) {
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.45);
+  }
+}
 .pin-marker {
   background: none;
   border: none;

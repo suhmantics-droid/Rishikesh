@@ -77,7 +77,7 @@ export default function MapView({
         .slice(0, 6)
         .map(
           (e) => `<a href="/e/${e.slug}" style="display:block;padding:6px 0;border-top:1px solid var(--line);color:inherit;text-decoration:none">
-            <div style="font-size:11px;font-weight:700;color:${category(e.category).color};text-transform:uppercase">${formatDay(e.date, today)} ${formatTime(e.start_time)}</div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase"><span style="display:inline-block;width:7px;height:7px;border-radius:4px;margin-right:5px;background:${category(e.category).color}"></span>${formatDay(e.date, today)} ${formatTime(e.start_time)}</div>
             <div style="font-weight:700">${escapeHtml(e.title)}</div></a>`,
         )
         .join("");

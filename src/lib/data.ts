@@ -22,7 +22,7 @@ export type Venue = {
   is_demo: number;
 };
 
-export type Artist = { id: number; slug: string; name: string; instagram: string | null };
+export type Artist = { id: number; slug: string; name: string; instagram: string | null; is_demo: number };
 
 export type Occurrence = { date: string; start_time: string | null; end_time: string | null };
 
@@ -324,4 +324,18 @@ export async function countLive() {
     )
     .get({ today: todayIST() }) as { n: number };
   return r.n;
+}
+
+/** Venues with how many live flyers they have coming up, for the directory page. */
+export async function listVenuesWithCounts() {
+  await connection();
+  return db()
+    .prepare(
+      `SELECT v.*, COUNT(DISTINCT e.id) AS upcoming, MIN(d.date) AS next_date
+       FROM venues v
+       LEFT JOIN events e ON e.venue_id = v.id AND e.status = 'live' AND e.live_until >= @today
+       LEFT JOIN event_dates d ON d.event_id = e.id AND d.date >= @today
+       GROUP BY v.id ORDER BY upcoming DESC, v.name`,
+    )
+    .all({ today: todayIST() }) as (Venue & { upcoming: number; next_date: string | null })[];
 }

@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/Logo";
+import { OfflineBanner, ServiceWorker } from "@/components/Offline";
 import { PageTracker } from "@/components/Track";
 import { SITE } from "@/lib/site";
 import "./globals.css";
@@ -60,7 +61,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </nav>
           </div>
           <div className="h-[3px] bg-gradient-to-r from-river-1 via-river-2 to-river-1 opacity-80" aria-hidden />
+          <OfflineBanner />
         </header>
+        <ServiceWorker />
         <main className="flex-1">{children}</main>
         <Suspense fallback={null}>
           <PageTracker />
@@ -73,6 +76,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </span>
               <Link href="/today" className="text-[#a9d6cf] hover:text-white">
                 Today
+              </Link>
+              <Link href="/venues" className="text-[#a9d6cf] hover:text-white">
+                Venues
+              </Link>
+              <Link href="/artists" className="text-[#a9d6cf] hover:text-white">
+                Artists
               </Link>
               <Link href="/about" className="text-[#a9d6cf] hover:text-white">
                 How it works

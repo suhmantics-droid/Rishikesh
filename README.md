@@ -117,6 +117,10 @@ Your data is never touched by updates.
 - **Stats** (Admin): visitors per day, page views, flyer views and taps — counted without cookies; visitors are
   counted with a daily-rotating anonymous hash. Organisers see their own flyer's numbers on their manage page.
 - **Google:** every live flyer carries schema.org Event data, so it can appear in Google's event search.
+- **Works on a bad connection:** the site saves the pages and flyers you've looked at. If the signal drops (it
+  does, in Tapovan), the last list still opens, with a small "you're offline" note, and taps go through when the
+  connection is back.
+- **Directories:** /venues and /artists list everyone with a flyer up, each with a one-tap Follow.
 
 ## Switching things on later
 

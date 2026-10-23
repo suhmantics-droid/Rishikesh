@@ -93,7 +93,7 @@ function eventEmailBlock(detail: NonNullable<ReturnType<typeof getEventById>>) {
   const img = flyerUrl(event.flyer, "sm");
   return `
     ${img ? `<a href="${abs(`/e/${event.slug}`)}"><img src="${abs(img)}" alt="" width="240" style="display:block;border-radius:10px;max-width:100%;margin-bottom:12px"></a>` : ""}
-    <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:${category(event.category).color}">${escapeHtml(category(event.category).label)}</div>
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#3d3a33"><span style="display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;background:${category(event.category).color}"></span>${escapeHtml(category(event.category).label)}</div>
     <div style="font-size:18px;font-weight:800;margin:4px 0">${escapeHtml(event.title)}</div>
     <div style="color:#3d3a33">${next.map((d) => `${formatDayLong(d.date, today)} ${formatTimeRange(d.start_time, d.end_time)}`).join("<br>")}</div>
     <div style="color:#3d3a33">📍 ${escapeHtml(venue.name)} · ${escapeHtml(priceLabel(event))}</div>

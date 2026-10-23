@@ -7,7 +7,8 @@ import { flyerUrl, priceShort } from "@/lib/util";
 export function CategoryTag({ cat, className = "" }: { cat: string; className?: string }) {
   const c = category(cat);
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wide uppercase ${className}`} style={{ color: c.color }}>
+    // Text stays in ink for legibility; the coloured dot carries the category.
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-ink-2 uppercase ${className}`}>
       <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
       {c.short}
     </span>
