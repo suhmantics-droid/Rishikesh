@@ -1,4 +1,6 @@
+import { db } from "@/lib/db";
 import { MAX_UPLOAD_BYTES, saveFlyer } from "@/lib/images";
+import { linksFromCodes, scanQr } from "@/lib/qr";
 import { clientIp, flyerUrl, rateLimit } from "@/lib/util";
 
 export async function POST(req: Request) {
@@ -13,8 +15,17 @@ export async function POST(req: Request) {
     return Response.json({ error: "Please upload a photo or image of the flyer." }, { status: 415 });
   }
   try {
-    const saved = await saveFlyer(Buffer.from(await file.arrayBuffer()));
-    return Response.json({ id: saved.id, w: saved.w, h: saved.h, url: flyerUrl(saved.id) });
+    const original = Buffer.from(await file.arrayBuffer());
+    const saved = await saveFlyer(original, { keepOriginal: true });
+    // QR codes are read from the full-resolution photo: small codes don't survive downsizing.
+    const links = await scanQr(original)
+      .then(linksFromCodes)
+      .catch((e) => {
+        console.error("QR scan failed", e);
+        return [];
+      });
+    db().prepare("UPDATE uploads SET qr_json = ? WHERE id = ?").run(JSON.stringify(links), saved.id);
+    return Response.json({ id: saved.id, w: saved.w, h: saved.h, url: flyerUrl(saved.id), links });
   } catch (e) {
     console.error("upload failed", e);
     return Response.json({ error: "We couldn't read that image. Try a JPG or PNG screenshot." }, { status: 422 });

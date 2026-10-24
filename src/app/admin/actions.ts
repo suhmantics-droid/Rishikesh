@@ -10,6 +10,7 @@ import { addDays, todayIST } from "@/lib/dates";
 import { setStatus } from "@/lib/listings";
 import { adminPublish, approvePayment, rejectPayment } from "@/lib/payments";
 import { AREAS, LISTING } from "@/lib/site";
+import { importStarter } from "@/lib/starter";
 
 async function guard() {
   if (!(await isAdmin())) throw new Error("Not signed in");
@@ -136,5 +137,13 @@ export async function clearDemoData() {
   d.prepare("DELETE FROM events WHERE is_demo = 1").run();
   d.prepare("DELETE FROM venues WHERE is_demo = 1 AND id NOT IN (SELECT venue_id FROM events)").run();
   d.prepare("DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM event_artists)").run();
+  refresh();
+}
+
+export async function publishStarter(form: FormData) {
+  await guard();
+  const key = form.get("key");
+  const { failed } = await importStarter(typeof key === "string" && key ? [key] : undefined);
+  for (const f of failed) console.error(`starter flyer "${f.title}" not published: ${f.reason}`);
   refresh();
 }

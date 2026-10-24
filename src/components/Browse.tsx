@@ -73,14 +73,17 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
   }
 
   function shareOnWhatsApp() {
-    const items = agenda.slice(0, 15);
+    const events = agenda.filter((e) => e.kind !== "classes");
+    const classes = new Set(agenda.filter((e) => e.kind === "classes").map((e) => e.id)).size;
+    const items = events.slice(0, 15);
     const lines = items.map(
       (e) => `• ${formatTimeRange(e.occ.start_time, e.occ.end_time) || "All day"} ${e.title} @ ${e.venue.name}`,
     );
     const label = WHEN_OPTIONS.find((w) => w.key === when)?.label ?? formatDayLong(when, today);
     // "Today" shares the /today page, whose link preview is a picture of the day's list.
     const link = when === "today" ? `${window.location.origin}/today?d=${today}` : window.location.href;
-    const text = `📌 ${label} in Tapovan (${agenda.length} events)\n${lines.join("\n")}${agenda.length > 15 ? "\n…and more" : ""}\n\nAll flyers + map: ${link}`;
+    const more = [events.length > 15 ? "…and more" : "", classes ? `+ ${classes} drop-in class timetable${classes === 1 ? "" : "s"}` : ""].filter(Boolean);
+    const text = `📌 ${label} in Tapovan (${events.length} event${events.length === 1 ? "" : "s"})\n${lines.join("\n")}${more.length ? `\n${more.join("\n")}` : ""}\n\nAll flyers + map: ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 

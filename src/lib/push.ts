@@ -120,7 +120,7 @@ export async function sendPushDigests() {
   const items = db()
     .prepare(
       `SELECT e.title FROM event_dates d JOIN events e ON e.id = d.event_id
-       WHERE e.status = 'live' AND e.live_until >= @today AND d.date = @today AND e.is_demo = 0
+       WHERE e.status = 'live' AND e.live_until >= @today AND d.date = @today AND e.is_demo = 0 AND e.kind != 'classes'
        ORDER BY COALESCE(d.start_time, '99:99')`,
     )
     .all({ today }) as { title: string }[];

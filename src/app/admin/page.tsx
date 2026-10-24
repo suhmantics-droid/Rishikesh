@@ -11,6 +11,7 @@ import { config, configSource, SETTINGS } from "@/lib/config";
 import { db } from "@/lib/db";
 import { formatDayLong, todayIST } from "@/lib/dates";
 import { payMode } from "@/lib/payments";
+import { starterStatus } from "@/lib/starter";
 import { area, rupees } from "@/lib/site";
 import { flyerUrl } from "@/lib/util";
 import {
@@ -21,6 +22,7 @@ import {
   extendFree,
   logout,
   publishCash,
+  publishStarter,
   reject,
   resolveReport,
   runDailyJobs,
@@ -160,8 +162,47 @@ function Queue({ today }: { today: string }) {
     .prepare("SELECT r.id, r.reason, r.created_at, e.id AS event_id, e.title, e.slug FROM reports r JOIN events e ON e.id = r.event_id WHERE r.resolved = 0 ORDER BY r.created_at")
     .all() as Record<string, string | number>[];
 
+  const starter = starterStatus();
+  const ready = starter.filter((s) => s.state === "ready");
+
   return (
     <div className="grid gap-8">
+      {starter.some((s) => s.state !== "imported") ? (
+        <section className="rounded-2xl border border-ganga/40 bg-ganga-soft/40 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-xl font-semibold">Starter flyers ({ready.length} ready)</h2>
+              <p className="text-sm text-muted">Real flyers from Tapovan walls, straightened and checked. Publish them free so the board isn&apos;t empty on day one.</p>
+            </div>
+            {ready.length ? (
+              <form action={publishStarter}>
+                <button className={btnDark}>Publish all {ready.length}</button>
+              </form>
+            ) : null}
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {starter.map((s) => (
+              <li key={s.key} className="flex gap-3 rounded-xl border border-line bg-card p-2 text-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/admin/starter/${s.image}`} alt="" loading="lazy" className="h-20 w-16 shrink-0 rounded object-cover object-top" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold">{s.title}</p>
+                  <p className="text-muted">
+                    {s.state === "ready" ? "Ready" : s.state === "imported" ? "✓ Published" : s.state === "past" ? "Already happened — skipped" : "No dates on the flyer"}
+                  </p>
+                  {s.note && s.state !== "past" ? <p className="mt-0.5 text-xs text-saffron-ink">{s.note}</p> : null}
+                </div>
+                {s.state === "ready" ? (
+                  <form action={publishStarter} className="self-center">
+                    <input type="hidden" name="key" value={s.key} />
+                    <button className={btn}>Publish</button>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section>
         <h2 className="mb-2 font-display text-xl font-semibold">Waiting for payment confirmation ({submitted.length})</h2>
         {submitted.length === 0 ? <p className="text-sm text-muted">Nothing waiting. 🎉</p> : null}

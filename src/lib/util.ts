@@ -79,9 +79,11 @@ export function googleMapsLink(v: { name: string; lat: number | null; lng: numbe
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 
-export function directionsLink(v: { lat: number | null; lng: number | null; name: string }) {
-  if (v.lat == null || v.lng == null) return googleMapsLink(v);
-  return `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}&travelmode=walking`;
+export function directionsLink(v: { lat: number | null; lng: number | null; name: string; coords_verified?: number }) {
+  // Until a pin is checked, route to the place by name: Google knows most Tapovan cafes and studios.
+  const destination =
+    v.lat != null && v.lng != null && v.coords_verified ? `${v.lat},${v.lng}` : encodeURIComponent(`${v.name}, Tapovan, Rishikesh`);
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`;
 }
 
 /** Tiny fixed-window rate limiter, per process. Good enough for one server. */

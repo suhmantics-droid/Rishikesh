@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { FlyerGrid } from "@/components/FlyerCard";
 import { FollowButton } from "@/components/Follow";
 import { MiniMap } from "@/components/MiniMap";
-import { getVenue, getWhatsOn } from "@/lib/data";
+import { getVenue, getWhatsOn, pinEvent } from "@/lib/data";
 import { area } from "@/lib/site";
 import { directionsLink, instagramHandle } from "@/lib/util";
 
@@ -58,7 +58,7 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
           )}
         </div>
         {v.lat != null && v.lng != null ? (
-          <MiniMap className="h-72 lg:sticky lg:top-20" today={today} pins={[{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, events: wall.map((e) => ({ slug: e.slug, title: e.title, category: e.category, date: e.next.date, start_time: e.next.start_time })) }]} />
+          <MiniMap className="h-72 lg:sticky lg:top-20" today={today} pins={[{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, events: wall.map((e) => pinEvent(e, e.next)) }]} />
         ) : null}
       </div>
     </div>

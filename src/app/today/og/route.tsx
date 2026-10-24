@@ -8,7 +8,9 @@ import { category, SITE } from "@/lib/site";
 // already shows what's on. The page links here with ?d=<date> so chat apps don't reuse yesterday's.
 export async function GET() {
   const { agenda, today } = await getWhatsOn({ when: "today" });
-  const items = agenda.slice(0, 6);
+  // Events lead; class timetables only fill spare rows.
+  const ordered = [...agenda.filter((e) => e.kind !== "classes"), ...agenda.filter((e) => e.kind === "classes")];
+  const items = ordered.slice(0, 6);
   return new ImageResponse(
     (
       <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", background: OG.paper, padding: "44px 64px", flexDirection: "column", fontFamily: "Inter" }}>
@@ -32,7 +34,7 @@ export async function GET() {
               <div key={`${e.id}-${e.occ.start_time}`} style={{ display: "flex", alignItems: "center", gap: 20, background: OG.card, border: `2px solid ${OG.line}`, borderRadius: 18, padding: "10px 22px" }}>
                 <span style={{ width: 120, fontSize: 28, fontWeight: 700, color: OG.ink }}>{formatTime(e.occ.start_time) || "All day"}</span>
                 <span style={{ width: 14, height: 14, borderRadius: 7, background: category(e.category).color }} />
-                <span style={{ flex: 1, fontSize: 30, fontWeight: 700, color: OG.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{e.title}</span>
+                <span style={{ flex: 1, fontSize: 30, fontWeight: 700, color: OG.ink, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{e.occ.label ?? e.title}</span>
                 <span style={{ fontSize: 24, color: OG.muted, maxWidth: 330, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{e.venue.name}</span>
               </div>
             ))

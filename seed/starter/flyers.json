@@ -1,0 +1,262 @@
+{
+  "about": "Flyers photographed on Tapovan walls in October 2026, straightened and checked by hand. Admin → To do → Starter flyers publishes the ones that are still upcoming.",
+  "flyers": [
+    {
+      "key": "wonderground-2026",
+      "image": "wonderground.webp",
+      "venue": "maharani-shri",
+      "listing": {
+        "title": "Wonderground Festival 2026",
+        "description": "A two-day conscious and arts festival: yoga, breathwork, conscious movement, sound bath, art therapy, Akashic reading, kirtan and ecstatic dance, with South Indian food and healthy snacks all day. Day passes and full festival passes; limited spots.",
+        "category": "market",
+        "kind": "event",
+        "dates": [
+          { "date": "2026-10-24", "start_time": "08:30", "end_time": "21:00" },
+          { "date": "2026-10-25", "start_time": "08:30", "end_time": "21:00" }
+        ],
+        "price_type": "paid",
+        "price_min": 1500,
+        "price_note": "Early bird; day pass or full festival pass",
+        "contact_phone": "+91 78950 38977",
+        "contact_instagram": "wonderground_fest",
+        "booking_url": "https://wondergroundthefestival.com",
+        "links": [{ "kind": "website", "url": "https://wondergroundthefestival.com/" }],
+        "organiser_name": "Wonderground"
+      },
+      "note": "The phone number is handwritten on the flyer, for cash payments."
+    },
+    {
+      "key": "natraj-kathak-2026-10-25",
+      "image": "natraj-kathak.webp",
+      "venue": { "slug": "natraj-nritya-niketan", "name": "Natraj Nritya Niketan", "area": "other", "address": "Rishikesh — call for the venue" },
+      "listing": {
+        "title": "The Indian Classical Dance Festival",
+        "description": "A Kathak and Indian classical dance festival by Natraj Nritya Niketan, the Rishikesh school for Kathak, semi-classical dance, dance workshops and wedding choreography. Tickets and passes available — call to book.",
+        "category": "dance",
+        "kind": "event",
+        "dates": [{ "date": "2026-10-25", "start_time": "10:00", "end_time": null }],
+        "price_type": "unknown",
+        "price_note": "Tickets and passes available",
+        "contact_phone": "+91 78953 36541",
+        "organiser_name": "Natraj Nritya Niketan"
+      },
+      "note": "The flyer doesn't say where in Rishikesh. Ask them (+91 78953 36541) and set the venue."
+    },
+    {
+      "key": "aarcana-full-moon-2026-10-25",
+      "image": "aarcana-ecstatic.webp",
+      "venue": "aarcana-cafe",
+      "listing": {
+        "title": "Full Moon Morning: Ecstatic Dance & Cacao Ceremony",
+        "description": "Movement, body and mind alignment, vocal activation, flower holi and a sound journey.",
+        "category": "dance",
+        "kind": "event",
+        "dates": [{ "date": "2026-10-25", "start_time": "10:00", "end_time": "14:00" }],
+        "price_type": "paid",
+        "price_min": 500,
+        "price_note": "Energy exchange",
+        "links": [{ "kind": "whatsapp-group", "url": "https://chat.whatsapp.com/FYp2Fq1kooAEfbWBrX5aX4?s=qs&p=i&mlu=4&ilr=4" }],
+        "organiser_name": "Aarcana"
+      }
+    },
+    {
+      "key": "interreligious-concert-2026-10-31",
+      "image": "interreligious-concert.webp",
+      "venue": "ajatananda-ashram",
+      "listing": {
+        "title": "Interreligious Concert: Truth Is One, Paths Are Many",
+        "description": "Voices from many traditions in a shared celebration of the divine, on the bank of the Ganga. Free event with free snacks — all are welcome.",
+        "category": "music",
+        "kind": "event",
+        "dates": [{ "date": "2026-10-31", "start_time": "18:00", "end_time": "21:00" }],
+        "price_type": "free",
+        "booking_url": "https://ajatananda.org/interreligious-concert-31-oct-2026/",
+        "links": [{ "kind": "website", "url": "https://ajatananda.org/interreligious-concert-31-oct-2026/" }],
+        "organiser_name": "Ajatananda Ashram"
+      }
+    },
+    {
+      "key": "tapashala-timetable-2026-10",
+      "image": "tapashala.webp",
+      "venue": "tapashala",
+      "listing": {
+        "title": "Tapashala drop-in classes",
+        "description": "Drop-in yoga, pranayama, kundalini, sound healing and bhakti music, Monday to Saturday. Pre-booking only: reserve your spot at least 2 hours ahead with the QR code or at reception. Free community bhakti kirtan on Friday and Saturday evenings.",
+        "category": "yoga",
+        "kind": "classes",
+        "sessions": [
+          { "days": [1, 2, 4, 5], "start_time": "07:00", "end_time": "08:15", "label": "Divine Kundalini Yoga (with Prana Kriya)" },
+          { "days": [3, 6], "start_time": "07:00", "end_time": "08:15", "label": "Traditional Pranayama" },
+          { "days": [1, 2, 3, 4, 5, 6], "start_time": "08:00", "end_time": "09:30", "label": "Hatha Vinyasa" },
+          { "days": [1, 2, 3, 4, 5, 6], "start_time": "08:30", "end_time": "10:00", "label": "Traditional Hatha Yoga" },
+          { "days": [1, 2, 3, 4, 5], "start_time": "14:00", "end_time": "15:30", "label": "Bhakti Music Immersion" },
+          { "days": [6], "start_time": "14:00", "end_time": "15:30", "label": "Weekend Workshop" },
+          { "days": [1, 3, 5], "start_time": "16:00", "end_time": "17:30", "label": "Hatha Therapeutics (props & alignment)" },
+          { "days": [2, 4, 6], "start_time": "16:00", "end_time": "17:30", "label": "Hatha Flow" },
+          { "days": [1], "start_time": "16:15", "end_time": "17:45", "label": "Master Class: Body Opening" },
+          { "days": [2, 5], "start_time": "16:15", "end_time": "17:45", "label": "Vinyasa Yoga" },
+          { "days": [3], "start_time": "16:15", "end_time": "17:45", "label": "Master Class: Hip Opening" },
+          { "days": [4], "start_time": "16:15", "end_time": "17:45", "label": "Master Class: Back Bending" },
+          { "days": [6], "start_time": "16:15", "end_time": "17:45", "label": "Master Class: Arm Balancing & Inversion" },
+          { "days": [1, 5], "start_time": "18:15", "end_time": "19:15", "label": "Himalayan Singing Bowl & Gong Bath" },
+          { "days": [2, 4, 6], "start_time": "18:15", "end_time": "19:15", "label": "Yin Yoga & Sound Healing" },
+          { "days": [3], "start_time": "18:15", "end_time": "19:15", "label": "Divine Kundalini Kriya with Gong Bath" },
+          { "days": [1], "start_time": "19:30", "end_time": "20:45", "label": "Kundalini Awakening Meditation" },
+          { "days": [2], "start_time": "19:30", "end_time": "20:45", "label": "Mantra Meditation" },
+          { "days": [3], "start_time": "19:30", "end_time": "20:45", "label": "Healing Yoga Nidra" },
+          { "days": [4], "start_time": "19:30", "end_time": "20:45", "label": "Bhakti Sound Journey" },
+          { "days": [5, 6], "start_time": "19:30", "end_time": "20:45", "label": "Bhakti Kirtan — free community event" }
+        ],
+        "price_type": "unknown",
+        "price_note": "Pre-booking only",
+        "artists": ["Avtar Ji", "Deepak Ji", "Sachin Ji", "Jayant Ji", "Siddha Ji", "Tulika Ji"],
+        "contact_phone": "+91 89234 63610",
+        "contact_instagram": "tapashala.rishikesh",
+        "booking_url": "https://www.tapashala.com",
+        "links": [
+          { "kind": "whatsapp", "url": "https://wa.me/message/KRYUXMFXVFXDO1?src=qr" },
+          { "kind": "form", "url": "https://docs.google.com/forms/d/e/1FAIpQLSeM5BZqzLCqFYhAixdSpA_3XlOvcopCgOs5s67XpX2Wk2SpTA/viewform?usp=publish-editor" },
+          { "kind": "map", "url": "https://maps.app.goo.gl/8z3iTPWDy7LTff8e9?g_st=aw" }
+        ],
+        "organiser_name": "Tapashala"
+      },
+      "note": "The Google Maps link from their QR code has Tapashala's exact spot: open it and fix the pin under Venues & pins."
+    },
+    {
+      "key": "divine-circle-daily-2026-10",
+      "image": "divine-circle.webp",
+      "venue": "divine-circle",
+      "listing": {
+        "title": "Divine Circle daily classes",
+        "description": "Every day: Morning Recharge meditation (somatic awakening and mental clarity) and a hatha yoga flow for all levels. Every Thursday and Sunday: Drum-Dance-Dissolve, ecstatic dance with drums and handpan.",
+        "category": "yoga",
+        "kind": "classes",
+        "sessions": [
+          { "days": [0, 1, 2, 3, 4, 5, 6], "start_time": "07:45", "end_time": "08:45", "label": "Meditation: Morning Recharge" },
+          { "days": [0, 1, 2, 3, 4, 5, 6], "start_time": "09:00", "end_time": "10:30", "label": "Yoga Flow (hatha, all levels)" },
+          { "days": [4, 0], "start_time": "15:30", "end_time": "16:30", "label": "Drum-Dance-Dissolve (ecstatic dance)" }
+        ],
+        "price_type": "paid",
+        "price_min": 500,
+        "price_max": 1000,
+        "price_note": "₹500 a class; Drum-Dance-Dissolve ₹1,000",
+        "contact_phone": "+91 93171 43239",
+        "booking_url": "https://forms.gle/yDcfWK8K1bANLdzh7",
+        "links": [
+          { "kind": "form", "url": "https://forms.gle/yDcfWK8K1bANLdzh7" },
+          { "kind": "website", "url": "https://divinecircle.org/" }
+        ],
+        "organiser_name": "Divine Circle"
+      }
+    },
+    {
+      "key": "antara-hatha-2026-10",
+      "image": "antara-hatha.webp",
+      "venue": "antara-yoga",
+      "listing": {
+        "title": "Hatha Yoga at Antara Yoga",
+        "description": "Stillness in movement. Hatha for all levels in the morning; an intermediate hatha vinyasa flow in the afternoon. Your first session is free this October — book in advance.",
+        "category": "yoga",
+        "kind": "classes",
+        "sessions": [
+          { "days": [0, 1, 2, 3, 4, 5, 6], "start_time": "07:00", "end_time": "08:30", "label": "Hatha (all levels)" },
+          { "days": [0, 1, 2, 3, 4, 5, 6], "start_time": "16:30", "end_time": "18:00", "label": "Hatha Vinyasa Flow (intermediate)" }
+        ],
+        "price_type": "unknown",
+        "price_note": "First session free in October",
+        "contact_phone": "+91 99031 31596",
+        "booking_url": "https://www.antarayoga.org",
+        "organiser_name": "Antara Yoga"
+      },
+      "note": "The flyer doesn't say which days — this is set to every day. Check with them."
+    },
+    {
+      "key": "nomadic-plate-evening-retreat-2026-10",
+      "image": "nomadic-plate.webp",
+      "venue": "nomadic-plate-cafe",
+      "listing": {
+        "title": "Evening Retreat at Nomadic Plate Cafe",
+        "description": "Herbal tea time (5:30–6:30pm), a guided hatha yoga session for all levels (6:30–8pm), then an authentic Indian thali with Pahadi flavours (8–9pm). Tuesday to Saturday; closed Mondays.",
+        "category": "yoga",
+        "kind": "classes",
+        "sessions": [{ "days": [2, 3, 4, 5, 6], "start_time": "17:30", "end_time": "21:00", "label": "Evening Retreat: herbal tea, hatha yoga & dinner" }],
+        "price_type": "paid",
+        "price_min": 499,
+        "price_note": "per person, dinner included",
+        "contact_phone": "+91 72518 83090",
+        "organiser_name": "Nomadic Plate Cafe"
+      }
+    },
+    {
+      "key": "ascend-space-timetable-2026-10",
+      "image": "ascend-space.webp",
+      "venue": "ascend-space",
+      "listing": {
+        "title": "Ascend Space martial arts classes",
+        "description": "MMA gym open 9am–9pm, beginners welcome. Group classes at 11am, Wednesday to Sunday. Also 1:1 private lessons and sports massage (pre-book), sauna and ice bath.",
+        "category": "fitness",
+        "kind": "classes",
+        "sessions": [
+          { "days": [3], "start_time": "11:00", "end_time": null, "label": "Jiu-Jitsu & Movement" },
+          { "days": [4, 6], "start_time": "11:00", "end_time": null, "label": "DYOT (Discipline Your Own Temple)" },
+          { "days": [5], "start_time": "11:00", "end_time": null, "label": "Boxing / Kickboxing / Muay Thai" },
+          { "days": [0], "start_time": "11:00", "end_time": null, "label": "Sparring" }
+        ],
+        "price_type": "unknown",
+        "contact_phone": "+91 79837 09998",
+        "contact_instagram": "mma_rishikesh",
+        "organiser_name": "Ascend Space"
+      },
+      "note": "No address on the flyer — the pin is a guess. Ask them and fix it under Venues & pins."
+    },
+    {
+      "key": "prakruti-kirtan-2026-10-23",
+      "image": "prakruti-kirtan.webp",
+      "venue": "prakruti-yogashala",
+      "listing": {
+        "title": "Live Kirtan",
+        "description": "An evening of soulful kirtan, sacred chants, live music and divine vibrations. Amarjeet (vocal, harmonium), Prabhat (flute, vocal), Abhinav (guitar) and Hunny (percussion).",
+        "category": "kirtan",
+        "kind": "event",
+        "dates": [{ "date": "2026-10-23", "start_time": "18:00", "end_time": "20:00" }],
+        "price_type": "unknown",
+        "artists": ["Amarjeet", "Prabhat", "Abhinav", "Hunny"],
+        "contact_instagram": "music.amarjeet",
+        "organiser_name": "Prakruti Yogashala"
+      }
+    },
+    {
+      "key": "aavya-garba-2026-10-20",
+      "image": "aavya-garba.webp",
+      "venue": "aavya",
+      "listing": {
+        "title": "Garba & Dandiya",
+        "description": "Dress in your festive best this Dussehra and dance the evening away at Aavya.",
+        "category": "dance",
+        "kind": "event",
+        "dates": [{ "date": "2026-10-20", "start_time": "18:00", "end_time": null }],
+        "price_type": "paid",
+        "price_min": 300,
+        "price_note": "Entry",
+        "contact_phone": "+91 98211 72784",
+        "organiser_name": "Aavya"
+      }
+    },
+    {
+      "key": "anandmaya-vedic-astrology",
+      "image": "anandmaya-astrology.webp",
+      "venue": { "slug": "anandmaya-retreat", "name": "Anandmaya Retreat", "area": "other", "address": "Rishikesh — enquire on WhatsApp" },
+      "listing": {
+        "title": "7-Day Foundation Course in Vedic Astrology",
+        "description": "Learn with Ashish: the fundamentals (planets, signs, houses, aspects and yogas), reading birth charts, past-life debts and karmic patterns, and simple remedies. Small batch, personalised guidance, certificate provided.",
+        "category": "course",
+        "kind": "event",
+        "dates": [],
+        "price_type": "unknown",
+        "artists": ["Ashish"],
+        "organiser_name": "Anandmaya Retreat"
+      },
+      "note": "No dates on the flyer. Ask them for the next batch's dates, then post it."
+    }
+  ]
+}

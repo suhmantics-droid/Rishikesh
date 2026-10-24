@@ -183,13 +183,14 @@ export async function sendDailyDigests() {
   const today = todayIST();
   const items = db()
     .prepare(
-      `SELECT e.id, e.slug, e.title, e.category, e.price_type, e.price_min, e.price_max, e.price_note,
+      `SELECT e.id, e.slug, e.title, e.category, e.kind, e.price_type, e.price_min, e.price_max, e.price_note,
               d.start_time, d.end_time, v.name AS venue
        FROM event_dates d JOIN events e ON e.id = d.event_id JOIN venues v ON v.id = e.venue_id
        WHERE e.status = 'live' AND e.live_until >= @today AND d.date = @today AND e.is_demo = 0
        ORDER BY COALESCE(d.start_time, '99:99')`,
     )
     .all({ today }) as {
+    kind: string;
     slug: string;
     title: string;
     category: string;
@@ -201,11 +202,14 @@ export async function sendDailyDigests() {
     end_time: string | null;
     venue: string;
   }[];
-  if (items.length === 0) return 0;
+  // The digest lists events; regular classes are summed up in one line so they don't swamp it.
+  const events = items.filter((i) => i.kind !== "classes");
+  const classes = items.length - events.length;
+  if (events.length === 0) return 0;
   const subs = db()
     .prepare("SELECT * FROM subscribers WHERE confirmed = 1 AND daily_digest = 1 AND (last_digest_on IS NULL OR last_digest_on < ?)")
     .all(today) as Subscriber[];
-  const list = items
+  const list = events
     .map(
       (i) => `<tr><td style="padding:6px 8px 6px 0;white-space:nowrap;vertical-align:top;color:#6b655a">${formatTimeRange(i.start_time, i.end_time) || "All day"}</td>
         <td style="padding:6px 0"><a href="${abs(`/e/${i.slug}`)}" style="color:#1d1b16;font-weight:700">${escapeHtml(i.title)}</a><br>
@@ -215,8 +219,12 @@ export async function sendDailyDigests() {
   for (const s of subs) {
     await sendEmail(
       s.email,
-      `Today in Tapovan: ${items.length} thing${items.length === 1 ? "" : "s"} on`,
-      emailLayout(`What's on today · ${formatDayLong(today)}`, `<table style="width:100%;border-collapse:collapse">${list}</table>${button(abs("/?when=today"), "Open the map")}`, `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these emails</a>`),
+      `Today in Tapovan: ${events.length} thing${events.length === 1 ? "" : "s"} on`,
+      emailLayout(
+        `What's on today · ${formatDayLong(today)}`,
+        `<table style="width:100%;border-collapse:collapse">${list}</table>${classes ? `<p style="color:#6b655a">Plus ${classes} drop-in class${classes === 1 ? "" : "es"} — <a href="${abs("/today")}">see today's timetables</a>.</p>` : ""}${button(abs("/?when=today"), "Open the map")}`,
+        `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these emails</a>`,
+      ),
     );
     db().prepare("UPDATE subscribers SET last_digest_on = ? WHERE id = ?").run(today, s.id);
   }

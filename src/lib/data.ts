@@ -5,7 +5,10 @@
 import { connection } from "next/server";
 import { db } from "./db";
 import { nowTimeIST, todayIST, whenRange } from "./dates";
+import { parseSchedule, type Schedule } from "./listings";
+import type { FlyerLink } from "./links";
 import { TIME_OPTIONS } from "./site";
+import { priceShort } from "./util";
 
 export type Venue = {
   id: number;
@@ -24,13 +27,16 @@ export type Venue = {
 
 export type Artist = { id: number; slug: string; name: string; instagram: string | null; is_demo: number };
 
-export type Occurrence = { date: string; start_time: string | null; end_time: string | null };
+export type Occurrence = { date: string; start_time: string | null; end_time: string | null; label?: string | null };
 
 export type EventCard = {
   id: number;
   slug: string;
   title: string;
   category: string;
+  kind: "event" | "classes";
+  /** Weekdays with sessions (classes only), for "Daily" / "Mon–Sat" labels. */
+  days: number[];
   flyer: string | null;
   flyer_w: number | null;
   flyer_h: number | null;
@@ -54,7 +60,20 @@ export type MapPin = {
   area: string;
   lat: number;
   lng: number;
-  events: { slug: string; title: string; category: string; date: string; start_time: string | null }[];
+  events: {
+    slug: string;
+    title: string;
+    category: string;
+    kind: "event" | "classes";
+    days: number[];
+    flyer: string | null;
+    flyer_w: number | null;
+    flyer_h: number | null;
+    price: string;
+    date: string;
+    start_time: string | null;
+    label: string | null;
+  }[];
 };
 
 export type Filters = {
@@ -100,13 +119,47 @@ function artistsFor(eventIds: number[]) {
   return map;
 }
 
-function toCard(r: Row, artists: Map<number, { slug: string; name: string }[]>): AgendaItem {
-  const occ = { date: r.date as string, start_time: r.start_time as string | null, end_time: r.end_time as string | null };
+export type PinEvent = MapPin["events"][number];
+
+/** A flyer as the map shows it, at its next session. */
+export function pinEvent(e: Omit<EventCard, "venue" | "artists" | "next" | "dates_in_range" | "id" | "featured" | "is_demo">, at: Occurrence): PinEvent {
   return {
-    id: r.id as number,
+    slug: e.slug,
+    title: e.title,
+    category: e.category,
+    kind: e.kind,
+    days: e.days,
+    flyer: e.flyer,
+    flyer_w: e.flyer_w,
+    flyer_h: e.flyer_h,
+    price: priceShort(e),
+    date: at.date,
+    start_time: at.start_time,
+    label: at.label ?? null,
+  };
+}
+
+/** Weekdays a listing's sessions fall on. */
+export function scheduleDays(schedule: Schedule | null): number[] {
+  return [...new Set((schedule?.sessions ?? []).flatMap((x) => x.days))].sort();
+}
+
+function toCard(r: Row, artists: Map<number, { slug: string; name: string }[]>, days: Map<number, number[]>): AgendaItem {
+  const occ = {
+    date: r.date as string,
+    start_time: r.start_time as string | null,
+    end_time: r.end_time as string | null,
+    label: (r.label as string | null) ?? null,
+  };
+  const id = r.id as number;
+  if (!days.has(id)) days.set(id, scheduleDays(parseSchedule(r.schedule as string | null)));
+  return {
+    id,
     slug: r.slug as string,
     title: r.title as string,
     category: r.category as string,
+    kind: r.kind === "classes" ? "classes" : "event",
+    days: days.get(id)!,
     flyer: r.flyer as string | null,
     flyer_w: r.flyer_w as number | null,
     flyer_h: r.flyer_h as number | null,
@@ -173,25 +226,26 @@ export function queryWhatsOn(f: Filters, today: string, now: string) {
     params.tto = time.to;
   }
   if (f.q && f.q.trim()) {
-    where.push(`(e.title LIKE @q OR e.description LIKE @q OR v.name LIKE @q OR EXISTS (
+    where.push(`(e.title LIKE @q OR e.description LIKE @q OR v.name LIKE @q OR d.label LIKE @q OR EXISTS (
       SELECT 1 FROM event_artists ea JOIN artists a ON a.id = ea.artist_id WHERE ea.event_id = e.id AND a.name LIKE @q))`);
     params.q = `%${f.q.trim()}%`;
   }
   const rows = (db()
     .prepare(
-      `SELECT e.*, d.date, d.start_time, d.end_time,
+      `SELECT e.*, d.date, d.start_time, d.end_time, d.label,
               v.slug AS v_slug, v.name AS v_name, v.area AS v_area, v.lat AS v_lat, v.lng AS v_lng
        FROM event_dates d
        JOIN events e ON e.id = d.event_id
        JOIN venues v ON v.id = e.venue_id
        WHERE ${where.join(" AND ")}
        ORDER BY d.date, COALESCE(d.start_time, '99:99'), e.featured DESC, e.id
-       LIMIT 1000`,
+       LIMIT 3000`,
     )
     .all(params) as Row[]).filter((r) => !isOver(r as unknown as Occurrence, today, now));
 
   const artists = artistsFor([...new Set(rows.map((r) => r.id as number))]);
-  const agenda = rows.map((r) => toCard(r, artists));
+  const days = new Map<number, number[]>();
+  const agenda = rows.map((r) => toCard(r, artists, days));
 
   const byEvent = new Map<number, AgendaItem>();
   for (const item of agenda) {
@@ -199,9 +253,11 @@ export function queryWhatsOn(f: Filters, today: string, now: string) {
     if (existing) existing.dates_in_range++;
     else byEvent.set(item.id, { ...item });
   }
+  // One-off events first: they're what people miss. Regular classes follow.
   const wall = [...byEvent.values()].sort(
     (a, b) =>
       b.featured - a.featured ||
+      Number(a.kind === "classes") - Number(b.kind === "classes") ||
       a.next.date.localeCompare(b.next.date) ||
       (a.next.start_time ?? "99").localeCompare(b.next.start_time ?? "99"),
   );
@@ -217,9 +273,7 @@ export function queryWhatsOn(f: Filters, today: string, now: string) {
       lng: item.venue.lng,
       events: [],
     };
-    if (!pin.events.some((e) => e.slug === item.slug)) {
-      pin.events.push({ slug: item.slug, title: item.title, category: item.category, date: item.occ.date, start_time: item.occ.start_time });
-    }
+    if (!pin.events.some((e) => e.slug === item.slug)) pin.events.push(pinEvent(item, item.occ));
     pins.set(item.venue.slug, pin);
   }
 
@@ -233,6 +287,9 @@ export type EventDetail = {
     title: string;
     description: string | null;
     category: string;
+    kind: string;
+    schedule: string | null;
+    links: string | null;
     flyer: string | null;
     flyer_w: number | null;
     flyer_h: number | null;
@@ -257,8 +314,19 @@ export type EventDetail = {
   venue: Venue;
   dates: Occurrence[];
   artists: Artist[];
+  schedule: Schedule | null;
+  links: FlyerLink[];
   isLive: boolean;
 };
+
+export function parseLinks(json: string | null | undefined): FlyerLink[] {
+  if (!json) return [];
+  try {
+    return JSON.parse(json) as FlyerLink[];
+  } catch {
+    return [];
+  }
+}
 
 function loadDetail(where: string, value: string | number): EventDetail | null {
   const event = db().prepare(`SELECT * FROM events WHERE ${where} = ?`).get(value) as EventDetail["event"] | undefined;
@@ -266,13 +334,13 @@ function loadDetail(where: string, value: string | number): EventDetail | null {
   const today = todayIST();
   const venue = db().prepare("SELECT * FROM venues WHERE id = ?").get(event.venue_id) as Venue;
   const dates = db()
-    .prepare("SELECT date, start_time, end_time FROM event_dates WHERE event_id = ? ORDER BY date, start_time")
+    .prepare("SELECT date, start_time, end_time, label FROM event_dates WHERE event_id = ? ORDER BY date, start_time")
     .all(event.id) as Occurrence[];
   const artists = db()
     .prepare("SELECT a.* FROM event_artists ea JOIN artists a ON a.id = ea.artist_id WHERE ea.event_id = ? ORDER BY a.name")
     .all(event.id) as Artist[];
   const isLive = event.status === "live" && !!event.live_until && event.live_until >= today;
-  return { event, venue, dates, artists, isLive };
+  return { event, venue, dates, artists, schedule: parseSchedule(event.schedule), links: parseLinks(event.links), isLive };
 }
 
 export async function getEventBySlug(slug: string) {

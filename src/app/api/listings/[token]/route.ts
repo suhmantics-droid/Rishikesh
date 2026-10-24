@@ -6,13 +6,15 @@ import { ListingError, ListingInput, updateListing } from "@/lib/listings";
 export async function GET(_req: Request, ctx: RouteContext<"/api/listings/[token]">) {
   const d = await getEventByToken((await ctx.params).token);
   if (!d) return Response.json({ error: "Not found" }, { status: 404 });
-  const { event, venue, dates, artists } = d;
+  const { event, venue, dates, artists, schedule, links } = d;
   return Response.json({
     uploadId: event.flyer,
     title: event.title,
     description: event.description,
     category: event.category,
-    dates,
+    kind: event.kind,
+    // Listings made before schedules were stored only have their generated dates.
+    schedule: schedule ?? { dates, sessions: [], until: null },
     venue: { slug: venue.slug },
     price_type: event.price_type,
     price_min: event.price_min,
@@ -22,6 +24,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/listings/[token
     contact_phone: event.contact_phone,
     contact_instagram: event.contact_instagram,
     booking_url: event.booking_url,
+    links,
     organiser_name: event.organiser_name,
     organiser_email: event.organiser_email,
   });

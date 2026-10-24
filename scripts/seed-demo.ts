@@ -8,7 +8,8 @@ import sharp from "sharp";
 import { db } from "../src/lib/db";
 import { addDays, todayIST, weekday } from "../src/lib/dates";
 import { saveFlyer } from "../src/lib/images";
-import { createListing, publishOrRenew, type ListingInputT } from "../src/lib/listings";
+import { createListing, ListingInput, publishOrRenew } from "../src/lib/listings";
+import type { z } from "zod";
 
 const today = todayIST();
 const nextWd = (wd: number) => {
@@ -42,7 +43,7 @@ type Demo = {
   price: string;
   venue: string;
   style: number;
-  input: Omit<ListingInputT, "uploadId" | "venue" | "organiser_email" | "title"> & { title?: string };
+  input: Omit<z.input<typeof ListingInput>, "uploadId" | "venue" | "organiser_email" | "title"> & { title?: string };
   featured?: boolean;
 };
 
@@ -58,7 +59,7 @@ const DEMOS: Demo[] = [
     price: "BY DONATION",
     venue: "demo-moonbeam",
     style: 0,
-    input: { category: "music", dates: [], weekly: { days: [4, 0], start_time: "18:00", end_time: "21:00", until: addDays(today, 27) }, price_type: "donation", artists: ["The River Drifters"], description: "Open circle jam on the rooftop as the sun drops behind the hills. Guitars, djembes and handpans welcome.", contact_phone: "+91 98765 43210" },
+    input: { category: "music", dates: [], sessions: [{ days: [4, 0], start_time: "18:00", end_time: "21:00" }], repeat_until: addDays(today, 27), price_type: "donation", artists: ["The River Drifters"], description: "Open circle jam on the rooftop as the sun drops behind the hills. Guitars, djembes and handpans welcome.", contact_phone: "+91 98765 43210" },
     featured: true,
   },
   {
@@ -87,7 +88,7 @@ const DEMOS: Demo[] = [
     price: "FREE",
     venue: "demo-banyan",
     style: 3,
-    input: { category: "kirtan", dates: [], weekly: { days: [6], start_time: "19:30", end_time: "21:30", until: addDays(today, 27) }, price_type: "free", artists: ["Mantra Collective"], description: "Call-and-response chanting with harmonium and mridangam. Song sheets provided." },
+    input: { category: "kirtan", dates: [], sessions: [{ days: [6], start_time: "19:30", end_time: "21:30" }], repeat_until: addDays(today, 27), price_type: "free", artists: ["Mantra Collective"], description: "Call-and-response chanting with harmonium and mridangam. Song sheets provided." },
   },
   {
     title: "Open Mic Night",
@@ -141,7 +142,7 @@ const DEMOS: Demo[] = [
     price: "DONATION",
     venue: "demo-banyan",
     style: 4,
-    input: { category: "talk", dates: [], weekly: { days: [0, 1, 2, 3, 4, 5, 6], start_time: "07:00", end_time: "08:00", until: addDays(today, 10) }, price_type: "donation", artists: [] },
+    input: { category: "talk", dates: [], sessions: [{ days: [0, 1, 2, 3, 4, 5, 6], start_time: "07:00", end_time: "08:00" }], repeat_until: addDays(today, 10), price_type: "donation", artists: [] },
   },
   {
     title: "Forest Psytrance Gathering",
@@ -248,14 +249,16 @@ async function main() {
     const venue = VENUES.find((v) => v.slug === demo.venue)!;
     const png = await sharp(Buffer.from(flyerSvg(demo, venue.name))).png().toBuffer();
     const up = await saveFlyer(png);
-    const { id } = createListing({
-      ...demo.input,
-      title: demo.title,
-      uploadId: up.id,
-      venue: { slug: venue.slug },
-      organiser_email: "demo@example.com",
-      organiser_name: "Sample organiser",
-    } as ListingInputT);
+    const { id } = createListing(
+      ListingInput.parse({
+        ...demo.input,
+        title: demo.title,
+        uploadId: up.id,
+        venue: { slug: venue.slug },
+        organiser_email: "demo@example.com",
+        organiser_name: "Sample organiser",
+      }),
+    );
     publishOrRenew(id);
     d.prepare("UPDATE events SET is_demo = 1, featured = ?, views = ? WHERE id = ?").run(demo.featured ? 1 : 0, 20 + Math.floor(Math.random() * 300), id);
     d.prepare("UPDATE artists SET is_demo = 1 WHERE id IN (SELECT artist_id FROM event_artists WHERE event_id = ?)").run(id);

@@ -108,7 +108,7 @@ export function formatTimeRange(start?: string | null, end?: string | null): str
 }
 
 /** Expands "every Tue and Sat until X" into concrete dates (capped). */
-export function expandWeekly(start: string, until: string, days: number[], max = 60): string[] {
+export function expandWeekly(start: string, until: string, days: number[], max = 400): string[] {
   const out: string[] = [];
   let d = start;
   while (d <= until && out.length < max) {
@@ -116,4 +116,26 @@ export function expandWeekly(start: string, until: string, days: number[], max =
     d = addDays(d, 1);
   }
   return out;
+}
+
+// Weekdays in display order (Monday first), as 0 = Sunday … 6 = Saturday.
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+export const WEEKDAY_SHORT = WD;
+export const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** "Daily", "Mon–Sat", "Wed–Sun", "Thu & Sun", "Mon, Wed & Fri" for a set of weekdays. */
+export function daysLabel(days: number[]): string {
+  const set = new Set(days.filter((d) => d >= 0 && d <= 6));
+  if (set.size === 0) return "";
+  if (set.size === 7) return "Daily";
+  const order = WEEK_ORDER.filter((d) => set.has(d));
+  // A run of three or more consecutive days (Monday-first, wrapping past Sunday) reads as a range.
+  if (order.length >= 3) {
+    for (let start = 0; start < 7; start++) {
+      const run = Array.from({ length: order.length }, (_, i) => WEEK_ORDER[(start + i) % 7]);
+      if (run.every((d) => set.has(d))) return `${WD[run[0]]}–${WD[run[run.length - 1]]}`;
+    }
+  }
+  const names = order.map((d) => WD[d]);
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 }

@@ -15,7 +15,7 @@ delete process.env.PAYMENTS_MODE;
 const { db } = await import("../src/lib/db");
 const { addDays, nowTimeIST, todayIST } = await import("../src/lib/dates");
 const { saveFlyer } = await import("../src/lib/images");
-const { createListing, ListingInput } = await import("../src/lib/listings");
+const { buildOccurrences, createListing, ListingInput } = await import("../src/lib/listings");
 const { adminPublish, approvePayment, payMode, startPayment, submitManualPayment } = await import("../src/lib/payments");
 const { confirmSubscriber, subscribe } = await import("../src/lib/alerts");
 const { queryWhatsOn } = await import("../src/lib/data");
@@ -60,7 +60,7 @@ test("starter venues are seeded on first run", () => {
 });
 
 test("a weekly event expands into each date, and stays off the board until paid", () => {
-  const { id } = createListing(listing({ title: "Saturday kirtan", dates: [], weekly: { days: [6], start_time: "19:30", end_time: null, until: addDays(today, 20) } }));
+  const { id } = createListing(listing({ title: "Saturday kirtan", dates: [], sessions: [{ days: [6], start_time: "19:30", end_time: null }], repeat_until: addDays(today, 20) }));
   const dates = db().prepare("SELECT date FROM event_dates WHERE event_id = ?").all(id) as { date: string }[];
   assert.ok(dates.length === 3 || dates.length === 4, `got ${dates.length} Saturdays in 3 weeks`);
   assert.ok(dates.every((d) => new Date(d.date + "T00:00:00Z").getUTCDay() === 6));
@@ -133,6 +133,96 @@ test("hidden listings never show", () => {
   adminPublish(id, 0);
   db().prepare("UPDATE events SET status = 'hidden' WHERE id = ?").run(id);
   assert.ok(!queryWhatsOn({ when: "all" }, today, nowTimeIST()).wall.some((e) => e.id === id));
+});
+
+test("a class timetable becomes named sessions, and events lead the wall", () => {
+  const timetable = createListing(
+    listing({
+      title: "Tapashala daily classes",
+      category: "yoga",
+      kind: "classes",
+      dates: [],
+      venue: { slug: "aavya" },
+      sessions: [
+        { days: [1, 2, 4, 5], start_time: "07:00", end_time: "08:15", label: "Divine Kundalini Yoga" },
+        { days: [3, 6], start_time: "07:00", end_time: "08:15", label: "Traditional Pranayama" },
+        { days: [5, 6], start_time: "19:30", end_time: "20:45", label: "Bhakti Kirtan" },
+      ],
+    }),
+  ).id;
+  const gig = createListing(listing({ title: "One night only", venue: { slug: "aavya" }, dates: [{ date: addDays(today, 3), start_time: "20:00" }] })).id;
+  adminPublish(timetable, 0);
+  adminPublish(gig, 0);
+
+  const rows = db().prepare("SELECT date, label FROM event_dates WHERE event_id = ?").all(timetable) as { date: string; label: string }[];
+  assert.ok(rows.length >= 28, `expected four weeks of sessions, got ${rows.length}`);
+  assert.ok(rows.every((r) => r.label));
+  assert.ok(rows.filter((r) => r.label === "Bhakti Kirtan").every((r) => [5, 6].includes(new Date(r.date + "T00:00:00Z").getUTCDay())));
+
+  const week = queryWhatsOn({ when: "all", venue: "aavya" }, today, "00:00");
+  const order = week.wall.map((e) => e.id);
+  assert.ok(order.indexOf(gig) < order.indexOf(timetable), "one-off events come before regular classes");
+  const card = week.wall.find((e) => e.id === timetable)!;
+  assert.equal(card.kind, "classes");
+  assert.deepEqual(card.days, [1, 2, 3, 4, 5, 6]);
+
+  // Searching a class name finds just those sessions.
+  const kirtan = queryWhatsOn({ when: "all", q: "Bhakti" }, today, "00:00").agenda.filter((e) => e.id === timetable);
+  assert.ok(kirtan.length > 0 && kirtan.every((e) => e.occ.label === "Bhakti Kirtan"));
+
+  // Renewing keeps the timetable running through the new end date.
+  adminPublish(timetable, 5000);
+  const last = db().prepare("SELECT MAX(date) AS d FROM event_dates WHERE event_id = ?").get(timetable) as { d: string };
+  assert.ok(last.d > addDays(today, 48), `timetable should run past day 48, ends ${last.d}`);
+});
+
+test("a timetable needs at least one class", () => {
+  assert.throws(() => createListing(listing({ title: "Empty timetable", kind: "classes", dates: [], sessions: [] })), /Add at least one class/);
+});
+
+test("buildOccurrences honours the end date and drops duplicates", () => {
+  const occ = buildOccurrences(
+    {
+      dates: [{ date: addDays(today, 1), start_time: "10:00", end_time: null }],
+      sessions: [
+        { days: [0, 1, 2, 3, 4, 5, 6], start_time: "10:00", end_time: null, label: null },
+        { days: [0, 1, 2, 3, 4, 5, 6], start_time: "10:00", end_time: null, label: null },
+      ],
+      until: addDays(today, 6),
+    },
+    today,
+    addDays(today, 27),
+  );
+  assert.equal(occ.length, 7);
+  assert.equal(occ[occ.length - 1].date, addDays(today, 6));
+});
+
+test("starter pack: publishes what's still upcoming, once", async () => {
+  const { importStarter, starterStatus } = await import("../src/lib/starter");
+  const before = starterStatus();
+  assert.ok(before.length >= 10);
+  assert.equal(before.find((s) => s.key === "anandmaya-vedic-astrology")?.state, "no-dates");
+  assert.equal(before.find((s) => s.key === "aavya-garba-2026-10-20")?.state, "past");
+  const ready = before.filter((s) => s.state === "ready").map((s) => s.key);
+  assert.ok(ready.includes("tapashala-timetable-2026-10"), "timetables are always ready");
+
+  const first = await importStarter();
+  assert.deepEqual(first.failed, []);
+  assert.equal(first.published.length, ready.length);
+  const tapashala = db().prepare("SELECT e.status, e.kind, e.links, v.slug FROM events e JOIN venues v ON v.id = e.venue_id WHERE e.title = ?").get("Tapashala drop-in classes") as {
+    status: string;
+    kind: string;
+    links: string;
+    slug: string;
+  };
+  assert.equal(tapashala.status, "live");
+  assert.equal(tapashala.kind, "classes");
+  assert.equal(tapashala.slug, "tapashala");
+  assert.ok(JSON.parse(tapashala.links).some((l: { kind: string }) => l.kind === "map"));
+
+  const second = await importStarter();
+  assert.equal(second.published.length, 0);
+  assert.ok(starterStatus().every((s) => s.state !== "ready"));
 });
 
 test("payment mode follows configuration", () => {

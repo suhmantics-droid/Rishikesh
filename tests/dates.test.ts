@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, expandWeekly, formatTime, formatTimeRange, isValidDate, isValidTime, weekday, whenRange } from "../src/lib/dates";
+import { addDays, daysLabel, expandWeekly, formatTime, formatTimeRange, isValidDate, isValidTime, weekday, whenRange } from "../src/lib/dates";
 
 // 2026-10-19 is a Monday.
 const MON = "2026-10-19";
@@ -41,4 +41,16 @@ test("validation and formatting", () => {
   assert.equal(formatTime("19:00"), "7pm");
   assert.equal(formatTime("00:30"), "12:30am");
   assert.equal(formatTimeRange("17:30", "20:30"), "5:30pm–8:30pm");
+});
+
+test("daysLabel reads like a flyer: ranges, pairs and lists", () => {
+  assert.equal(daysLabel([0, 1, 2, 3, 4, 5, 6]), "Daily");
+  assert.equal(daysLabel([1, 2, 3, 4, 5, 6]), "Mon–Sat");
+  assert.equal(daysLabel([3, 4, 5, 6, 0]), "Wed–Sun");
+  assert.equal(daysLabel([2, 3, 4, 5, 6]), "Tue–Sat");
+  assert.equal(daysLabel([6, 0, 1]), "Sat–Mon");
+  assert.equal(daysLabel([4, 0]), "Thu & Sun");
+  assert.equal(daysLabel([5, 1, 3]), "Mon, Wed & Fri");
+  assert.equal(daysLabel([2]), "Tue");
+  assert.equal(daysLabel([]), "");
 });

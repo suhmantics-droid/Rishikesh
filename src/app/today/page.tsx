@@ -30,17 +30,21 @@ export default function TodayPage() {
 
 async function Today() {
   const { agenda, today } = await getWhatsOn({ when: "today" });
+  const events = new Set(agenda.filter((e) => e.kind !== "classes").map((e) => e.id)).size;
+  const classes = agenda.filter((e) => e.kind === "classes").length;
   return (
     <>
       <p className="text-sm font-semibold text-saffron-ink">{formatDate(today)}</p>
       <h1 className="font-display text-4xl font-semibold tracking-tight">Today in Tapovan</h1>
       <p className="mt-2 mb-6 text-ink-2">
-        {agenda.length ? `${agenda.length} thing${agenda.length === 1 ? "" : "s"} on today.` : "Nothing pinned for today yet."}{" "}
+        {agenda.length
+          ? [events ? `${events} event${events === 1 ? "" : "s"}` : "", classes ? `${classes} drop-in class${classes === 1 ? "" : "es"}` : ""].filter(Boolean).join(" and ") + " today."
+          : "Nothing pinned for today yet."}{" "}
         <Link href="/?view=map&when=today" className="font-semibold underline">
           See them on the map
         </Link>
       </p>
-      {agenda.length ? <Agenda items={agenda} today={today} dayHeaders={false} /> : null}
+      {agenda.length ? <Agenda items={agenda} today={today} dayHeaders={false} classesOpen /> : null}
       <GangaDaily className="mt-8" />
       <div className="mt-8 flex flex-wrap gap-2">
         <Link href="/?when=tomorrow" className="rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">

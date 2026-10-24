@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS events (
   title TEXT NOT NULL,
   description TEXT,
   category TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'event', -- 'event' (one-off / a few dates) or 'classes' (a regular timetable)
+  schedule TEXT, -- JSON: one-off dates plus weekly sessions; event_dates is generated from it
+  links TEXT, -- JSON: links read from the flyer's QR codes [{kind, url}]
   flyer TEXT,
   flyer_w INTEGER,
   flyer_h INTEGER,
@@ -71,7 +74,8 @@ CREATE TABLE IF NOT EXISTS event_dates (
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
   start_time TEXT,
-  end_time TEXT
+  end_time TEXT,
+  label TEXT -- the class name, for sessions in a timetable
 );
 CREATE INDEX IF NOT EXISTS event_dates_date ON event_dates(date);
 CREATE INDEX IF NOT EXISTS event_dates_event ON event_dates(event_id);
@@ -87,6 +91,7 @@ CREATE TABLE IF NOT EXISTS uploads (
   w INTEGER,
   h INTEGER,
   extracted_json TEXT,
+  qr_json TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -200,15 +205,27 @@ function open() {
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");
   db.exec(SCHEMA);
-  const { n } = db.prepare("SELECT COUNT(*) AS n FROM venues").get() as { n: number };
-  if (n === 0) {
-    const insert = db.prepare(
-      `INSERT INTO venues (slug, name, area, lat, lng, address, description)
-       VALUES (@slug, @name, @area, @lat, @lng, @address, @description)`,
-    );
-    db.transaction(() => VENUE_SEED.forEach((v) => insert.run(v)))();
-  }
+  migrate(db);
+  // Starter venues: added if missing, never overwritten (pins may have been corrected in Admin).
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, address, description)
+     VALUES (@slug, @name, @area, @lat, @lng, @address, @description)`,
+  );
+  db.transaction(() => VENUE_SEED.forEach((v) => insert.run(v)))();
   return db;
+}
+
+/** Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database. */
+function migrate(db: Database.Database) {
+  const add = (table: string, column: string, def: string) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  };
+  add("events", "kind", "TEXT NOT NULL DEFAULT 'event'");
+  add("events", "schedule", "TEXT");
+  add("event_dates", "label", "TEXT");
+  add("events", "links", "TEXT");
+  add("uploads", "qr_json", "TEXT");
 }
 
 // One connection per server process; survive dev hot reloads.

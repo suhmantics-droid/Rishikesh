@@ -33,15 +33,16 @@ export type AreaKey = (typeof AREAS)[number]["key"];
 // Colours are used for map pins and category chips.
 export const CATEGORIES = [
   { key: "music", label: "Live music & jams", short: "Music", color: "#d9480f" },
-  { key: "dance", label: "Ecstatic dance", short: "Dance", color: "#c2255c" },
+  { key: "dance", label: "Ecstatic, classical & folk dance", short: "Dance", color: "#c2255c" },
   { key: "sound", label: "Sound healing", short: "Sound", color: "#7048e8" },
   { key: "kirtan", label: "Kirtan & mantra", short: "Kirtan", color: "#e67700" },
   { key: "ceremony", label: "Cacao & ceremony", short: "Ceremony", color: "#8d5524" },
   { key: "yoga", label: "Yoga & breathwork", short: "Yoga", color: "#0b7285" },
+  { key: "fitness", label: "Martial arts & fitness", short: "Fitness", color: "#5c940d" },
   { key: "talk", label: "Satsang, talks & meditation", short: "Talks", color: "#5c7cfa" },
   { key: "comedy", label: "Open mic & comedy", short: "Open mic", color: "#f08c00" },
   { key: "party", label: "Parties & DJ nights", short: "Party", color: "#ae3ec9" },
-  { key: "market", label: "Markets & pop-ups", short: "Market", color: "#2b8a3e" },
+  { key: "market", label: "Festivals, markets & pop-ups", short: "Festivals", color: "#2b8a3e" },
   { key: "film", label: "Film, art & culture", short: "Culture", color: "#495057" },
   { key: "course", label: "Courses & retreats", short: "Courses", color: "#1971c2" },
   { key: "other", label: "Something else", short: "Other", color: "#868e96" },

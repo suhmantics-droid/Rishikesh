@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { db } from "./db";
-import { addDays, expandWeekly, isValidDate, isValidTime, todayIST } from "./dates";
+import { addDays, isValidDate, isValidTime, todayIST, weekday } from "./dates";
+import { LINK_KINDS } from "./links";
 import { AREAS, CATEGORY_KEYS, LISTING } from "./site";
 import { instagramHandle, safeUrl, shortId, slugify, token } from "./util";
 
@@ -11,23 +12,34 @@ const time = z
   .nullish()
   .transform((t) => (t && isValidTime(t) ? t : null));
 
+/** A weekly slot: "Hatha Flow, Tue/Thu/Sat 4–5:30pm", or just "every Friday 7pm" for a recurring event. */
+const Session = z.object({
+  days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  start_time: time,
+  end_time: time,
+  label: z
+    .string()
+    .trim()
+    .max(80)
+    .nullish()
+    .transform((l) => l || null),
+});
+export type SessionT = z.infer<typeof Session>;
+
 export const ListingInput = z.object({
   uploadId: z.string().regex(/^[a-z0-9]{14}$/),
   title: z.string().trim().min(3).max(120),
   description: z.string().trim().max(1200).nullish(),
   category: z.enum(CATEGORY_KEYS),
+  // "event": one-off or a few dates (maybe repeating weekly). "classes": a regular timetable of drop-in classes.
+  kind: z.enum(["event", "classes"]).default("event"),
   dates: z
     .array(z.object({ date: z.string().refine(isValidDate), start_time: time, end_time: time }))
     .max(60)
     .default([]),
-  weekly: z
-    .object({
-      days: z.array(z.number().int().min(0).max(6)).min(1),
-      start_time: time,
-      end_time: time,
-      until: z.string().refine(isValidDate),
-    })
-    .nullish(),
+  sessions: z.array(Session).max(80).default([]),
+  // Last day the weekly sessions run; null = for as long as the listing is up.
+  repeat_until: z.string().refine(isValidDate).nullish(),
   venue: z.union([
     z.object({ slug: z.string().min(1) }),
     z.object({
@@ -46,32 +58,79 @@ export const ListingInput = z.object({
   contact_phone: z.string().trim().max(24).nullish(),
   contact_instagram: z.string().trim().max(60).nullish(),
   booking_url: z.string().trim().max(300).nullish(),
+  // Read from the flyer's QR codes (WhatsApp group, booking form, map pin…), shown as buttons.
+  links: z
+    .array(z.object({ kind: z.enum(LINK_KINDS), url: z.string().trim().max(500) }))
+    .max(8)
+    .default([]),
   organiser_name: z.string().trim().max(80).nullish(),
   organiser_email: z.string().trim().email().max(120).nullish(),
   ai_extracted: z.boolean().optional(),
 });
 export type ListingInputT = z.infer<typeof ListingInput>;
 
-function occurrences(input: ListingInputT) {
-  const today = todayIST();
-  const all = [...input.dates];
-  if (input.weekly) {
-    const until = input.weekly.until < addDays(today, 180) ? input.weekly.until : addDays(today, 180);
-    for (const date of expandWeekly(today, until, input.weekly.days)) {
-      all.push({ date, start_time: input.weekly.start_time, end_time: input.weekly.end_time });
+/** What the organiser entered; event_dates is generated from it. */
+export type Schedule = {
+  dates: { date: string; start_time: string | null; end_time: string | null }[];
+  sessions: SessionT[];
+  until: string | null;
+};
+export type OccurrenceRow = { date: string; start_time: string | null; end_time: string | null; label: string | null };
+
+export const MAX_OCCURRENCES = 600;
+
+/** Concrete dates from today to `horizon`: the one-off dates plus every weekly session. */
+export function buildOccurrences(s: Schedule, today: string, horizon: string): OccurrenceRow[] {
+  const all: OccurrenceRow[] = s.dates.filter((d) => d.date >= today).map((d) => ({ ...d, label: null }));
+  const end = s.until && s.until < horizon ? s.until : horizon;
+  if (s.sessions.length) {
+    for (let d = today; d <= end; d = addDays(d, 1)) {
+      const wd = weekday(d);
+      for (const x of s.sessions) {
+        if (x.days.includes(wd)) all.push({ date: d, start_time: x.start_time, end_time: x.end_time, label: x.label });
+      }
     }
   }
   const seen = new Set<string>();
   return all
-    .filter((d) => d.date >= today)
-    .filter((d) => {
-      const k = `${d.date} ${d.start_time}`;
+    .filter((o) => {
+      const k = `${o.date} ${o.start_time} ${o.label}`;
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
     })
-    .sort((a, b) => (a.date + (a.start_time ?? "")).localeCompare(b.date + (b.start_time ?? "")))
-    .slice(0, 60);
+    .sort((a, b) => `${a.date} ${a.start_time ?? "99"}`.localeCompare(`${b.date} ${b.start_time ?? "99"}`))
+    .slice(0, MAX_OCCURRENCES);
+}
+
+export function parseSchedule(json: string | null | undefined): Schedule | null {
+  if (!json) return null;
+  try {
+    const s = JSON.parse(json) as Schedule;
+    return { dates: s.dates ?? [], sessions: s.sessions ?? [], until: s.until ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/** Rebuilds a listing's dates from its schedule, through to the end of its paid period. */
+export function writeOccurrences(eventId: number) {
+  const d = db();
+  const e = d.prepare("SELECT schedule, live_until, kind FROM events WHERE id = ?").get(eventId) as
+    | { schedule: string | null; live_until: string | null; kind: string }
+    | undefined;
+  const schedule = parseSchedule(e?.schedule);
+  if (!e || !schedule) return 0;
+  const today = todayIST();
+  const horizon = e.live_until && e.live_until >= today ? e.live_until : addDays(today, LISTING.days - 1);
+  const occ = buildOccurrences(schedule, today, horizon);
+  if (occ.length === 0) {
+    throw new ListingError(e.kind === "classes" ? "Add at least one class: its days and start time." : "Add at least one upcoming date.");
+  }
+  d.prepare("DELETE FROM event_dates WHERE event_id = ?").run(eventId);
+  const ins = d.prepare("INSERT INTO event_dates (event_id, date, start_time, end_time, label) VALUES (?, ?, ?, ?, ?)");
+  for (const o of occ) ins.run(eventId, o.date, o.start_time, o.end_time, o.label);
+  return occ.length;
 }
 
 function resolveVenue(v: ListingInputT["venue"]): number {
@@ -108,10 +167,17 @@ function fields(input: ListingInputT) {
   if (!upload) throw new ListingError("Flyer upload not found — please upload it again.");
   const priceMin = input.price_type === "paid" || input.price_type === "donation" ? (input.price_min ?? null) : null;
   const priceMax = input.price_type === "paid" && input.price_max && priceMin && input.price_max > priceMin ? input.price_max : null;
+  const schedule: Schedule = {
+    dates: input.dates,
+    sessions: input.sessions.filter((x) => x.days.length),
+    until: input.repeat_until ?? null,
+  };
   return {
     title: input.title,
     description: input.description || null,
     category: input.category,
+    kind: input.kind,
+    schedule: JSON.stringify(schedule),
     flyer: input.uploadId,
     flyer_w: upload.w,
     flyer_h: upload.h,
@@ -123,6 +189,7 @@ function fields(input: ListingInputT) {
     contact_phone: input.contact_phone || null,
     contact_instagram: instagramHandle(input.contact_instagram),
     booking_url: safeUrl(input.booking_url),
+    links: JSON.stringify(input.links.map((l) => ({ kind: l.kind, url: safeUrl(l.url) })).filter((l) => l.url)),
     organiser_name: input.organiser_name || null,
     organiser_email: input.organiser_email?.toLowerCase() || null,
   };
@@ -130,11 +197,7 @@ function fields(input: ListingInputT) {
 
 function writeDatesAndArtists(eventId: number, input: ListingInputT) {
   const d = db();
-  const occ = occurrences(input);
-  if (occ.length === 0) throw new ListingError("Add at least one upcoming date.");
-  d.prepare("DELETE FROM event_dates WHERE event_id = ?").run(eventId);
-  const ins = d.prepare("INSERT INTO event_dates (event_id, date, start_time, end_time) VALUES (?, ?, ?, ?)");
-  for (const o of occ) ins.run(eventId, o.date, o.start_time, o.end_time);
+  writeOccurrences(eventId);
   d.prepare("DELETE FROM event_artists WHERE event_id = ?").run(eventId);
   const link = d.prepare("INSERT OR IGNORE INTO event_artists (event_id, artist_id) VALUES (?, ?)");
   for (const name of input.artists) link.run(eventId, upsertArtist(name));
@@ -148,11 +211,11 @@ export function createListing(input: ListingInputT) {
     const manage = token();
     const r = d
       .prepare(
-        `INSERT INTO events (slug, title, description, category, flyer, flyer_w, flyer_h, venue_id, price_type, price_min,
-           price_max, price_note, contact_phone, contact_instagram, booking_url, organiser_name, organiser_email,
+        `INSERT INTO events (slug, title, description, category, kind, schedule, flyer, flyer_w, flyer_h, venue_id, price_type, price_min,
+           price_max, price_note, contact_phone, contact_instagram, booking_url, links, organiser_name, organiser_email,
            manage_token, status, ai_extracted)
-         VALUES (@slug, @title, @description, @category, @flyer, @flyer_w, @flyer_h, @venue_id, @price_type, @price_min,
-           @price_max, @price_note, @contact_phone, @contact_instagram, @booking_url, @organiser_name, @organiser_email,
+         VALUES (@slug, @title, @description, @category, @kind, @schedule, @flyer, @flyer_w, @flyer_h, @venue_id, @price_type, @price_min,
+           @price_max, @price_note, @contact_phone, @contact_instagram, @booking_url, @links, @organiser_name, @organiser_email,
            @manage, 'pending_payment', @ai)`,
       )
       .run({ ...f, slug, manage, ai: input.ai_extracted ? 1 : 0 });
@@ -167,10 +230,11 @@ export function updateListing(eventId: number, input: ListingInputT) {
   d.transaction(() => {
     const f = fields(input);
     d.prepare(
-      `UPDATE events SET title=@title, description=@description, category=@category, flyer=@flyer, flyer_w=@flyer_w,
+      `UPDATE events SET title=@title, description=@description, category=@category, kind=@kind, schedule=@schedule,
+         flyer=@flyer, flyer_w=@flyer_w,
          flyer_h=@flyer_h, venue_id=@venue_id, price_type=@price_type, price_min=@price_min, price_max=@price_max,
          price_note=@price_note, contact_phone=@contact_phone, contact_instagram=@contact_instagram,
-         booking_url=@booking_url, organiser_name=@organiser_name, organiser_email=@organiser_email,
+         booking_url=@booking_url, links=@links, organiser_name=@organiser_name, organiser_email=@organiser_email,
          updated_at=datetime('now') WHERE id=@id`,
     ).run({ ...f, id: eventId });
     writeDatesAndArtists(eventId, input);
@@ -187,10 +251,18 @@ export function publishOrRenew(eventId: number): { liveUntil: string; firstPubli
   const today = todayIST();
   const start = e.live_until && e.live_until >= today ? addDays(e.live_until, 1) : today;
   const liveUntil = addDays(start, LISTING.days - 1);
-  d.prepare(
-    `UPDATE events SET status='live', live_until=?, published_at=COALESCE(published_at, datetime('now')),
-       updated_at=datetime('now') WHERE id=?`,
-  ).run(liveUntil, eventId);
+  d.transaction(() => {
+    d.prepare(
+      `UPDATE events SET status='live', live_until=?, published_at=COALESCE(published_at, datetime('now')),
+         updated_at=datetime('now') WHERE id=?`,
+    ).run(liveUntil, eventId);
+    // Weekly sessions continue for the whole paid period, including a renewal.
+    try {
+      writeOccurrences(eventId);
+    } catch (err) {
+      if (!(err instanceof ListingError)) throw err; // nothing upcoming left: keep the dates it has
+    }
+  })();
   return { liveUntil, firstPublish: !e.published_at };
 }
 

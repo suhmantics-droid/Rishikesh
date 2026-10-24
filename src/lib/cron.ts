@@ -1,10 +1,12 @@
 // Daily jobs, run inside the server process every 15 minutes (cheap no-ops most of the time):
 //  - from 07:30 IST: "what's on today" digests (once per subscriber per day)
 //  - renewal reminders to organisers two days before a listing expires
+//  - deleting full-size upload photos after a few days (kept only for straightening)
 // Also callable from /api/cron?key=CRON_SECRET if you prefer an external scheduler.
 
 import { sendDailyDigests, sendExpiryReminders } from "./alerts";
 import { nowTimeIST } from "./dates";
+import { pruneOriginals } from "./images";
 import { sendPushDigests } from "./push";
 
 export async function runJobs({ force = false } = {}) {
@@ -12,7 +14,8 @@ export async function runJobs({ force = false } = {}) {
   const morning = force || nowTimeIST() >= "07:30";
   const digests = morning ? await sendDailyDigests() : 0;
   const pushDigests = morning ? await sendPushDigests() : 0;
-  return { reminders, digests, pushDigests };
+  const prunedOriginals = await pruneOriginals();
+  return { reminders, digests, pushDigests, prunedOriginals };
 }
 
 let started = false;

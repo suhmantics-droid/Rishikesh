@@ -3,24 +3,27 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { FlyerFields } from "@/lib/extract";
-import { addDays, formatDayLong, formatTimeRange } from "@/lib/dates";
+import { addDays, daysLabel, formatDayLong, formatTimeRange, WEEK_ORDER, WEEKDAY_SHORT } from "@/lib/dates";
+import { LINK_LABELS, type FlyerLink } from "@/lib/links";
 import { AREAS, CATEGORIES } from "@/lib/site";
+import { CropEditor, type Corners } from "./CropEditor";
 import { LazyMapView } from "./MiniMap";
 import { PayWidget } from "./PayWidget";
 
 type VenueOpt = { slug: string; name: string; area: string; is_demo: number };
 type DateRow = { date: string; start_time: string; end_time: string };
+type SessionRow = { label: string; days: number[]; start_time: string; end_time: string };
+type Kind = "event" | "classes";
 
 type Form = {
   title: string;
   description: string;
   category: string;
+  kind: Kind;
   dates: DateRow[];
-  weeklyOn: boolean;
-  weeklyDays: number[];
-  weeklyStart: string;
-  weeklyEnd: string;
-  weeklyUntil: string;
+  weeklyOn: boolean; // an event that repeats every week
+  sessions: SessionRow[]; // the weekly times: a class timetable, or a repeating event's slot
+  repeatUntil: string; // "" = for as long as the listing is up
   venueSlug: string; // "" = none chosen, "__new" = new venue
   newVenue: { name: string; area: string; address: string; lat: number | null; lng: number | null };
   price_type: "free" | "donation" | "paid" | "unknown";
@@ -31,23 +34,23 @@ type Form = {
   contact_phone: string;
   contact_instagram: string;
   booking_url: string;
+  links: FlyerLink[]; // read from the flyer's QR codes
   organiser_name: string;
   organiser_email: string;
 };
 
-const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const emptySession = (): SessionRow => ({ label: "", days: [], start_time: "", end_time: "" });
 
 function emptyForm(today: string): Form {
   return {
     title: "",
     description: "",
     category: "music",
+    kind: "event",
     dates: [{ date: today, start_time: "", end_time: "" }],
     weeklyOn: false,
-    weeklyDays: [],
-    weeklyStart: "",
-    weeklyEnd: "",
-    weeklyUntil: addDays(today, 27),
+    sessions: [],
+    repeatUntil: "",
     venueSlug: "",
     newVenue: { name: "", area: "upper-tapovan", address: "", lat: null, lng: null },
     price_type: "unknown",
@@ -58,6 +61,7 @@ function emptyForm(today: string): Form {
     contact_phone: "",
     contact_instagram: "",
     booking_url: "",
+    links: [],
     organiser_name: "",
     organiser_email: "",
   };
@@ -98,6 +102,8 @@ export function PostFlow({
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ slug: string; manageToken: string } | null>(null);
   const [loaded, setLoaded] = useState(!editToken);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [aiCorners, setAiCorners] = useState<Corners | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -113,12 +119,18 @@ export function PostFlow({
         if (d.error) return setError(d.error);
         setLoaded(true);
         setUpload({ id: d.uploadId, url: `/f/${d.uploadId}.webp` });
+        const sch = d.schedule as { dates: Nullable<DateRow>[]; sessions: Nullable<SessionRow>[]; until: string | null };
+        const kind: Kind = d.kind === "classes" ? "classes" : "event";
         setForm((f) => ({
           ...f,
           title: d.title ?? "",
           description: d.description ?? "",
           category: d.category,
-          dates: (d.dates as DateRow[]).filter((x) => x.date >= today).map((x) => ({ date: x.date, start_time: x.start_time ?? "", end_time: x.end_time ?? "" })),
+          kind,
+          dates: sch.dates.filter((x) => x.date && x.date >= today).map((x) => ({ date: x.date!, start_time: x.start_time ?? "", end_time: x.end_time ?? "" })),
+          sessions: sch.sessions.map((x) => ({ label: x.label ?? "", days: x.days ?? [], start_time: x.start_time ?? "", end_time: x.end_time ?? "" })),
+          weeklyOn: kind === "event" && sch.sessions.length > 0,
+          repeatUntil: sch.until ?? "",
           venueSlug: d.venue.slug,
           price_type: d.price_type,
           price_min: d.price_min?.toString() ?? "",
@@ -128,6 +140,7 @@ export function PostFlow({
           contact_phone: d.contact_phone ?? "",
           contact_instagram: d.contact_instagram ?? "",
           booking_url: d.booking_url ?? "",
+          links: d.links ?? [],
           organiser_name: d.organiser_name ?? "",
           organiser_email: d.organiser_email ?? "",
         }));
@@ -148,6 +161,14 @@ export function PostFlow({
       const up = await res.json();
       if (!res.ok) throw new Error(up.error || "Upload failed");
       setUpload({ id: up.id, url: up.url });
+      setAiCorners(null);
+      const links = (up.links ?? []) as FlyerLink[];
+      setForm((f) => ({
+        ...f,
+        links,
+        booking_url: f.booking_url || links.find((l) => l.kind === "form" || l.kind === "website")?.url || "",
+        contact_phone: f.contact_phone || waPhone(links) || "",
+      }));
       setStep("details");
       const ex = await fetch("/api/extract", {
         method: "POST",
@@ -176,15 +197,15 @@ export function PostFlow({
       title: f.title || cur.title,
       description: f.description || cur.description,
       category: f.category,
+      kind: f.kind === "classes" ? "classes" : "event",
       dates: f.dates.length
         ? f.dates.map((d) => ({ date: d.date, start_time: d.start_time ?? "", end_time: d.end_time ?? "" }))
-        : f.weekly_days.length
+        : f.sessions?.length
           ? []
           : cur.dates,
-      weeklyOn: f.weekly_days.length > 0,
-      weeklyDays: f.weekly_days,
-      weeklyStart: f.weekly_start_time ?? "",
-      weeklyEnd: f.weekly_end_time ?? "",
+      sessions: (f.sessions ?? []).map((x) => ({ label: x.label ?? "", days: x.days, start_time: x.start_time ?? "", end_time: x.end_time ?? "" })),
+      weeklyOn: f.kind !== "classes" && (f.sessions?.length ?? 0) > 0,
+      repeatUntil: f.repeat_until ?? "",
       venueSlug: knownVenue || (f.venue_name ? "__new" : cur.venueSlug),
       newVenue: knownVenue ? cur.newVenue : { ...cur.newVenue, name: f.venue_name ?? "" },
       price_type: f.price_type,
@@ -192,10 +213,26 @@ export function PostFlow({
       price_max: f.price_max?.toString() ?? "",
       price_note: f.price_note ?? "",
       artists: f.artists,
-      contact_phone: f.contact_phone ?? "",
+      // Links read from QR codes are exact; keep them over what the model read off the print.
+      contact_phone: cur.contact_phone || f.contact_phone || "",
       contact_instagram: f.contact_instagram ?? "",
-      booking_url: f.booking_url ?? "",
+      booking_url: cur.booking_url || f.booking_url || "",
     }));
+    if (f.flyer_corners) setAiCorners(f.flyer_corners as Corners);
+  }
+
+  async function straightenTo(corners: Corners) {
+    if (!upload) return;
+    const res = await fetch(`/api/uploads/${upload.id}/straighten`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ corners }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || "Couldn't straighten that.");
+    setUpload({ id: d.id, url: d.url });
+    setAiCorners(null);
+    setCropOpen(false);
   }
 
   function payload() {
@@ -213,16 +250,22 @@ export function PostFlow({
           }
         : { slug: form.venueSlug };
     const num = (s: string) => (s.trim() ? Math.round(Number(s.replace(/[^\d.]/g, ""))) : null);
+    const classes = form.kind === "classes";
+    const sessions = activeSessions(form).map((x) => ({
+      days: x.days,
+      start_time: x.start_time || null,
+      end_time: x.end_time || null,
+      label: classes ? x.label.trim() || null : null,
+    }));
     return {
       uploadId: upload?.id,
       title: form.title,
       description: form.description || null,
       category: form.category,
-      dates,
-      weekly:
-        form.weeklyOn && form.weeklyDays.length
-          ? { days: form.weeklyDays, start_time: form.weeklyStart || null, end_time: form.weeklyEnd || null, until: form.weeklyUntil }
-          : null,
+      kind: form.kind,
+      dates: classes ? [] : dates,
+      sessions,
+      repeat_until: sessions.length && form.repeatUntil ? form.repeatUntil : null,
       venue,
       price_type: form.price_type,
       price_min: num(form.price_min),
@@ -232,6 +275,7 @@ export function PostFlow({
       contact_phone: form.contact_phone || null,
       contact_instagram: form.contact_instagram || null,
       booking_url: form.booking_url || null,
+      links: form.links,
       organiser_name: form.organiser_name || null,
       organiser_email: form.organiser_email || null,
       ai_extracted: aiFilled,
@@ -241,8 +285,11 @@ export function PostFlow({
   function validate(): string | null {
     if (!upload) return "Upload the flyer first.";
     if (form.title.trim().length < 3) return "Add the event name.";
-    const hasDates = form.dates.some((d) => d.date) || (form.weeklyOn && form.weeklyDays.length > 0);
-    if (!hasDates) return "Add at least one date (or set it to repeat weekly).";
+    if (form.kind === "classes") {
+      if (!activeSessions(form).length) return "Add at least one class: tap the days it runs and set its start time.";
+    } else if (!form.dates.some((d) => d.date) && !activeSessions(form).length) {
+      return "Add at least one date (or set it to repeat weekly).";
+    }
     if (!form.venueSlug) return "Choose where it's happening.";
     if (form.venueSlug === "__new") {
       if (form.newVenue.name.trim().length < 2) return "Add the venue's name.";
@@ -348,8 +395,10 @@ export function PostFlow({
           <div className="min-w-0">
             <p className="font-bold">{form.title}</p>
             <p className="text-sm text-muted">
-              {form.weeklyOn && form.weeklyDays.length
-                ? `Every ${form.weeklyDays.map((d) => WD[d]).join(", ")}`
+              {form.kind === "classes"
+                ? `Classes ${daysLabel(activeSessions(form).flatMap((x) => x.days))}`
+                : activeSessions(form).length
+                ? `Every ${daysLabel(activeSessions(form).flatMap((x) => x.days))}`
                 : form.dates
                     .filter((d) => d.date)
                     .slice(0, 2)
@@ -390,11 +439,27 @@ export function PostFlow({
         ) : (
           <div className="aspect-[4/5] animate-pulse rounded-2xl bg-paper-2" />
         )}
-        {!editToken ? (
-          <button type="button" className="mt-2 text-sm font-semibold underline" onClick={() => fileRef.current?.click()}>
-            Use a different photo
-          </button>
+        {upload ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button type="button" className="text-sm font-bold text-saffron-ink underline" onClick={() => setCropOpen(true)} disabled={reading}>
+              ✂️ Straighten &amp; crop
+            </button>
+            {!editToken ? (
+              <button type="button" className="text-sm font-semibold underline" onClick={() => fileRef.current?.click()}>
+                Use a different photo
+              </button>
+            ) : null}
+          </div>
         ) : null}
+        {aiCorners && upload ? (
+          <div className="mt-3 rounded-xl bg-ganga-soft p-3 text-sm text-ganga">
+            <p className="font-semibold">Photo taken on a wall? We found the flyer&apos;s edges.</p>
+            <button type="button" className="mt-1 font-bold underline" onClick={() => setCropOpen(true)}>
+              Straighten it
+            </button>
+          </div>
+        ) : null}
+        {cropOpen && upload ? <CropEditor src={upload.url} initial={aiCorners} onCancel={() => setCropOpen(false)} onDone={straightenTo} /> : null}
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
       </aside>
 
@@ -415,7 +480,7 @@ export function PostFlow({
           <section className="grid gap-4">
             <div>
               <label className={label} htmlFor="title">
-                Event name
+                {form.kind === "classes" ? "Name (studio or class series)" : "Event name"}
               </label>
               <input id="title" className={input} value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Full Moon Sound Bath" />
             </div>
@@ -445,68 +510,76 @@ export function PostFlow({
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
             <h2 className="font-display text-lg font-semibold">When</h2>
-            {form.dates.map((d, i) => (
-              <div key={i} className="grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2">
-                <div>
-                  {i === 0 ? <span className="text-xs font-semibold text-muted">Date</span> : null}
-                  <input type="date" min={today} className={input} value={d.date} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))} />
-                </div>
-                <div>
-                  {i === 0 ? <span className="text-xs font-semibold text-muted">Starts</span> : null}
-                  <input type="time" className={input} value={d.start_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
-                </div>
-                <div>
-                  {i === 0 ? <span className="text-xs font-semibold text-muted">Ends</span> : null}
-                  <input type="time" className={input} value={d.end_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
-                </div>
-                <button type="button" aria-label="Remove date" className="h-11 w-9 rounded-xl text-muted hover:bg-paper-2" onClick={() => set("dates", form.dates.filter((_, j) => j !== i))}>
-                  ✕
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-card p-1 text-sm" role="radiogroup" aria-label="Kind of listing">
+              {(
+                [
+                  ["event", "An event", "One date, a few, or weekly"],
+                  ["classes", "Regular classes", "A weekly timetable"],
+                ] as const
+              ).map(([k, l, hint]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.kind === k}
+                  onClick={() => setForm((f) => ({ ...f, kind: k, sessions: k === "classes" && !f.sessions.length ? [emptySession()] : f.sessions }))}
+                  className={`rounded-lg px-2 py-2 text-left ${form.kind === k ? "bg-ink text-paper" : ""}`}
+                >
+                  <span className="block font-bold">{l}</span>
+                  <span className={`block text-xs ${form.kind === k ? "opacity-80" : "text-muted"}`}>{hint}</span>
                 </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="justify-self-start text-sm font-bold text-saffron-ink"
-              onClick={() => {
-                const last = form.dates[form.dates.length - 1];
-                set("dates", [...form.dates, { date: last ? addDays(last.date || today, 1) : today, start_time: last?.start_time ?? "", end_time: last?.end_time ?? "" }]);
-              }}
-            >
-              + Add another date
-            </button>
-            <label className="flex items-center gap-2 text-sm font-bold">
-              <input type="checkbox" checked={form.weeklyOn} onChange={(e) => set("weeklyOn", e.target.checked)} className="h-4 w-4 accent-[var(--saffron)]" />
-              Repeats every week
-            </label>
-            {form.weeklyOn ? (
-              <div className="grid gap-3 rounded-xl bg-paper-2/60 p-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {WD.map((w, i) => (
-                    <button
-                      key={w}
-                      type="button"
-                      onClick={() => set("weeklyDays", form.weeklyDays.includes(i) ? form.weeklyDays.filter((x) => x !== i) : [...form.weeklyDays, i].sort())}
-                      className={`h-9 w-11 rounded-lg text-sm font-bold ${form.weeklyDays.includes(i) ? "bg-ink text-paper" : "border border-line bg-card"}`}
-                    >
-                      {w}
+              ))}
+            </div>
+            {form.kind === "event" ? (
+              <>
+                {form.dates.map((d, i) => (
+                  <div key={i} className="grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2">
+                    <div>
+                      {i === 0 ? <span className="text-xs font-semibold text-muted">Date</span> : null}
+                      <input type="date" min={today} className={input} value={d.date} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))} />
+                    </div>
+                    <div>
+                      {i === 0 ? <span className="text-xs font-semibold text-muted">Starts</span> : null}
+                      <input type="time" className={input} value={d.start_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+                    </div>
+                    <div>
+                      {i === 0 ? <span className="text-xs font-semibold text-muted">Ends</span> : null}
+                      <input type="time" className={input} value={d.end_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+                    </div>
+                    <button type="button" aria-label="Remove date" className="h-11 w-9 rounded-xl text-muted hover:bg-paper-2" onClick={() => set("dates", form.dates.filter((_, j) => j !== i))}>
+                      ✕
                     </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <label className="text-xs font-semibold text-muted">
-                    Starts
-                    <input type="time" className={input} value={form.weeklyStart} onChange={(e) => set("weeklyStart", e.target.value)} />
-                  </label>
-                  <label className="text-xs font-semibold text-muted">
-                    Ends
-                    <input type="time" className={input} value={form.weeklyEnd} onChange={(e) => set("weeklyEnd", e.target.value)} />
-                  </label>
-                  <label className="text-xs font-semibold text-muted">
-                    Until
-                    <input type="date" min={today} className={input} value={form.weeklyUntil} onChange={(e) => set("weeklyUntil", e.target.value)} />
-                  </label>
-                </div>
-              </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="justify-self-start text-sm font-bold text-saffron-ink"
+                  onClick={() => {
+                    const last = form.dates[form.dates.length - 1];
+                    set("dates", [...form.dates, { date: last ? addDays(last.date || today, 1) : today, start_time: last?.start_time ?? "", end_time: last?.end_time ?? "" }]);
+                  }}
+                >
+                  + Add another date
+                </button>
+                <label className="flex items-center gap-2 text-sm font-bold">
+                  <input
+                    type="checkbox"
+                    checked={form.weeklyOn}
+                    onChange={(e) => setForm((f) => ({ ...f, weeklyOn: e.target.checked, sessions: e.target.checked && !f.sessions.length ? [emptySession()] : f.sessions }))}
+                    className="h-4 w-4 accent-[var(--saffron)]"
+                  />
+                  Repeats every week
+                </label>
+                {form.weeklyOn ? <SessionsEditor sessions={form.sessions} onChange={(v) => set("sessions", v)} /> : null}
+              </>
+            ) : (
+              <SessionsEditor sessions={form.sessions} onChange={(v) => set("sessions", v)} classes />
+            )}
+            {form.kind === "classes" || form.weeklyOn ? (
+              <label className="grid gap-1 text-xs font-semibold text-muted sm:grid-cols-[auto_1fr] sm:items-center sm:gap-3">
+                Runs until <span className="font-normal">(optional — leave empty to keep it going while it&apos;s listed)</span>
+                <input type="date" min={today} className={`${input} sm:col-span-2 sm:max-w-56`} value={form.repeatUntil} onChange={(e) => set("repeatUntil", e.target.value)} />
+              </label>
             ) : null}
           </section>
 
@@ -632,6 +705,23 @@ export function PostFlow({
               <input className={input} placeholder="Instagram handle" value={form.contact_instagram} onChange={(e) => set("contact_instagram", e.target.value)} />
               <input className={`${input} sm:col-span-2`} placeholder="Booking or info link (optional)" value={form.booking_url} onChange={(e) => set("booking_url", e.target.value)} />
             </div>
+            {form.links.length ? (
+              <div className="grid gap-2">
+                <p className="text-sm font-bold text-ink-2">From the QR codes on your flyer</p>
+                <p className="-mt-1.5 text-xs text-muted">Shown as buttons, since people can&apos;t scan a code on their own screen. Remove any that shouldn&apos;t be public.</p>
+                <ul className="grid gap-1.5">
+                  {form.links.map((l) => (
+                    <li key={l.url} className="flex items-center gap-2 rounded-xl border border-line bg-card px-3 py-2 text-sm">
+                      <span className="shrink-0 font-bold">{LINK_LABELS[l.kind]}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted">{l.url.replace(/^https?:\/\//, "")}</span>
+                      <button type="button" aria-label={`Remove ${LINK_LABELS[l.kind]}`} className="shrink-0 text-muted hover:text-ink" onClick={() => set("links", form.links.filter((x) => x.url !== l.url))}>
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
 
           <section className="grid gap-3 rounded-2xl border border-saffron/40 bg-saffron-soft/40 p-4">
@@ -653,6 +743,77 @@ export function PostFlow({
           {busy ? "Saving…" : editToken ? "Save changes" : isAdmin ? "Continue to publish" : `Continue · ${priceLabel} to publish`}
         </button>
       </div>
+    </div>
+  );
+}
+
+type Nullable<T> = { [K in keyof T]: T[K] | null };
+
+/** Phone number from a wa.me/<number> QR link. */
+function waPhone(links: FlyerLink[]) {
+  for (const l of links) {
+    const m = l.kind === "whatsapp" ? l.url.match(/wa\.me\/(\d{10,15})/) : null;
+    if (m) return `+${m[1]}`;
+  }
+  return null;
+}
+
+/** Weekly times with at least one day chosen. */
+function activeSessions(form: Form) {
+  if (form.kind === "event" && !form.weeklyOn) return [];
+  return form.sessions.filter((x) => x.days.length);
+}
+
+/** Weekly slots: a class timetable (with class names) or a repeating event's day and time. */
+function SessionsEditor({ sessions, onChange, classes = false }: { sessions: SessionRow[]; onChange: (s: SessionRow[]) => void; classes?: boolean }) {
+  const update = (i: number, patch: Partial<SessionRow>) => onChange(sessions.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="grid gap-3">
+      {sessions.map((x, i) => (
+        <div key={i} className="grid gap-2 rounded-xl bg-paper-2/60 p-3">
+          {classes ? (
+            <div className="flex gap-2">
+              <input className={input} placeholder="Class name, e.g. Hatha Flow" value={x.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Class name" />
+              <button type="button" aria-label="Remove class" className="h-11 w-9 shrink-0 rounded-xl text-muted hover:bg-paper-2" onClick={() => onChange(sessions.filter((_, j) => j !== i))}>
+                ✕
+              </button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5">
+            {WEEK_ORDER.map((d) => (
+              <button
+                key={d}
+                type="button"
+                aria-pressed={x.days.includes(d)}
+                onClick={() => update(i, { days: x.days.includes(d) ? x.days.filter((y) => y !== d) : [...x.days, d].sort() })}
+                className={`h-9 w-11 rounded-lg text-sm font-bold ${x.days.includes(d) ? "bg-ink text-paper" : "border border-line bg-card"}`}
+              >
+                {WEEKDAY_SHORT[d]}
+              </button>
+            ))}
+            <button type="button" onClick={() => update(i, { days: x.days.length === 7 ? [] : [0, 1, 2, 3, 4, 5, 6] })} className="h-9 rounded-lg border border-line bg-card px-2.5 text-sm font-bold">
+              {x.days.length === 7 ? "Clear" : "Daily"}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs font-semibold text-muted">
+              Starts
+              <input type="time" className={input} value={x.start_time} onChange={(e) => update(i, { start_time: e.target.value })} />
+            </label>
+            <label className="text-xs font-semibold text-muted">
+              Ends
+              <input type="time" className={input} value={x.end_time} onChange={(e) => update(i, { end_time: e.target.value })} />
+            </label>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="justify-self-start text-sm font-bold text-saffron-ink"
+        onClick={() => onChange([...sessions, { ...emptySession(), days: sessions[sessions.length - 1]?.days ?? [] }])}
+      >
+        {classes ? "+ Add a class" : "+ Add another weekly time"}
+      </button>
     </div>
   );
 }

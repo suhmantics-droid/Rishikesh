@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { WhatsAppIcon } from "./Browse";
 
-export function ShareBar({ title, text, calendarHref }: { title: string; text: string; calendarHref: string }) {
+export function ShareBar({ title, text, calendarHref }: { title: string; text: string; calendarHref: string | null }) {
   const [copied, setCopied] = useState(false);
   const pageUrl = () => window.location.href.split("?")[0];
   async function share() {
@@ -22,7 +22,7 @@ export function ShareBar({ title, text, calendarHref }: { title: string; text: s
   }
   const btn = "inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-card px-3 py-2.5 text-sm font-bold text-ink-2 hover:border-ink-2";
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={`grid gap-2 ${calendarHref ? "grid-cols-3" : "grid-cols-2"}`}>
       <button
         type="button"
         data-track="share"
@@ -31,9 +31,11 @@ export function ShareBar({ title, text, calendarHref }: { title: string; text: s
       >
         <WhatsAppIcon className="h-4 w-4" /> WhatsApp
       </button>
-      <a data-track="calendar" className={btn} href={calendarHref}>
-        📅 Calendar
-      </a>
+      {calendarHref ? (
+        <a data-track="calendar" className={btn} href={calendarHref}>
+          📅 Calendar
+        </a>
+      ) : null}
       <button type="button" data-track="share" className={btn} onClick={share}>
         {copied ? "Copied ✓" : "↗ Share"}
       </button>

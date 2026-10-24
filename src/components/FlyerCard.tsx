@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { EventCard } from "@/lib/data";
-import { dateParts, formatTimeRange } from "@/lib/dates";
+import { dateParts, daysLabel, formatDay, formatTime, formatTimeRange } from "@/lib/dates";
 import { category } from "@/lib/site";
 import { flyerUrl, priceShort } from "@/lib/util";
 
@@ -21,6 +21,7 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
   const { wd, day, mon } = dateParts(e.next.date);
   const isToday = e.next.date === today;
   const price = priceShort(e);
+  const classes = e.kind === "classes";
   return (
     <Link
       href={`/e/${e.slug}`}
@@ -38,13 +39,20 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
         ) : (
           <div className="flex h-full items-center justify-center p-4 text-center font-display text-lg font-semibold">{e.title}</div>
         )}
-        <div
-          className={`absolute top-2 left-2 rounded-xl px-1.5 py-1 text-center leading-none shadow-card sm:px-2 ${isToday ? "bg-saffron text-white" : "bg-card text-ink"}`}
-        >
-          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{isToday ? "Today" : wd}</div>
-          <div className="font-display text-lg font-semibold sm:text-xl">{day}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{mon}</div>
-        </div>
+        {classes ? (
+          <div className="absolute top-2 left-2 rounded-xl bg-ganga px-2 py-1.5 text-center leading-none text-on-ganga shadow-card">
+            <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Classes</div>
+            <div className="mt-0.5 font-display text-[15px] font-semibold">{daysLabel(e.days) || "Weekly"}</div>
+          </div>
+        ) : (
+          <div
+            className={`absolute top-2 left-2 rounded-xl px-1.5 py-1 text-center leading-none shadow-card sm:px-2 ${isToday ? "bg-saffron text-white" : "bg-card text-ink"}`}
+          >
+            <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{isToday ? "Today" : wd}</div>
+            <div className="font-display text-lg font-semibold sm:text-xl">{day}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{mon}</div>
+          </div>
+        )}
         {e.featured ? (
           <span className="absolute top-2 right-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-paper uppercase">Featured</span>
         ) : null}
@@ -56,22 +64,53 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
         <CategoryTag cat={e.category} />
         <h3 className="line-clamp-2 font-display text-[15px] leading-snug font-semibold">{e.title}</h3>
         <p className="line-clamp-1 text-[13px] text-muted">{e.venue.name}</p>
-        <div className="mt-auto flex items-center justify-between pt-1 text-[13px] font-semibold">
-          <span>{formatTimeRange(e.next.start_time, e.next.end_time) || "All day"}</span>
-          <span className={price === "Free" || price === "Donation" ? "text-ganga" : ""}>{price}</span>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[13px] font-semibold">
+          <span className="truncate">
+            {classes
+              ? `Next ${isToday ? "" : `${formatDay(e.next.date, today)} `}${formatTime(e.next.start_time)}`.replace(/\s+$/, "")
+              : formatTimeRange(e.next.start_time, e.next.end_time) || "All day"}
+          </span>
+          <span className={`shrink-0 ${price === "Free" || price === "Donation" ? "text-ganga" : ""}`}>{price}</span>
         </div>
-        {e.dates_in_range > 1 ? <p className="text-[12px] text-muted">+{e.dates_in_range - 1} more date{e.dates_in_range > 2 ? "s" : ""}</p> : null}
+        {classes && e.next.label ? (
+          <p className="truncate text-[12px] text-muted">{e.next.label}</p>
+        ) : !classes && e.dates_in_range > 1 ? (
+          <p className="text-[12px] text-muted">+{e.dates_in_range - 1} more date{e.dates_in_range > 2 ? "s" : ""}</p>
+        ) : null}
       </div>
     </Link>
   );
 }
 
+const grid = "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3";
+
+/** Events first; regular classes get their own shelf below so they don't crowd out one-off events. */
 export function FlyerGrid({ items, today }: { items: EventCard[]; today: string }) {
+  const events = items.filter((e) => e.kind !== "classes");
+  const classes = items.filter((e) => e.kind === "classes");
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-      {items.map((e, i) => (
-        <FlyerCard key={e.id} e={e} today={today} priority={i < 4} />
-      ))}
+    <div className="flex flex-col gap-6">
+      {events.length ? (
+        <div className={grid}>
+          {events.map((e, i) => (
+            <FlyerCard key={e.id} e={e} today={today} priority={i < 4} />
+          ))}
+        </div>
+      ) : null}
+      {classes.length ? (
+        <section>
+          {events.length ? (
+            <h2 className="mb-3 flex items-baseline gap-2 font-display text-xl font-semibold">
+              Drop-in classes &amp; timetables <span className="font-sans text-sm font-semibold text-muted">{classes.length}</span>
+            </h2>
+          ) : null}
+          <div className={grid}>
+            {classes.map((e, i) => (
+              <FlyerCard key={e.id} e={e} today={today} priority={!events.length && i < 4} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

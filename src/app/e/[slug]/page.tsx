@@ -9,10 +9,12 @@ import { PushToggle } from "@/components/PushToggle";
 import { ReportLink, ShareBar } from "@/components/ShareBar";
 import { WhatsAppIcon } from "@/components/Browse";
 import { EventTracker, InterestedButton } from "@/components/Track";
-import { getEventBySlug } from "@/lib/data";
+import { Timetable } from "@/components/Timetable";
+import { getEventBySlug, pinEvent, scheduleDays } from "@/lib/data";
 import { eventStats } from "@/lib/stats";
-import { formatDayLong, formatTimeRange, todayIST } from "@/lib/dates";
+import { daysLabel, formatDayLong, formatTime, formatTimeRange, todayIST, weekday } from "@/lib/dates";
 import { area, category, SITE } from "@/lib/site";
+import { LINK_LABELS } from "@/lib/links";
 import { directionsLink, flyerUrl, instagramHandle, priceLabel, safeUrl, whatsappNumber } from "@/lib/util";
 
 export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Promise<Metadata> {
@@ -20,7 +22,12 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
   const d = await getEventBySlug(slug);
   if (!d) return { title: "Flyer not found" };
   const next = d.dates.find((x) => x.date >= todayIST()) ?? d.dates[0];
-  const when = next ? `${formatDayLong(next.date)} ${formatTimeRange(next.start_time, next.end_time)}` : "";
+  const when =
+    d.event.kind === "classes"
+      ? `${daysLabel(scheduleDays(d.schedule))} classes`
+      : next
+        ? `${formatDayLong(next.date)} ${formatTimeRange(next.start_time, next.end_time)}`
+        : "";
   const img = flyerUrl(d.event.flyer);
   return {
     title: d.event.title,
@@ -44,7 +51,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
   if (!d || d.event.status !== "live") notFound();
   const stats = eventStats(d.event.id);
 
-  const { event, venue, artists, isLive } = d;
+  const { event, venue, artists, isLive, links } = d;
   const today = todayIST();
   const upcoming = d.dates.filter((x) => x.date >= today);
   const cat = category(event.category);
@@ -52,12 +59,19 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
   const wa = whatsappNumber(event.contact_phone);
   const ig = instagramHandle(event.contact_instagram);
   const booking = safeUrl(event.booking_url);
+  // Links from the flyer's QR codes, minus any we already show as a button.
+  const qrLinks = links.filter((l) => l.url !== booking && !(l.kind === "whatsapp" && wa && l.url.includes(wa)));
+  const mapLink = links.find((l) => l.kind === "map")?.url;
   const next = upcoming[0];
-  const shareText = `📌 ${event.title}${next ? ` — ${formatDayLong(next.date, today)} ${formatTimeRange(next.start_time, next.end_time)}` : ""} @ ${venue.name}, Tapovan (${priceLabel(event)})`;
+  const isClasses = event.kind === "classes";
+  const days = scheduleDays(d.schedule);
+  const shareText = isClasses
+    ? `📌 ${event.title} — ${daysLabel(days)} @ ${venue.name}, Tapovan`
+    : `📌 ${event.title}${next ? ` — ${formatDayLong(next.date, today)} ${formatTimeRange(next.start_time, next.end_time)}` : ""} @ ${venue.name}, Tapovan (${priceLabel(event)})`;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-5 sm:py-8">
-      {isLive ? (
+      {isLive && !isClasses ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(d, upcoming.slice(0, 10))).replace(/</g, "\\u003c") }}
@@ -107,7 +121,17 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             <div className="flex gap-3">
               <dt className="w-16 shrink-0 text-sm font-semibold text-muted">When</dt>
               <dd className="flex flex-col gap-0.5">
-                {upcoming.length ? (
+                {isClasses ? (
+                  <>
+                    <span className="font-semibold">{daysLabel(days)} · regular classes</span>
+                    {next ? (
+                      <span className="text-ink-2">
+                        Next: <b className={next.date === today ? "text-saffron-ink" : ""}>{formatDayLong(next.date, today).split(" · ")[0]} {formatTime(next.start_time)}</b>
+                        {next.label ? ` · ${next.label}` : ""}
+                      </span>
+                    ) : null}
+                  </>
+                ) : upcoming.length ? (
                   upcoming.slice(0, 8).map((x) => (
                     <span key={`${x.date}${x.start_time}`} className={x.date === today ? "font-bold text-saffron-ink" : "font-semibold"}>
                       {formatDayLong(x.date, today)} <span className="font-normal text-ink-2">{formatTimeRange(x.start_time, x.end_time)}</span>
@@ -153,6 +177,10 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             ) : null}
           </dl>
 
+          {isClasses && d.schedule?.sessions.length ? (
+            <Timetable sessions={d.schedule.sessions} todayWd={weekday(today)} fallbackLabel={event.title} />
+          ) : null}
+
           {event.description ? <p className="text-[15px] leading-relaxed whitespace-pre-line text-ink-2">{event.description}</p> : null}
 
           {wa || ig || booking ? (
@@ -181,20 +209,49 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             </div>
           ) : null}
 
+          {qrLinks.length ? (
+            <div className="rounded-2xl border border-line bg-card p-4">
+              <p className="flex items-center gap-2 text-sm font-bold">
+                <QrIcon /> From the QR codes on this flyer
+              </p>
+              <p className="mb-3 text-sm text-muted">Can&apos;t scan a code on your own screen — so here they are as links.</p>
+              <div className="flex flex-wrap gap-2">
+                {qrLinks.map((l) => (
+                  <a
+                    key={l.url}
+                    data-track={l.kind === "whatsapp" || l.kind === "whatsapp-group" ? "whatsapp" : l.kind === "map" ? "directions" : "booking"}
+                    href={l.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-line bg-paper px-3 py-2 text-sm font-bold hover:border-ink-2"
+                  >
+                    {LINK_LABELS[l.kind]} ↗
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <InterestedButton eventId={event.id} initial={stats.interested ?? 0} />
           </div>
 
-          <ShareBar title={event.title} text={shareText} calendarHref={`/e/${event.slug}/calendar`} />
+          <ShareBar title={event.title} text={shareText} calendarHref={isClasses ? null : `/e/${event.slug}/calendar`} />
 
           <div className="flex flex-col gap-3">
             {venue.lat != null && venue.lng != null ? (
               <MiniMap
                 today={today}
-                pins={[{ slug: venue.slug, name: venue.name, area: venue.area, lat: venue.lat, lng: venue.lng, events: [{ slug: event.slug, title: event.title, category: event.category, date: next?.date ?? today, start_time: next?.start_time ?? null }] }]}
+                pins={[{ slug: venue.slug, name: venue.name, area: venue.area, lat: venue.lat, lng: venue.lng, events: [pinEvent({ ...event, kind: isClasses ? "classes" : "event", days }, next ?? { date: today, start_time: null, end_time: null })] }]}
               />
             ) : null}
-            <a data-track="directions" href={directionsLink(venue)} target="_blank" rel="noreferrer" className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
+            <a
+              data-track="directions"
+              href={!venue.coords_verified && mapLink ? mapLink : directionsLink(venue)}
+              target="_blank"
+              rel="noreferrer"
+              className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga"
+            >
               Directions (Google Maps) ↗
             </a>
             {!venue.coords_verified ? <p className="text-xs text-muted">Map pin is approximate — use Directions for the exact spot.</p> : null}
@@ -223,6 +280,17 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
         </div>
       </div>
     </div>
+  );
+}
+
+function QrIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3h-3zM20 14v1M14 20h1M17 17h4v4h-4z" />
+    </svg>
   );
 }
 
