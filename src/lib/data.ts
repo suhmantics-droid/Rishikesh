@@ -90,7 +90,7 @@ export type Filters = {
 const LIVE = `e.status = 'live' AND e.live_until >= @today`;
 
 /** Today's occurrence has finished: past its end time, or 3h after start when no end is given. */
-function isOver(occ: Occurrence, today: string, now: string) {
+export function isOver(occ: Occurrence, today: string, now: string) {
   if (occ.date !== today || !occ.start_time) return false;
   let end = occ.end_time && occ.end_time > occ.start_time ? occ.end_time : null;
   if (!end) {

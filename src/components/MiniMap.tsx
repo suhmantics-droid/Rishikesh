@@ -16,4 +16,4 @@ export function MiniMap({ pins, today, className = "h-56" }: { pins: MapPin[]; t
   );
 }
 
-export { MapView as LazyMapView };
+export { MapView as LazyMapView, MapView };

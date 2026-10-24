@@ -162,12 +162,12 @@ function Queue({ today }: { today: string }) {
     .prepare("SELECT r.id, r.reason, r.created_at, e.id AS event_id, e.title, e.slug FROM reports r JOIN events e ON e.id = r.event_id WHERE r.resolved = 0 ORDER BY r.created_at")
     .all() as Record<string, string | number>[];
 
-  const starter = starterStatus();
+  const starter = starterStatus().filter((s) => s.state !== "past");
   const ready = starter.filter((s) => s.state === "ready");
 
   return (
     <div className="grid gap-8">
-      {starter.some((s) => s.state !== "imported") ? (
+      {ready.length ? (
         <section className="rounded-2xl border border-ganga/40 bg-ganga-soft/40 p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">

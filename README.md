@@ -8,11 +8,13 @@ Built for **rishikesh.suhmantics.com**.
 
 | For visitors | For organisers | For you (admin) |
 | --- | --- | --- |
-| Flyer wall, day-by-day agenda and map | Snap a flyer → details are read from the photo (optional AI) | Post flyers yourself and record cash in one tap |
+| Flyer wall, day-by-day agenda, and a **flyer map**: every flyer pinned where it's happening | Snap a flyer → details are read from the photo (optional AI); straighten a wall photo in one drag | Post flyers yourself and record cash in one tap |
 | Filter: today / tomorrow / weekend / date, category, area, price, time of day | ₹50 = 4 weeks; recurring events show on every date | Approve organiser submissions once they've paid |
 | Follow artists, venues, vibes → **phone notifications** or email | Private link to edit, renew, and see views, "interested", WhatsApp and directions taps | Visitors per day, most-viewed flyers, revenue |
 | **/today** — the day's list, shareable to WhatsApp with a picture preview | Followers are notified the moment the flyer goes live | Fix map pins, feature/hide listings, handle reports |
 | Ganga Aarti times and directions; add to calendar; directions | Listed in Google's event results | Upload the site's photos; CSV exports |
+| Class timetables (Tapashala, Divine Circle…) by day, kept apart from one-off events | Post a whole weekly timetable as one listing | **Starter pack:** 12 real Tapovan flyers ready to publish |
+| QR codes on flyers become tappable buttons (WhatsApp group, booking form, map pin) | QR codes are read automatically | |
 
 ---
 
@@ -62,9 +64,14 @@ loads, with HTTPS set up automatically.
    first thing people see, so make them good ones.
 3. **Settings tab:** your name and WhatsApp number (shown to organisers), and later your Claude, Resend, UPI or
    Razorpay keys. Everything here takes effect immediately.
-4. **Seed the board before you share the link.** Walk Tapovan, and for each flyer on a cafe wall:
-   **Post a flyer** → photo → check details → **Publish free**. Twenty or thirty flyers make it feel alive.
-5. **Venues & pins tab:** fix any pin that's off (the 12 starter venues have *approximate* pins).
+4. **Seed the board before you share the link.** Admin → **To do** shows the *starter flyers* (the real
+   flyers photographed in October 2026, already straightened and typed up) — tap **Publish all**. Ones that
+   have already happened are skipped. Then walk Tapovan, and for each flyer on a cafe wall:
+   **Post a flyer** → photo → **✂️ Straighten & crop** → check details → **Publish free**. Twenty or thirty
+   flyers make it feel alive.
+5. **Venues & pins tab:** fix any pin that's off (the starter venues have *approximate* pins; until a pin
+   is fixed, Directions searches Google Maps by the venue's name). Tapashala's flyer has a QR code with its
+   exact Google Maps location — open it from the Tapashala flyer page.
 6. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
 7. Offer organisers their first month free; then ₹50 cash.
 
@@ -121,6 +128,16 @@ Your data is never touched by updates.
   does, in Tapovan), the last list still opens, with a small "you're offline" note, and taps go through when the
   connection is back.
 - **Directories:** /venues and /artists list everyone with a flyer up, each with a one-tap Follow.
+- **The flyer map** (/map): every flyer as a small pinned card, spread around its venue so none hide each
+  other, with a dotted line back to the exact spot. Tap one for a preview. The same map sits beside the wall
+  on the home page.
+- **Timetables:** choose *Regular classes* when posting and add each class with its days and times (the
+  photo reader fills these in from a schedule grid). They appear as "Daily" / "Mon–Sat" cards on their own
+  shelf, as day tabs on the flyer page, and in a folded "drop-in classes" list in the agenda, so tonight's
+  concert is never buried under yoga classes. They keep running for as long as the listing is paid for.
+- **QR codes:** nobody can scan a code on their own screen, so codes on uploaded flyers are read and shown
+  as buttons (WhatsApp group, booking form, Google Maps pin, website). Payment codes are left out. A map pin
+  from a QR code is used for Directions until the venue's own pin is checked.
 
 ## Switching things on later
 
@@ -169,17 +186,19 @@ npm test                 # unit + listing-lifecycle tests
 
 - **Next.js 16** (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - **SQLite** via better-sqlite3 (`data/app.db`); flyers resized to WebP with sharp (`data/uploads/`)
-- **Leaflet** + OpenStreetMap for the map; Web Push (`web-push`, VAPID keys generated on first use) for phone notifications
+- **Leaflet** + OpenStreetMap for the map; QR codes read with `zxing-wasm`; Web Push (`web-push`, VAPID keys generated on first use) for phone notifications
 - Share images generated with `next/og`; type set in Fraunces (headings) and Inter
 - **Claude** (`@anthropic-ai/sdk`, structured outputs) for reading flyers — `src/lib/extract.ts`
 - **Resend** for email — `src/lib/email.ts`
 - Payments — `src/lib/payments.ts` (cash / UPI QR / Razorpay)
 
 ```
-src/app/            pages: / (browse), /e/[slug] (event), /v/[slug] (venue), /a/[slug] (artist),
-                    /post, /manage/[token], /alerts, /admin, /about, /poster; api/ routes
+src/app/            pages: / (browse), /map (flyer map), /e/[slug] (event), /v/[slug] (venue), /a/[slug] (artist),
+                    /today, /venues, /artists, /post, /manage/[token], /alerts, /admin, /about, /poster; api/ routes
 src/components/     Browse (filters + views), MapView, FlyerCard, PostFlow, PayWidget, AlertsForm …
-src/lib/            db (schema), data (queries), listings, payments, alerts, extract, cron, site (config)
+src/lib/            db (schema), data (queries), listings (incl. timetables), payments, alerts, extract,
+                    qr (QR codes → links), warp (straightening), collage (map layout), starter, cron, site
+seed/starter/       the starter pack: flyers.json plus the straightened flyer images
 deploy/             cloud-init.sh (browser setup), setup.sh, auto-update.sh, backup.sh, update.sh, Caddyfile
 tests/              node:test suites (dates, utils, listing lifecycle, filters, payments)
 ```

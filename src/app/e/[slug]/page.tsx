@@ -10,9 +10,9 @@ import { ReportLink, ShareBar } from "@/components/ShareBar";
 import { WhatsAppIcon } from "@/components/Browse";
 import { EventTracker, InterestedButton } from "@/components/Track";
 import { Timetable } from "@/components/Timetable";
-import { getEventBySlug, pinEvent, scheduleDays } from "@/lib/data";
+import { getEventBySlug, isOver, pinEvent, scheduleDays } from "@/lib/data";
 import { eventStats } from "@/lib/stats";
-import { daysLabel, formatDayLong, formatTime, formatTimeRange, todayIST, weekday } from "@/lib/dates";
+import { daysLabel, formatDayLong, formatTime, formatTimeRange, nowTimeIST, todayIST, weekday } from "@/lib/dates";
 import { area, category, SITE } from "@/lib/site";
 import { LINK_LABELS } from "@/lib/links";
 import { directionsLink, flyerUrl, instagramHandle, priceLabel, safeUrl, whatsappNumber } from "@/lib/util";
@@ -53,7 +53,9 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
 
   const { event, venue, artists, isLive, links } = d;
   const today = todayIST();
-  const upcoming = d.dates.filter((x) => x.date >= today);
+  const now = nowTimeIST();
+  // Sessions earlier today that have finished don't count as "next".
+  const upcoming = d.dates.filter((x) => x.date >= today && !isOver(x, today, now));
   const cat = category(event.category);
   const img = flyerUrl(event.flyer);
   const wa = whatsappNumber(event.contact_phone);
@@ -140,7 +142,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 ) : (
                   <span className="text-muted">No upcoming dates</span>
                 )}
-                {upcoming.length > 8 ? <span className="text-sm text-muted">+{upcoming.length - 8} more dates</span> : null}
+                {!isClasses && upcoming.length > 8 ? <span className="text-sm text-muted">+{upcoming.length - 8} more dates</span> : null}
               </dd>
             </div>
             <div className="flex gap-3">
@@ -158,7 +160,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
               <dt className="w-16 shrink-0 text-sm font-semibold text-muted">Price</dt>
               <dd className="font-semibold">
                 {priceLabel(event)}
-                {event.price_note ? <span className="font-normal text-ink-2"> · {event.price_note}</span> : null}
+                {event.price_note && priceLabel(event) !== event.price_note ? <span className="font-normal text-ink-2"> · {event.price_note}</span> : null}
               </dd>
             </div>
             {artists.length ? (

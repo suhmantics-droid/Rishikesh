@@ -43,3 +43,4 @@ data/
 !.env.example
 deploy/backups/
 deploy/backup.log
+data-*/

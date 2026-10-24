@@ -45,18 +45,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" aria-label={`${SITE.name} home`}>
               <Logo />
             </Link>
-            <nav className="ml-auto flex items-center gap-1 text-sm font-semibold">
-              <Link href="/today" className="rounded-full px-3 py-2 text-ink-2 hover:bg-paper-2">
+            <nav className="ml-auto flex items-center gap-0.5 text-sm font-semibold sm:gap-1">
+              <Link href="/today" className="rounded-full px-2.5 py-2 text-ink-2 hover:bg-paper-2 sm:px-3">
                 Today
               </Link>
-              <Link href="/alerts" className="rounded-full px-3 py-2 text-ink-2 hover:bg-paper-2">
+              <Link href="/map" className="rounded-full px-2.5 py-2 text-ink-2 hover:bg-paper-2 sm:px-3">
+                Map
+              </Link>
+              <Link href="/alerts" className="rounded-full px-2.5 py-2 text-ink-2 hover:bg-paper-2 sm:px-3">
                 Alerts
               </Link>
               <Link
                 href="/post"
-                className="rounded-full bg-saffron px-4 py-2 text-white shadow-card transition hover:brightness-105 active:scale-[.98]"
+                className="ml-1 rounded-full bg-saffron px-3 py-2 whitespace-nowrap text-white shadow-card transition hover:brightness-105 active:scale-[.98] sm:px-4"
               >
-                Post a flyer
+                Post<span className="hidden min-[400px]:inline"> a flyer</span>
               </Link>
             </nav>
           </div>
@@ -76,6 +79,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </span>
               <Link href="/today" className="text-[#a9d6cf] hover:text-white">
                 Today
+              </Link>
+              <Link href="/map" className="text-[#a9d6cf] hover:text-white">
+                Flyer map
               </Link>
               <Link href="/venues" className="text-[#a9d6cf] hover:text-white">
                 Venues
