@@ -9,6 +9,7 @@ import { formatDayLong, formatTimeRange } from "@/lib/dates";
 import { AREAS, CATEGORIES, PRICE_OPTIONS, SITE, TIME_OPTIONS, WHEN_OPTIONS } from "@/lib/site";
 import { Agenda } from "./Agenda";
 import { FlyerGrid } from "./FlyerCard";
+import { forgetHere, locateMe, metres, useHere } from "./Live";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -47,6 +48,22 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
   const [view, setView] = useState<"wall" | "list" | "map">((sp.get("view") as "wall" | "list" | "map") || "wall");
   const [showMore, setShowMore] = useState(Boolean(sp.get("area") || sp.get("price") || sp.get("time")));
   const cats = (sp.get("cat") ?? "").split(",").filter(Boolean);
+  const here = useHere();
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
+  // With a location, the wall reads nearest first; venues without a pin go last.
+  const shown = here
+    ? [...wall].sort((a, b) => dist(a) - dist(b))
+    : wall;
+  function dist(e: EventCard) {
+    return here && e.venue.lat != null && e.venue.lng != null ? metres(here, { lat: e.venue.lat, lng: e.venue.lng }) : Infinity;
+  }
+  async function nearMe() {
+    if (here) return forgetHere();
+    setLocating(true);
+    setLocError(await locateMe());
+    setLocating(false);
+  }
 
   function update(changes: Record<string, string | null>) {
     const next = new URLSearchParams(sp.toString());
@@ -109,6 +126,9 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
               onChange={(e) => e.target.value && update({ when: e.target.value })}
             />
           </label>
+          <Chip active={!!here} onClick={nearMe}>
+            {locating ? "Finding you…" : here ? "📍 Nearest first ✕" : "📍 Near me"}
+          </Chip>
         </div>
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
           {CATEGORIES.filter((c) => c.key !== "other").map((c) => (
@@ -187,6 +207,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
         ) : null}
       </div>
 
+      {locError ? <p className="mt-2 rounded-xl bg-saffron-soft px-3 py-2 text-sm text-saffron-ink">{locError}</p> : null}
       {/* Results header + view switch */}
       <div className="flex items-center gap-2 py-3">
         <p className="text-sm text-muted">
@@ -221,7 +242,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
           ) : view === "list" ? (
             <Agenda items={agenda} today={today} />
           ) : (
-            <FlyerGrid items={wall} today={today} />
+            <FlyerGrid items={shown} today={today} />
           )}
           {agenda.length > 0 ? (
             <button
@@ -235,7 +256,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
         </div>
         <div className={view === "map" ? "" : "hidden lg:block"}>
           <div className="sticky top-[4.5rem] h-[calc(100svh-6rem)] min-h-[360px] overflow-hidden rounded-2xl border border-line shadow-card max-lg:h-[70svh]">
-            <MapView pins={pins} today={today} />
+            <MapView pins={pins} today={today} here={here} />
           </div>
           {pins.length === 0 ? <p className="mt-2 text-sm text-muted">No venues to show for these filters.</p> : null}
         </div>

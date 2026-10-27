@@ -90,6 +90,7 @@ export default function MapView({
   picked,
   fit = true,
   insetBottom = 0,
+  here = null,
 }: {
   pins: MapPin[];
   today: string;
@@ -102,16 +103,21 @@ export default function MapView({
   fit?: boolean;
   /** Height of a panel covering the bottom of the map, kept clear when framing. */
   insetBottom?: number;
+  /** The visitor's location, shown as a blue dot. */
+  here?: { lat: number; lng: number } | null;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const layerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const pickRef = useRef<import("leaflet").Marker | null>(null);
+  const hereRef = useRef<import("leaflet").Marker | null>(null);
   const LRef = useRef<typeof import("leaflet") | null>(null);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
+  const hereProp = useRef(here);
+  hereProp.current = here;
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +145,7 @@ export default function MapView({
           if (!mapRef.current) return;
           map.invalidateSize();
           frame(true);
+          drawHere();
         }, 60),
       );
     })();
@@ -248,6 +255,25 @@ export default function MapView({
     frame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pins, picked]);
+
+  /** The blue "you are here" dot. */
+  function drawHere() {
+    const L = LRef.current;
+    const map = mapRef.current;
+    hereRef.current?.remove();
+    hereRef.current = null;
+    const h = hereProp.current;
+    if (!L || !map || !h) return;
+    hereRef.current = L.marker([h.lat, h.lng], {
+      icon: L.divIcon({ className: "fc-marker", html: `<span class="fc-here" title="You are here"></span>`, iconSize: [0, 0] }),
+      interactive: false,
+      zIndexOffset: 1000,
+    }).addTo(map);
+  }
+
+  useEffect(() => {
+    drawHere();
+  }, [here]);
 
   return <div ref={el} className={`z-0 h-full w-full ${className}`} role="region" aria-label="Map of flyers" />;
 }

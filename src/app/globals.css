@@ -143,6 +143,17 @@ body {
   border-radius: 10px;
   background: var(--saffron);
 }
+.fc-here {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  border: 3px solid #fff;
+  background: #1a73e8;
+  box-shadow: 0 0 0 6px rgb(26 115 232 / 0.25), 0 1px 3px rgb(0 0 0 / 0.4);
+}
 .fc-line {
   position: absolute;
   overflow: visible;

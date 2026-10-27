@@ -3,6 +3,7 @@ import type { EventCard } from "@/lib/data";
 import { dateParts, daysLabel, formatDay, formatTime, formatTimeRange } from "@/lib/dates";
 import { category } from "@/lib/site";
 import { flyerUrl, priceShort } from "@/lib/util";
+import { LiveBadge, WalkTime } from "./Live";
 
 export function CategoryTag({ cat, className = "" }: { cat: string; className?: string }) {
   const c = category(cat);
@@ -56,6 +57,7 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
         {e.featured ? (
           <span className="absolute top-2 right-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-paper uppercase">Featured</span>
         ) : null}
+        <LiveBadge date={e.next.date} start={e.next.start_time} end={e.next.end_time} className="absolute bottom-2 left-2 shadow-card" />
         {e.is_demo ? (
           <span className="absolute right-2 bottom-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white uppercase">Sample</span>
         ) : null}
@@ -64,6 +66,7 @@ export function FlyerCard({ e, today, priority = false }: { e: EventCard; today:
         <CategoryTag cat={e.category} />
         <h3 className="line-clamp-2 font-display text-[15px] leading-snug font-semibold">{e.title}</h3>
         <p className="line-clamp-1 text-[13px] text-muted">{e.venue.name}</p>
+        <WalkTime lat={e.venue.lat} lng={e.venue.lng} className="text-[12px] font-semibold text-ganga" />
         <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[13px] font-semibold">
           <span className="truncate">
             {classes

@@ -9,6 +9,7 @@ import { PushToggle } from "@/components/PushToggle";
 import { ReportLink, ShareBar } from "@/components/ShareBar";
 import { WhatsAppIcon } from "@/components/Browse";
 import { EventTracker, InterestedButton } from "@/components/Track";
+import { LiveBadge, WalkTime } from "@/components/Live";
 import { Timetable } from "@/components/Timetable";
 import { getEventBySlug, isOver, pinEvent, scheduleDays } from "@/lib/data";
 import { eventStats } from "@/lib/stats";
@@ -114,7 +115,10 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
 
         <div className="flex flex-col gap-5">
           <div>
-            <CategoryTag cat={event.category} />
+            <div className="flex items-center gap-2">
+              <CategoryTag cat={event.category} />
+              {next ? <LiveBadge date={next.date} start={next.start_time} end={next.end_time} /> : null}
+            </div>
             <h1 className="mt-1 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{event.title}</h1>
             {event.organiser_name ? <p className="mt-1 text-sm text-muted">by {event.organiser_name}</p> : null}
           </div>
@@ -154,6 +158,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 <div className="text-sm text-muted">
                   {[venue.address, area(venue.area).label].filter((x, i, all) => x && all.indexOf(x) === i).join(" · ")}
                 </div>
+                <WalkTime lat={venue.lat} lng={venue.lng} className="text-sm font-semibold text-ganga" />
               </dd>
             </div>
             <div className="flex gap-3">

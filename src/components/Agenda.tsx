@@ -3,6 +3,7 @@ import type { AgendaItem } from "@/lib/data";
 import { formatDayLong, formatTime } from "@/lib/dates";
 import { flyerUrl, priceShort } from "@/lib/util";
 import { CategoryTag } from "./FlyerCard";
+import { LiveBadge, WalkTime } from "./Live";
 
 /**
  * Day-by-day list: the fastest way to answer "what's on tonight?".
@@ -56,6 +57,7 @@ export function Agenda({
                         <span className="min-w-0 flex-1 truncate text-[14px]">
                           <b>{e.occ.label ?? e.title}</b> <span className="text-muted">· {e.venue.name}</span>
                         </span>
+                        <LiveBadge date={e.occ.date} start={e.occ.start_time} end={e.occ.end_time} className="shrink-0" />
                       </Link>
                     </li>
                   ))}
@@ -83,12 +85,16 @@ function EventRow({ e }: { e: AgendaItem }) {
           <img src={thumb} alt="" loading="lazy" className="h-14 w-11 shrink-0 rounded-md object-cover object-top" />
         ) : null}
         <div className="min-w-0 flex-1">
-          <CategoryTag cat={e.category} />
+          <div className="flex items-center gap-2">
+            <CategoryTag cat={e.category} />
+            <LiveBadge date={e.occ.date} start={e.occ.start_time} end={e.occ.end_time} />
+          </div>
           <div className="truncate font-bold">{e.title}</div>
           <div className="truncate text-[13px] text-muted">
             {e.venue.name}
             {e.artists.length ? ` · ${e.artists.map((a) => a.name).join(", ")}` : ""}
           </div>
+          <WalkTime lat={e.venue.lat} lng={e.venue.lng} className="text-[12px] font-semibold text-ganga" />
         </div>
         <div className="shrink-0 text-[13px] font-semibold">{priceShort(e)}</div>
       </Link>
