@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/Logo";
 import { OfflineBanner, ServiceWorker } from "@/components/Offline";
+import { PlanLink } from "@/components/Plan";
 import { PageTracker } from "@/components/Track";
 import { SITE } from "@/lib/site";
 import "./globals.css";
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/alerts" className="rounded-full px-2.5 py-2 text-ink-2 hover:bg-paper-2 sm:px-3">
                 Alerts
               </Link>
+              <PlanLink />
               <Link
                 href="/post"
                 className="ml-1 rounded-full bg-saffron px-3 py-2 whitespace-nowrap text-white shadow-card transition hover:brightness-105 active:scale-[.98] sm:px-4"
@@ -82,6 +84,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </Link>
               <Link href="/map" className="text-[#a9d6cf] hover:text-white">
                 Flyer map
+              </Link>
+              <Link href="/plan" className="text-[#a9d6cf] hover:text-white">
+                My plan
               </Link>
               <Link href="/venues" className="text-[#a9d6cf] hover:text-white">
                 Venues

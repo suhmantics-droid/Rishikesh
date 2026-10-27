@@ -1,11 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect } from "react";
 
-const noopSubscribe = () => () => {};
-
-function send(body: Record<string, unknown>) {
+export function send(body: Record<string, unknown>) {
   const data = JSON.stringify(body);
   try {
     if (navigator.sendBeacon?.("/api/t", new Blob([data], { type: "application/json" }))) return;
@@ -43,43 +41,4 @@ export function EventTracker({ eventId }: { eventId: number }) {
     return () => document.removeEventListener("click", onClick, true);
   }, [eventId]);
   return null;
-}
-
-/** "I'm interested" — social proof for visitors, and evidence for organisers that the listing works. */
-export function InterestedButton({ eventId, initial }: { eventId: number; initial: number }) {
-  const key = `pinned:interested:${eventId}`;
-  const [count, setCount] = useState(initial);
-  const [clicked, setClicked] = useState(false);
-  const stored = useSyncExternalStore(
-    noopSubscribe,
-    () => {
-      try {
-        return localStorage.getItem(key) === "1";
-      } catch {
-        return false;
-      }
-    },
-    () => false,
-  );
-  const on = stored || clicked;
-  return (
-    <button
-      type="button"
-      disabled={on}
-      onClick={() => {
-        setClicked(true);
-        setCount((c) => c + 1);
-        try {
-          localStorage.setItem(key, "1");
-        } catch {}
-        send({ eventId, kind: "interested" });
-      }}
-      className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
-        on ? "border-saffron bg-saffron-soft text-saffron-ink" : "border-line bg-card hover:border-ink-2"
-      }`}
-    >
-      {on ? "★ Interested" : "☆ I'm interested"}
-      {count > 0 ? <span className="rounded-full bg-paper-2 px-2 py-0.5 text-xs text-ink-2">{count}</span> : null}
-    </button>
-  );
 }

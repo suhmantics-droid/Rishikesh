@@ -5,7 +5,7 @@
 import webpush from "web-push";
 import { db } from "./db";
 import { getEventById } from "./data";
-import { formatDayLong, formatTime, todayIST } from "./dates";
+import { addDays, formatDayLong, formatTime, nowTimeIST, todayIST } from "./dates";
 import { SITE } from "./site";
 import { flyerUrl, priceShort } from "./util";
 import type { Follow } from "./alerts";
@@ -139,4 +139,65 @@ export async function sendPushDigests() {
     await deliver(row, payload);
   }
   return rows.length;
+}
+
+// ---- "My plan" reminders ----
+
+const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/**
+ * Sets (or with on=false clears) a reminder for the next session of a saved flyer that hasn't started.
+ * Returns when it will fire, or null if there's nothing timed coming up or this phone isn't subscribed.
+ */
+export function setReminder(endpoint: string, slug: string, on: boolean, now = { date: todayIST(), time: nowTimeIST() }) {
+  const d = db();
+  const sub = d.prepare("SELECT id FROM push_subscriptions WHERE endpoint = ?").get(endpoint) as { id: number } | undefined;
+  const ev = d.prepare("SELECT id FROM events WHERE slug = ? AND status = 'live'").get(slug) as { id: number } | undefined;
+  if (!sub || !ev) return null;
+  if (!on) {
+    d.prepare("DELETE FROM push_reminders WHERE push_id = ? AND event_id = ?").run(sub.id, ev.id);
+    return null;
+  }
+  const next = d
+    .prepare(
+      `SELECT date, start_time FROM event_dates WHERE event_id = ? AND start_time IS NOT NULL
+         AND (date > ? OR (date = ? AND start_time > ?)) ORDER BY date, start_time LIMIT 1`,
+    )
+    .get(ev.id, now.date, now.date, now.time) as { date: string; start_time: string } | undefined;
+  if (!next) return null;
+  d.prepare(
+    `INSERT INTO push_reminders (push_id, event_id, date, start_time) VALUES (?, ?, ?, ?)
+     ON CONFLICT(push_id, event_id) DO UPDATE SET date = excluded.date, start_time = excluded.start_time, sent = 0`,
+  ).run(sub.id, ev.id, next.date, next.start_time);
+  return next;
+}
+
+/** Sends reminders for saved flyers starting within the next 75 minutes. Runs with the 15-minute jobs. */
+export async function sendPlanReminders(now = { date: todayIST(), time: nowTimeIST() }) {
+  const d = db();
+  const rows = d
+    .prepare(
+      `SELECT r.push_id, r.event_id, r.date, r.start_time, p.id, p.endpoint, p.p256dh, p.auth, e.title, e.slug, e.flyer, v.name AS venue
+       FROM push_reminders r JOIN push_subscriptions p ON p.id = r.push_id JOIN events e ON e.id = r.event_id JOIN venues v ON v.id = e.venue_id
+       WHERE r.sent = 0 AND r.date = ? AND e.status = 'live'`,
+    )
+    .all(now.date) as (PushRow & { push_id: number; event_id: number; date: string; start_time: string; title: string; slug: string; flyer: string | null; venue: string })[];
+  let sent = 0;
+  for (const r of rows) {
+    const until = minutes(r.start_time) - minutes(now.time);
+    if (until > 75) continue;
+    d.prepare("UPDATE push_reminders SET sent = 1 WHERE push_id = ? AND event_id = ?").run(r.push_id, r.event_id);
+    if (until < -15) continue; // missed it (server was down): don't nag after the start
+    const ok = await deliver(r, {
+      title: until > 0 ? `Starting soon: ${r.title}` : `Starting now: ${r.title}`,
+      body: `${formatTime(r.start_time)} at ${r.venue}${until > 0 ? ` — in about ${until >= 55 ? "an hour" : `${until} minutes`}` : ""}`,
+      url: `/e/${r.slug}`,
+      image: flyerUrl(r.flyer, "sm") ?? undefined,
+      tag: `reminder-${r.event_id}`,
+    });
+    if (ok) sent++;
+  }
+  // Old reminders are done with.
+  d.prepare("DELETE FROM push_reminders WHERE date < ?").run(addDays(now.date, -1));
+  return sent;
 }

@@ -8,7 +8,8 @@ import { MiniMap } from "@/components/MiniMap";
 import { PushToggle } from "@/components/PushToggle";
 import { ReportLink, ShareBar } from "@/components/ShareBar";
 import { WhatsAppIcon } from "@/components/Browse";
-import { EventTracker, InterestedButton } from "@/components/Track";
+import { PlanButton } from "@/components/Plan";
+import { EventTracker } from "@/components/Track";
 import { LiveBadge, WalkTime } from "@/components/Live";
 import { Timetable } from "@/components/Timetable";
 import { getEventBySlug, isOver, pinEvent, scheduleDays } from "@/lib/data";
@@ -240,7 +241,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
           ) : null}
 
           <div>
-            <InterestedButton eventId={event.id} initial={stats.interested ?? 0} />
+            <PlanButton slug={event.slug} eventId={event.id} initial={stats.interested ?? 0} />
           </div>
 
           <ShareBar title={event.title} text={shareText} calendarHref={isClasses ? null : `/e/${event.slug}/calendar`} />

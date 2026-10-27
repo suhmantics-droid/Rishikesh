@@ -14,7 +14,9 @@ Built for **rishikesh.suhmantics.com**.
 | **/today** — the day's list, shareable to WhatsApp with a picture preview | Followers are notified the moment the flyer goes live | Fix map pins, feature/hide listings, handle reports |
 | Ganga Aarti times and directions; add to calendar; directions | Listed in Google's event results | Upload the site's photos; CSV exports |
 | Class timetables (Tapashala, Divine Circle…) by day, kept apart from one-off events | Post a whole weekly timetable as one listing | **Starter pack:** 12 real Tapovan flyers ready to publish |
-| QR codes on flyers become tappable buttons (WhatsApp group, booking form, map pin) | QR codes are read automatically | |
+| QR codes on flyers become tappable buttons (WhatsApp group, booking form, map pin) | QR codes are read automatically | **Batch upload:** snap a whole wall, post them one by one later |
+| **Near me** (walking minutes), **On now / in 25 min** badges | A QR poster for their own wall | **Story image** of today's flyers for Instagram / WhatsApp status |
+| **My plan**: save flyers (no account), reminder an hour before | | Duplicate warnings; fix pins by pasting a Google Maps link |
 
 ---
 
@@ -94,6 +96,10 @@ bash deploy/setup.sh      # installs Docker, asks for an admin password, builds 
 | You want to… | Do this |
 | --- | --- |
 | Post a flyer someone WhatsApped you | Sign in → **Post a flyer** → upload → check → **Cash received (₹50) — publish now** |
+| Post a whole wall of flyers from a walk | **Admin → 📸 Add photos** → pick them all → later, **Check & post** each one from *Photos to post* |
+| Fix a venue's map pin | In Google Maps tap the place → **Share → Copy link** → **Admin → Venues & pins** → paste → **Use** → **Save** |
+| Post today's flyers to Instagram / WhatsApp status | **Admin → Post today's story → Today** (or Tomorrow / Weekend) and pick the app |
+| Give a cafe its own poster | **Admin → Venues & pins → 🖨 Print their QR poster** (or /v/&lt;venue&gt;/poster) |
 | Post one for free | Same, but **Publish free** |
 | Approve an organiser who submitted online and paid you cash | **Admin → To do → ✓ Received — publish** |
 | Fix a wrong date/price | Click the listing in **Admin → Listings** → **Edit details** |
@@ -104,8 +110,9 @@ bash deploy/setup.sh      # installs Docker, asks for an admin password, builds 
 Organisers get a **private manage link** (by email, and on screen) to edit, see views and renew. If you posted it
 for them, open it from Admin → Listings and send them the link.
 
-**Automatic jobs** (run inside the app every 15 min): the morning "what's on today" email from 07:30 IST, and a
-renewal reminder to organisers 2 days before their listing ends.
+**Automatic jobs** (run inside the app every 15 min): the morning "what's on today" email from 07:30 IST, a
+renewal reminder to organisers 2 days before their listing ends, "starting soon" reminders for flyers people saved to
+their plan, and clearing out full-size upload photos after 3 days (they're kept only for straightening).
 
 **Backups** run nightly at 03:15 into `deploy/backups/` on the server (last 14 kept).
 
@@ -135,6 +142,17 @@ Your data is never touched by updates.
   photo reader fills these in from a schedule grid). They appear as "Daily" / "Mon–Sat" cards on their own
   shelf, as day tabs on the flyer page, and in a folded "drop-in classes" list in the agenda, so tonight's
   concert is never buried under yoga classes. They keep running for as long as the listing is paid for.
+- **Story image:** /today/story (and `?when=tomorrow` / `?when=weekend`) is a 1080×1920 picture of the flyers with
+  times, venues and the site address. "Share as a story" on /today and in Admin sends it straight to a phone's
+  share sheet. One a day on Instagram and in WhatsApp status is the cheapest way to grow.
+- **Near me / On now:** "📍 Near me" sorts the wall nearest first and shows walking minutes everywhere; live badges
+  show what's on now and what starts within 90 minutes. Both are worked out on the visitor's phone.
+- **My plan:** ☆ on any flyer saves it on that phone (no account) and counts as "interested" for the organiser.
+  /plan lists saved flyers by day; with notifications on, the phone gets a reminder about an hour before.
+- **Venue posters:** /v/&lt;venue&gt;/poster is an A4 "What's on at …" poster whose QR code always shows that venue's
+  current flyers — a good thing to hand a cafe owner.
+- **Duplicates:** every upload is fingerprinted; the post form and the photo queue warn when a flyer looks like one
+  already up, shares its QR code or its name, or repeats another photo from the same batch.
 - **QR codes:** nobody can scan a code on their own screen, so codes on uploaded flyers are read and shown
   as buttons (WhatsApp group, booking form, Google Maps pin, website). Payment codes are left out. A map pin
   from a QR code is used for Directions until the venue's own pin is checked.
@@ -193,11 +211,13 @@ npm test                 # unit + listing-lifecycle tests
 - Payments — `src/lib/payments.ts` (cash / UPI QR / Razorpay)
 
 ```
-src/app/            pages: / (browse), /map (flyer map), /e/[slug] (event), /v/[slug] (venue), /a/[slug] (artist),
-                    /today, /venues, /artists, /post, /manage/[token], /alerts, /admin, /about, /poster; api/ routes
+src/app/            pages: / (browse), /map (flyer map), /e/[slug] (event), /v/[slug] (venue) + /poster, /a/[slug] (artist),
+                    /today (+ /today/story image), /plan, /venues, /artists, /post, /manage/[token], /alerts, /admin,
+                    /about, /poster; api/ routes
 src/components/     Browse (filters + views), MapView, FlyerCard, PostFlow, PayWidget, AlertsForm …
 src/lib/            db (schema), data (queries), listings (incl. timetables), payments, alerts, extract,
-                    qr (QR codes → links), warp (straightening), collage (map layout), starter, cron, site
+                    qr (QR codes → links), warp (straightening), collage (map layout), starter, uploads (batch
+                    queue, duplicates), maplink (Google Maps links → pins), push (incl. plan reminders), cron, site
 seed/starter/       the starter pack: flyers.json plus the straightened flyer images
 deploy/             cloud-init.sh (browser setup), setup.sh, auto-update.sh, backup.sh, update.sh, Caddyfile
 tests/              node:test suites (dates, utils, listing lifecycle, filters, payments)

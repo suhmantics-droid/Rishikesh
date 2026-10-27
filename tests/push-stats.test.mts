@@ -116,3 +116,26 @@ test("flyer clicks are counted per flyer", () => {
   assert.equal((db().prepare("SELECT views FROM events WHERE id = ?").get(id) as { views: number }).views, 2);
   stats.recordEventClick(999999, "view"); // unknown flyer: ignored, no crash
 });
+
+test("a saved flyer sends one 'starting soon' reminder about an hour before", async () => {
+  const tomorrow = addDays(today, 1);
+  const { id, slug } = createListing(listing({ title: "Sunset kirtan", artists: [], dates: [{ date: tomorrow, start_time: "18:00" }] }));
+  adminPublish(id, 0);
+  await settle();
+  push.savePushSubscription(fakeSub(77), [], false);
+  sent.length = 0;
+
+  const at = push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
+  assert.deepEqual(at, { date: tomorrow, start_time: "18:00" });
+  assert.equal(push.setReminder("https://push.example.com/unknown", slug, true), null, "only subscribed phones");
+
+  assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "16:30" }), 0, "too early");
+  assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:00" }), 1);
+  assert.match(sent[0].title, /Starting soon: Sunset kirtan/);
+  assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:15" }), 0, "only once");
+
+  // Unsaving removes it.
+  push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
+  push.setReminder(fakeSub(77).endpoint, slug, false);
+  assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:00" }), 0);
+});

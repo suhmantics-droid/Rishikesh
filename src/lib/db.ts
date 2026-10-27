@@ -191,6 +191,16 @@ CREATE TABLE IF NOT EXISTS push_notified (
   PRIMARY KEY (push_id, event_id)
 );
 
+-- "My plan" reminders: a phone that saved a flyer gets a nudge about an hour before it starts.
+CREATE TABLE IF NOT EXISTS push_reminders (
+  push_id INTEGER NOT NULL REFERENCES push_subscriptions(id) ON DELETE CASCADE,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  sent INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (push_id, event_id)
+);
+
 CREATE TABLE IF NOT EXISTS emails (
   id INTEGER PRIMARY KEY,
   to_addr TEXT NOT NULL,
