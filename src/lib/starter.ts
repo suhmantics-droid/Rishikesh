@@ -7,6 +7,7 @@ import { db } from "./db";
 import { addDays, todayIST } from "./dates";
 import { saveFlyer } from "./images";
 import { buildOccurrences, createListing, ListingError, ListingInput } from "./listings";
+import { resolveMapLink } from "./maplink";
 import { adminPublish } from "./payments";
 import { LISTING } from "./site";
 
@@ -72,6 +73,16 @@ function ensureVenue(v: StarterVenue): string {
   return v.slug;
 }
 
+/** The organiser's own Google Maps QR code beats our approximate pin. Best effort: needs the internet. */
+async function pinVenueFromFlyer(venue: { slug: string } | object, links: { kind: string; url: string }[]) {
+  const map = links.find((l) => l.kind === "map");
+  if (!map || !("slug" in venue)) return;
+  const v = db().prepare("SELECT id, coords_verified FROM venues WHERE slug = ?").get(venue.slug) as { id: number; coords_verified: number } | undefined;
+  if (!v || v.coords_verified) return;
+  const pin = await resolveMapLink(map.url).catch(() => null);
+  if (pin) db().prepare("UPDATE venues SET lat = ?, lng = ?, coords_verified = 1 WHERE id = ?").run(pin.lat, pin.lng, v.id);
+}
+
 /** Publishes every starter flyer that's ready (free, as the admin). Safe to run twice. */
 export async function importStarter(keys?: string[]) {
   const pack = readPack();
@@ -88,6 +99,7 @@ export async function importStarter(keys?: string[]) {
       const input = ListingInput.parse({ ...f.listing, uploadId: up.id, venue: { slug: ensureVenue(f.venue) }, organiser_email: null });
       const { id } = createListing(input);
       adminPublish(id, 0);
+      await pinVenueFromFlyer(input.venue, input.links);
       done.add(f.key);
       published.push(f.listing.title);
     } catch (e) {

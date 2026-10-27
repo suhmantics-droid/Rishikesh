@@ -8,6 +8,7 @@ import { LINK_LABELS, type FlyerLink } from "@/lib/links";
 import { AREAS, CATEGORIES } from "@/lib/site";
 import type { Duplicate } from "@/lib/uploads";
 import { CropEditor, type Corners } from "./CropEditor";
+import { MapLinkInput } from "./MapLinkInput";
 import { LazyMapView } from "./MiniMap";
 import { PayWidget } from "./PayWidget";
 
@@ -251,6 +252,17 @@ export function PostFlow({
       booking_url: cur.booking_url || f.booking_url || "",
     }));
     if (f.flyer_corners) setAiCorners(f.flyer_corners as Corners);
+    if (!(f.venue_slug && venues.some((v) => v.slug === f.venue_slug)) && f.venue_name) pinFromFlyer(form.links);
+  }
+
+  /** A new venue on a flyer with a Google Maps QR code: drop the pin where the code points. */
+  async function pinFromFlyer(links: FlyerLink[]) {
+    const map = links.find((l) => l.kind === "map");
+    if (!map) return;
+    const res = await fetch("/api/maplink", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: map.url }) }).catch(() => null);
+    if (!res?.ok) return;
+    const { lat, lng } = (await res.json()) as { lat: number; lng: number };
+    setForm((f) => (f.newVenue.lat == null ? { ...f, newVenue: { ...f.newVenue, lat, lng } } : f));
   }
 
   async function straightenTo(corners: Corners) {
@@ -631,7 +643,15 @@ export function PostFlow({
 
           <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
             <h2 className="font-display text-lg font-semibold">Where</h2>
-            <select className={input} value={form.venueSlug} onChange={(e) => set("venueSlug", e.target.value)} aria-label="Venue">
+            <select
+              className={input}
+              value={form.venueSlug}
+              onChange={(e) => {
+                set("venueSlug", e.target.value);
+                if (e.target.value === "__new") pinFromFlyer(form.links);
+              }}
+              aria-label="Venue"
+            >
               <option value="">Choose the venue…</option>
               {venueGroups.map((g) => (
                 <optgroup key={g.key} label={g.label}>
@@ -659,6 +679,7 @@ export function PostFlow({
                 </div>
                 <input className={input} placeholder="Directions / landmark (optional) — e.g. above the German Bakery" value={form.newVenue.address} onChange={(e) => set("newVenue", { ...form.newVenue, address: e.target.value })} />
                 <p className="text-sm font-semibold">{newVenuePin ? "📍 Pin dropped — tap again to move it." : "Tap the map where the venue is:"}</p>
+                <MapLinkInput onPin={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
                 <div className="h-64 overflow-hidden rounded-xl border border-line">
                   <LazyMapView pins={[]} today={today} pick picked={newVenuePin} onPick={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
                 </div>

@@ -86,8 +86,13 @@ export async function resolveReport(form: FormData) {
 export async function saveVenue(form: FormData) {
   await guard();
   const area = String(form.get("area"));
-  const lat = Number(form.get("lat"));
-  const lng = Number(form.get("lng"));
+  // An empty field means "no pin", not 0,0.
+  const coord = (k: string) => {
+    const v = String(form.get(k) ?? "").trim();
+    return v ? Number(v) : NaN;
+  };
+  const lat = coord("lat");
+  const lng = coord("lng");
   db()
     .prepare(
       `UPDATE venues SET name = ?, area = ?, lat = ?, lng = ?, coords_verified = 1, address = ?, instagram = ?, description = ? WHERE id = ?`,

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { login, saveVenue } from "@/app/admin/actions";
 import { AREAS } from "@/lib/site";
+import { MapLinkInput } from "./MapLinkInput";
 import { LazyMapView } from "./MiniMap";
 
 export function LoginForm() {
@@ -44,6 +45,7 @@ export function VenueEditor({ v, today }: { v: V; today: string }) {
         <input name="instagram" defaultValue={v.instagram ?? ""} placeholder="Instagram handle" className={input} />
         <textarea name="description" defaultValue={v.description ?? ""} placeholder="Short description" rows={2} className={input} />
         <p className="text-xs text-muted">{pin ? `Pin: ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}` : "No pin"} — tap the map to move it.</p>
+        <MapLinkInput onPin={(lat, lng) => setPin({ lat, lng })} />
         <button className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-sm font-bold text-paper">Save & mark pin verified</button>
       </div>
       <div className="h-56 overflow-hidden rounded-xl border border-line">
