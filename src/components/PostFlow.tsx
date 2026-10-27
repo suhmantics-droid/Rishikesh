@@ -6,6 +6,7 @@ import type { FlyerFields } from "@/lib/extract";
 import { addDays, daysLabel, formatDayLong, formatTimeRange, WEEK_ORDER, WEEKDAY_SHORT } from "@/lib/dates";
 import { LINK_LABELS, type FlyerLink } from "@/lib/links";
 import { AREAS, CATEGORIES } from "@/lib/site";
+import type { Duplicate } from "@/lib/uploads";
 import { CropEditor, type Corners } from "./CropEditor";
 import { LazyMapView } from "./MiniMap";
 import { PayWidget } from "./PayWidget";
@@ -78,6 +79,7 @@ export function PostFlow({
   listingDays,
   isAdmin,
   editToken,
+  openUpload,
   payMode,
   owner,
 }: {
@@ -87,13 +89,16 @@ export function PostFlow({
   listingDays: number;
   isAdmin: boolean;
   editToken?: string;
+  /** An already-uploaded photo to start from (the admin's batch queue). */
+  openUpload?: string;
   payMode: "cash" | "upi" | "razorpay";
   owner: { name: string | null; whatsapp: string | null };
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<"upload" | "details" | "pay">(editToken ? "details" : "upload");
+  const [step, setStep] = useState<"upload" | "details" | "pay">(editToken || openUpload ? "details" : "upload");
+  const [duplicates, setDuplicates] = useState<Duplicate[]>([]);
   const [upload, setUpload] = useState<{ id: string; url: string } | null>(null);
-  const [reading, setReading] = useState(false);
+  const [reading, setReading] = useState(Boolean(openUpload && !editToken));
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [aiFilled, setAiFilled] = useState(false);
   const [form, setForm] = useState<Form>(() => emptyForm(today));
@@ -160,7 +165,19 @@ export function PostFlow({
       const res = await fetch("/api/uploads", { method: "POST", body: fd });
       const up = await res.json();
       if (!res.ok) throw new Error(up.error || "Upload failed");
+      await afterUpload(up);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReading(false);
+    }
+  }
+
+  /** Shows an upload in the form and fills in what we know: QR links now, then the photo read. */
+  async function afterUpload(up: { id: string; url: string; links?: FlyerLink[]; duplicates?: Duplicate[] }) {
+    {
       setUpload({ id: up.id, url: up.url });
+      setDuplicates(up.duplicates ?? []);
       setAiCorners(null);
       const links = (up.links ?? []) as FlyerLink[];
       setForm((f) => ({
@@ -177,12 +194,27 @@ export function PostFlow({
       }).then((r) => r.json());
       if (ex.fields) applyAi(ex.fields as FlyerFields);
       else setAiNote(ex.reason ?? null);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setReading(false);
     }
   }
+
+  // Opened from the admin's batch queue: start from that photo.
+  useEffect(() => {
+    if (!openUpload || editToken) return;
+    let cancelled = false;
+    fetch(`/api/uploads/${openUpload}`)
+      .then((r) => r.json())
+      .then(async (up) => {
+        if (cancelled) return;
+        if (up.error) throw new Error(up.error);
+        await afterUpload(up);
+      })
+      .catch((e) => !cancelled && setError((e as Error).message))
+      .finally(() => !cancelled && setReading(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openUpload, editToken]);
 
   function applyAi(f: FlyerFields) {
     if (!f.is_event_flyer) {
@@ -474,6 +506,20 @@ export function PostFlow({
             <p className="mt-2 rounded-xl bg-ganga-soft px-3 py-2 text-sm font-semibold text-ganga">✨ Filled in from your flyer — give it a quick check.</p>
           ) : null}
           {aiNote ? <p className="mt-2 rounded-xl bg-saffron-soft px-3 py-2 text-sm text-saffron-ink">{aiNote}</p> : null}
+          {duplicates.length ? (
+            <div className="mt-2 rounded-xl border border-saffron/50 bg-saffron-soft/60 px-3 py-2 text-sm text-saffron-ink">
+              <p className="font-bold">Already on the site?</p>
+              {duplicates.map((d) => (
+                <p key={d.slug}>
+                  This {d.why === "looks the same" ? "looks like" : d.why === "same QR code" ? "has the same QR code as" : "has the same name as"}{" "}
+                  <a href={`/e/${d.slug}`} target="_blank" rel="noreferrer" className="font-semibold underline">
+                    {d.title}
+                  </a>
+                  {d.status !== "live" ? " (not published yet)" : ""}.
+                </p>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <fieldset disabled={reading || !loaded} className="flex flex-col gap-6 disabled:opacity-60">

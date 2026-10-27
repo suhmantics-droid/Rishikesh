@@ -42,3 +42,14 @@ test("straightening maps the corners onto a flat rectangle", async () => {
   assert.ok(px(20, 20) < 40, "top-left of the crop is the black square");
   assert.ok(px(info.width - 20, info.height - 20) > 215, "bottom-right is white");
 });
+
+test("the image hash matches resized copies and tells different flyers apart", async () => {
+  const { differenceHash, hashDistance, SAME_FLYER } = await import("../src/lib/images");
+  const a = fs.readFileSync("seed/starter/divine-circle.webp");
+  const aSmall = await sharp(a).resize(300).jpeg({ quality: 60 }).toBuffer();
+  const b = fs.readFileSync("seed/starter/nomadic-plate.webp");
+  const ha = await differenceHash(a);
+  assert.equal(ha.length, 64);
+  assert.ok(hashDistance(ha, await differenceHash(aSmall)) <= SAME_FLYER, "a re-saved copy is near-identical");
+  assert.ok(hashDistance(ha, await differenceHash(b)) > SAME_FLYER, "different flyers are far apart");
+});

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { LoginForm, PhotoUploader, VenueEditor } from "@/components/AdminClient";
+import { BatchUploader, LoginForm, PhotoUploader, VenueEditor } from "@/components/AdminClient";
 import { getPhoto, PHOTO_SLOTS } from "@/lib/photos";
 import { VisitorsChart } from "@/components/VisitorsChart";
 import { dailySeries } from "@/lib/stats";
@@ -12,6 +12,8 @@ import { db } from "@/lib/db";
 import { formatDayLong, todayIST } from "@/lib/dates";
 import { payMode } from "@/lib/payments";
 import { starterStatus } from "@/lib/starter";
+import { batchQueue } from "@/lib/uploads";
+import { aiEnabled } from "@/lib/extract";
 import { area, rupees } from "@/lib/site";
 import { flyerUrl } from "@/lib/util";
 import {
@@ -19,6 +21,7 @@ import {
   clearDemoData,
   deleteListing,
   deleteVenue,
+  discardUpload,
   extendFree,
   logout,
   publishCash,
@@ -79,7 +82,10 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
         <h1 className="font-display text-3xl font-semibold">Admin</h1>
         <span className="rounded-full bg-paper-2 px-3 py-1 text-xs font-bold">Payments: {payMode()}</span>
         <span className="text-xs text-muted">version {process.env.GIT_SHA || "dev"}</span>
-        <Link href="/post" className="ml-auto rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">
+        <Link href="/admin?tab=queue#photos" className="ml-auto rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
+          📸 Add photos
+        </Link>
+        <Link href="/post" className="rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">
           + Post a flyer
         </Link>
         <form action={logout}>
@@ -164,9 +170,54 @@ function Queue({ today }: { today: string }) {
 
   const starter = starterStatus().filter((s) => s.state !== "past");
   const ready = starter.filter((s) => s.state === "ready");
+  const photos = batchQueue();
+  const aiOn = aiEnabled();
 
   return (
     <div className="grid gap-8">
+      <section id="photos" className="grid scroll-mt-20 gap-3">
+        <BatchUploader />
+        {photos.length ? (
+          <>
+            <h2 className="font-display text-xl font-semibold">Photos to post ({photos.length})</h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {photos.map((p) => (
+                <li key={p.id} className="flex gap-3 rounded-2xl border border-line bg-card p-2 text-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.thumb} alt="" loading="lazy" className="h-24 w-[4.5rem] shrink-0 rounded object-cover object-top" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">
+                      {p.title ?? <span className="font-normal text-muted">{aiOn ? "Still reading…" : "Auto-fill is off — open it to fill in"}</span>}
+                    </p>
+                    <p className="text-muted">
+                      {p.firstDate ? formatDayLong(p.firstDate, today) : p.title ? "No date read" : ""}
+                      {p.links ? ` · ${p.links} QR link${p.links === 1 ? "" : "s"}` : ""}
+                    </p>
+                    {p.duplicates.map((d) => (
+                      <p key={d.slug} className="text-xs font-semibold text-saffron-ink">
+                        Already up? {d.why}:{" "}
+                        <Link href={`/e/${d.slug}`} className="underline">
+                          {d.title}
+                        </Link>
+                      </p>
+                    ))}
+                    {p.similarInBatch.length ? <p className="text-xs font-semibold text-saffron-ink">Looks like another photo in this batch</p> : null}
+                    <div className="mt-1.5 flex gap-2">
+                      <Link href={`/post?upload=${p.id}`} className={btnDark}>
+                        Check &amp; post →
+                      </Link>
+                      <form action={discardUpload}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button className={btn}>Discard</button>
+                      </form>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </section>
       {ready.length ? (
         <section className="rounded-2xl border border-ganga/40 bg-ganga-soft/40 p-4">
           <div className="flex flex-wrap items-center gap-3">

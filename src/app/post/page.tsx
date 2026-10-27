@@ -29,13 +29,14 @@ async function Flow({ searchParams }: { searchParams: PageProps<"/post">["search
   const showDemo = process.env.NODE_ENV !== "production";
   return (
     <PostFlow
-      key={typeof sp.edit === "string" ? sp.edit : "new"}
+      key={typeof sp.edit === "string" ? sp.edit : typeof sp.upload === "string" ? sp.upload : "new"}
       venues={venues.filter((v) => showDemo || !v.is_demo).map((v) => ({ slug: v.slug, name: v.name, area: v.area, is_demo: v.is_demo }))}
       today={todayIST()}
       priceLabel={rupees(LISTING.pricePaise)}
       listingDays={LISTING.days}
       isAdmin={admin}
       editToken={typeof sp.edit === "string" ? sp.edit : undefined}
+      openUpload={admin && typeof sp.upload === "string" ? sp.upload : undefined}
       payMode={payMode()}
       owner={ownerContact()}
     />

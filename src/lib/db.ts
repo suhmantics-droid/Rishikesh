@@ -92,6 +92,10 @@ CREATE TABLE IF NOT EXISTS uploads (
   h INTEGER,
   extracted_json TEXT,
   qr_json TEXT,
+  phash TEXT, -- 64-bit difference hash (hex), to spot the same flyer uploaded twice
+  batch INTEGER NOT NULL DEFAULT 0, -- 1 = from the admin's batch upload, waiting in the To do queue
+  dismissed INTEGER NOT NULL DEFAULT 0,
+  parent TEXT, -- for a straightened copy: the upload it was made from
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -226,6 +230,10 @@ function migrate(db: Database.Database) {
   add("event_dates", "label", "TEXT");
   add("events", "links", "TEXT");
   add("uploads", "qr_json", "TEXT");
+  add("uploads", "phash", "TEXT");
+  add("uploads", "batch", "INTEGER NOT NULL DEFAULT 0");
+  add("uploads", "dismissed", "INTEGER NOT NULL DEFAULT 0");
+  add("uploads", "parent", "TEXT");
 }
 
 // One connection per server process; survive dev hot reloads.

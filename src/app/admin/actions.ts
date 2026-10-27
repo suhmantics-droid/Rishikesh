@@ -11,6 +11,7 @@ import { setStatus } from "@/lib/listings";
 import { adminPublish, approvePayment, rejectPayment } from "@/lib/payments";
 import { AREAS, LISTING } from "@/lib/site";
 import { importStarter } from "@/lib/starter";
+import { dismissUpload } from "@/lib/uploads";
 
 async function guard() {
   if (!(await isAdmin())) throw new Error("Not signed in");
@@ -145,5 +146,11 @@ export async function publishStarter(form: FormData) {
   const key = form.get("key");
   const { failed } = await importStarter(typeof key === "string" && key ? [key] : undefined);
   for (const f of failed) console.error(`starter flyer "${f.title}" not published: ${f.reason}`);
+  refresh();
+}
+
+export async function discardUpload(form: FormData) {
+  await guard();
+  dismissUpload(String(form.get("id")));
   refresh();
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { login, saveVenue } from "@/app/admin/actions";
 import { AREAS } from "@/lib/site";
@@ -124,5 +125,50 @@ export function PhotoUploader({
         {msg ? <p className="text-xs font-semibold">{msg}</p> : null}
       </div>
     </form>
+  );
+}
+
+/** Many flyer photos at once — snap a whole wall on a walk, post them one by one later from the queue. */
+export function BatchUploader() {
+  const router = useRouter();
+  const [progress, setProgress] = useState<{ done: number; total: number; failed: string[] } | null>(null);
+
+  async function upload(files: FileList) {
+    const list = [...files];
+    const failed: string[] = [];
+    setProgress({ done: 0, total: list.length, failed });
+    // One at a time: phone connections in Tapovan are slow, and each photo is read on arrival.
+    for (const [i, file] of list.entries()) {
+      const fd = new FormData();
+      fd.append("flyer", file);
+      fd.append("batch", "1");
+      const res = await fetch("/api/uploads", { method: "POST", body: fd }).catch(() => null);
+      if (!res?.ok) failed.push(file.name);
+      setProgress({ done: i + 1, total: list.length, failed: [...failed] });
+    }
+    router.refresh();
+  }
+
+  const busy = progress && progress.done < progress.total;
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-line bg-card p-4">
+      <label className={`flex cursor-pointer flex-col items-center gap-1 text-center ${busy ? "pointer-events-none opacity-60" : ""}`}>
+        <span className="text-3xl">📸</span>
+        <span className="font-display text-lg font-semibold">Add flyer photos</span>
+        <span className="text-sm text-muted">Pick as many as you like. Each is read in the background and waits below for you to check and post.</span>
+        <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => e.target.files?.length && upload(e.target.files)} />
+      </label>
+      {progress ? (
+        <div className="mt-3">
+          <div className="h-2 overflow-hidden rounded-full bg-paper-2">
+            <div className="h-full bg-ganga transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            {busy ? `Uploading ${progress.done + 1} of ${progress.total}…` : `${progress.done - progress.failed.length} uploaded.`}
+            {progress.failed.length ? ` Couldn't upload: ${progress.failed.join(", ")}` : ""}
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
