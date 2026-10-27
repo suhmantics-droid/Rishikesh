@@ -1,15 +1,21 @@
 # The site's scheduled jobs (morning digest, renewal reminders, "starting soon" nudges, tidying up)
 # when it runs on Vercel, which has no long-running process and only allows a daily cron on the free
-# plan. Set the repo variable SITE_URL (e.g. https://rishikesh.suhmantics.com) and the repo secret
-# CRON_SECRET (the same value as on Vercel). Without them this does nothing.
+# plan. Nothing to set up in GitHub: the job sends a token GitHub signs for this run, and the site
+# accepts it from the repo named in its CRON_GITHUB_REPO setting. GitHub runs schedules from main.
 name: Scheduled jobs
 on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
 jobs:
   run:
     runs-on: ubuntu-latest
-    if: ${{ vars.SITE_URL != '' }}
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://rishikesh.suhmantics.com' }}
     steps:
-      - run: curl -fsS --max-time 120 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ vars.SITE_URL }}/api/cron"
+      - run: |
+          TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=pinned-cron" | jq -r .value)
+          curl -fsS --max-time 120 -H "Authorization: Bearer $TOKEN" "$SITE_URL/api/cron"
