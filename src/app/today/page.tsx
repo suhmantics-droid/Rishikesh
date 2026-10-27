@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Agenda } from "@/components/Agenda";
 import { GangaDaily } from "@/components/GangaDaily";
+import { StoryShare } from "@/components/StoryShare";
 import { getWhatsOn } from "@/lib/data";
 import { formatDate, todayIST } from "@/lib/dates";
 
@@ -44,6 +45,12 @@ async function Today() {
           See them on the map
         </Link>
       </p>
+      {agenda.length ? (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <StoryShare />
+          <span className="text-xs text-muted">A picture of today&apos;s flyers for your Instagram or WhatsApp status.</span>
+        </div>
+      ) : null}
       {agenda.length ? <Agenda items={agenda} today={today} dayHeaders={false} classesOpen /> : null}
       <GangaDaily className="mt-8" />
       <div className="mt-8 flex flex-wrap gap-2">

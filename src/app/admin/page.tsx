@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { BatchUploader, LoginForm, PhotoUploader, VenueEditor } from "@/components/AdminClient";
+import { StoryShare } from "@/components/StoryShare";
 import { getPhoto, PHOTO_SLOTS } from "@/lib/photos";
 import { VisitorsChart } from "@/components/VisitorsChart";
 import { dailySeries } from "@/lib/stats";
@@ -175,6 +176,15 @@ function Queue({ today }: { today: string }) {
 
   return (
     <div className="grid gap-8">
+      <section className="rounded-2xl border border-line bg-card p-4">
+        <h2 className="font-display text-lg font-semibold">Post today&apos;s story</h2>
+        <p className="mb-3 text-sm text-muted">A picture of the flyers for your Instagram and WhatsApp status — one a day keeps people coming back.</p>
+        <div className="flex flex-wrap gap-2">
+          <StoryShare label="Today" />
+          <StoryShare when="tomorrow" label="Tomorrow" />
+          <StoryShare when="weekend" label="Weekend" />
+        </div>
+      </section>
       <section id="photos" className="grid scroll-mt-20 gap-3">
         <BatchUploader />
         {photos.length ? (
