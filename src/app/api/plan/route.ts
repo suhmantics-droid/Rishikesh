@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   if (!slugs.length) return Response.json({ items: [] });
   const today = todayIST();
   const now = nowTimeIST();
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `SELECT e.slug, e.title, e.kind, e.category, e.flyer, e.price_type, e.price_min, e.price_max, v.name AS venue, v.lat, v.lng,
               d.date, d.start_time, d.end_time, d.label
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
        WHERE e.slug IN (SELECT value FROM json_each(?)) AND e.status = 'live' AND d.date >= ?
        ORDER BY d.date, COALESCE(d.start_time, '99:99')`,
     )
-    .all(JSON.stringify(slugs), today) as Record<string, string | number | null>[];
+    .all(JSON.stringify(slugs), today)) as Record<string, string | number | null>[];
   // Timetables contribute only their next few sessions; events every date.
   const seen = new Map<string, number>();
   const items = rows

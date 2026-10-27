@@ -2,8 +2,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { UPLOAD_DIR } from "./db";
 import { getPhoto } from "./photos";
+import { readFile as readStored } from "./storage";
 
 const dir = path.join(process.cwd(), "assets/fonts");
 
@@ -34,10 +34,11 @@ export const OG = {
 
 /** The uploaded banner photo, cropped to the share-image size, as a data URL (or null). */
 export async function heroPhotoDataUrl(width = OG.width, height = OG.height) {
-  const photo = getPhoto("hero");
-  if (!photo) return null;
+  const photo = await getPhoto("hero");
+  const image = photo && (await readStored(`${photo.id}.webp`));
+  if (!image) return null;
   try {
-    const jpg = await sharp(path.join(UPLOAD_DIR, `${photo.id}.webp`)).resize(width, height, { fit: "cover" }).jpeg({ quality: 82 }).toBuffer();
+    const jpg = await sharp(image).resize(width, height, { fit: "cover" }).jpeg({ quality: 82 }).toBuffer();
     return `data:image/jpeg;base64,${jpg.toString("base64")}`;
   } catch {
     return null;

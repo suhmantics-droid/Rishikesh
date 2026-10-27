@@ -9,6 +9,6 @@ export async function POST(req: Request) {
   const { token, kind } = (await req.json().catch(() => ({}))) as { token?: string; kind?: "cash" | "free" };
   const d = token ? await getEventByToken(token) : null;
   if (!d) return Response.json({ error: "Listing not found" }, { status: 404 });
-  adminPublish(d.event.id, kind === "cash" ? LISTING.pricePaise : 0);
+  await adminPublish(d.event.id, kind === "cash" ? LISTING.pricePaise : 0);
   return Response.json({ ok: true });
 }

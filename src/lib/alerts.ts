@@ -2,6 +2,7 @@
 // matching them goes live, plus an optional "what's on today" digest each morning.
 
 import { z } from "zod";
+import { inBackground } from "./background";
 import { db } from "./db";
 import { addDays, formatDayLong, formatTimeRange, todayIST } from "./dates";
 import { button, emailLayout, sendEmail } from "./email";
@@ -18,33 +19,33 @@ type Subscriber = { id: number; email: string; token: string; confirmed: number;
 
 const abs = (p: string) => new URL(p, SITE.url).toString();
 
-export function getSubscriber(tok: string) {
-  const s = db().prepare("SELECT * FROM subscribers WHERE token = ?").get(tok) as Subscriber | undefined;
+export async function getSubscriber(tok: string) {
+  const s = (await db().prepare("SELECT * FROM subscribers WHERE token = ?").get(tok)) as Subscriber | undefined;
   if (!s) return null;
-  const follows = db().prepare("SELECT kind, target FROM follows WHERE subscriber_id = ? ORDER BY kind, target").all(s.id) as Follow[];
+  const follows = (await db().prepare("SELECT kind, target FROM follows WHERE subscriber_id = ? ORDER BY kind, target").all(s.id)) as Follow[];
   return { ...s, follows };
 }
 
-function setFollows(subscriberId: number, follows: Follow[]) {
+async function setFollows(subscriberId: number, follows: Follow[]) {
   const d = db();
-  d.prepare("DELETE FROM follows WHERE subscriber_id = ?").run(subscriberId);
+  await d.prepare("DELETE FROM follows WHERE subscriber_id = ?").run(subscriberId);
   const ins = d.prepare("INSERT OR IGNORE INTO follows (subscriber_id, kind, target) VALUES (?, ?, ?)");
-  for (const f of follows.slice(0, 200)) ins.run(subscriberId, f.kind, f.target);
+  for (const f of follows.slice(0, 200)) await ins.run(subscriberId, f.kind, f.target);
 }
 
 /** Creates or updates a subscription. New (or still unconfirmed) emails get a confirmation link. */
 export async function subscribe(email: string, follows: Follow[], daily: boolean) {
   const d = db();
   const addr = email.trim().toLowerCase();
-  let s = d.prepare("SELECT * FROM subscribers WHERE email = ?").get(addr) as Subscriber | undefined;
+  let s = (await d.prepare("SELECT * FROM subscribers WHERE email = ?").get(addr)) as Subscriber | undefined;
   if (!s) {
-    d.prepare("INSERT INTO subscribers (email, token, daily_digest) VALUES (?, ?, ?)").run(addr, token(), daily ? 1 : 0);
-    s = d.prepare("SELECT * FROM subscribers WHERE email = ?").get(addr) as Subscriber;
-    setFollows(s.id, follows);
+    await d.prepare("INSERT INTO subscribers (email, token, daily_digest) VALUES (?, ?, ?)").run(addr, token(), daily ? 1 : 0);
+    s = (await d.prepare("SELECT * FROM subscribers WHERE email = ?").get(addr)) as Subscriber;
+    await setFollows(s.id, follows);
   } else if (!s.confirmed) {
     // Unconfirmed: whoever typed this email can't be trusted to overwrite; merge instead.
-    const existing = (d.prepare("SELECT kind, target FROM follows WHERE subscriber_id = ?").all(s.id) as Follow[]) ?? [];
-    setFollows(s.id, [...existing, ...follows]);
+    const existing = ((await d.prepare("SELECT kind, target FROM follows WHERE subscriber_id = ?").all(s.id)) as Follow[]) ?? [];
+    await setFollows(s.id, [...existing, ...follows]);
   } else {
     // Confirmed: email them their manage link rather than letting anyone change their alerts.
     await sendEmail(
@@ -70,23 +71,23 @@ export async function subscribe(email: string, follows: Follow[], daily: boolean
   return { status: "confirmation-sent" as const };
 }
 
-export function confirmSubscriber(tok: string) {
-  db().prepare("UPDATE subscribers SET confirmed = 1 WHERE token = ?").run(tok);
+export async function confirmSubscriber(tok: string) {
+  await db().prepare("UPDATE subscribers SET confirmed = 1 WHERE token = ?").run(tok);
 }
 
-export function updateSubscriber(tok: string, follows: Follow[], daily: boolean) {
-  const s = db().prepare("SELECT id FROM subscribers WHERE token = ?").get(tok) as { id: number } | undefined;
+export async function updateSubscriber(tok: string, follows: Follow[], daily: boolean) {
+  const s = (await db().prepare("SELECT id FROM subscribers WHERE token = ?").get(tok)) as { id: number } | undefined;
   if (!s) return false;
-  db().prepare("UPDATE subscribers SET daily_digest = ? WHERE id = ?").run(daily ? 1 : 0, s.id);
-  setFollows(s.id, follows);
+  await db().prepare("UPDATE subscribers SET daily_digest = ? WHERE id = ?").run(daily ? 1 : 0, s.id);
+  await setFollows(s.id, follows);
   return true;
 }
 
-export function unsubscribe(tok: string) {
-  db().prepare("DELETE FROM subscribers WHERE token = ?").run(tok);
+export async function unsubscribe(tok: string) {
+  await db().prepare("DELETE FROM subscribers WHERE token = ?").run(tok);
 }
 
-function eventEmailBlock(detail: NonNullable<ReturnType<typeof getEventById>>) {
+function eventEmailBlock(detail: NonNullable<Awaited<ReturnType<typeof getEventById>>>) {
   const { event, venue, dates, artists } = detail;
   const today = todayIST();
   const next = dates.filter((d) => d.date >= today).slice(0, 3);
@@ -103,11 +104,11 @@ function eventEmailBlock(detail: NonNullable<ReturnType<typeof getEventById>>) {
 
 /** Emails every confirmed follower of this event's venue, artists or category — once per event. */
 export async function notifyFollowers(eventId: number) {
-  const detail = getEventById(eventId);
+  const detail = await getEventById(eventId);
   if (!detail || !detail.isLive || detail.event.is_demo) return 0;
   const { event, venue, artists } = detail;
   const artistSlugs = artists.map((a) => a.slug);
-  const subs = db()
+  const subs = (await db()
     .prepare(
       `SELECT DISTINCT s.id, s.email, s.token, f.kind, f.target FROM subscribers s JOIN follows f ON f.subscriber_id = s.id
        WHERE s.confirmed = 1
@@ -115,7 +116,7 @@ export async function notifyFollowers(eventId: number) {
               OR (f.kind = 'artist' AND f.target IN (SELECT value FROM json_each(@artists))))
          AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.subscriber_id = s.id AND n.event_id = @event)`,
     )
-    .all({ venue: venue.slug, cat: event.category, artists: JSON.stringify(artistSlugs), event: eventId }) as {
+    .all({ venue: venue.slug, cat: event.category, artists: JSON.stringify(artistSlugs), event: eventId })) as {
     id: number;
     email: string;
     token: string;
@@ -139,7 +140,7 @@ export async function notifyFollowers(eventId: number) {
         : s.kind === "venue"
           ? `You follow ${escapeHtml(venue.name)}`
           : `You follow ${escapeHtml(category(s.target).label)}`;
-    db().prepare("INSERT OR IGNORE INTO notifications (subscriber_id, event_id) VALUES (?, ?)").run(s.id, eventId);
+    await db().prepare("INSERT OR IGNORE INTO notifications (subscriber_id, event_id) VALUES (?, ?)").run(s.id, eventId);
     await sendEmail(
       s.email,
       `New in Tapovan: ${event.title}`,
@@ -147,14 +148,14 @@ export async function notifyFollowers(eventId: number) {
     );
     sent++;
   }
-  db().prepare("UPDATE events SET followers_notified = 1 WHERE id = ?").run(eventId);
+  await db().prepare("UPDATE events SET followers_notified = 1 WHERE id = ?").run(eventId);
   return sent;
 }
 
 /** Called after a payment publishes or renews a listing. Never throws into the payment path. */
 export function onPublished(eventId: number, firstPublish: boolean) {
-  void (async () => {
-    const detail = getEventById(eventId);
+  inBackground("onPublished", async () => {
+    const detail = await getEventById(eventId);
     if (!detail) return;
     const { event } = detail;
     if (event.organiser_email) {
@@ -175,13 +176,13 @@ export function onPublished(eventId: number, firstPublish: boolean) {
       const { pushFollowers } = await import("./push");
       await pushFollowers(eventId);
     }
-  })().catch((e) => console.error("onPublished failed", e));
+  });
 }
 
 /** Morning digest of today's events for subscribers who asked for it. Runs once per day per person. */
 export async function sendDailyDigests() {
   const today = todayIST();
-  const items = db()
+  const items = (await db()
     .prepare(
       `SELECT e.id, e.slug, e.title, e.category, e.kind, e.price_type, e.price_min, e.price_max, e.price_note,
               d.start_time, d.end_time, v.name AS venue
@@ -189,7 +190,7 @@ export async function sendDailyDigests() {
        WHERE e.status = 'live' AND e.live_until >= @today AND d.date = @today AND e.is_demo = 0
        ORDER BY COALESCE(d.start_time, '99:99')`,
     )
-    .all({ today }) as {
+    .all({ today })) as {
     kind: string;
     slug: string;
     title: string;
@@ -206,9 +207,9 @@ export async function sendDailyDigests() {
   const events = items.filter((i) => i.kind !== "classes");
   const classes = items.length - events.length;
   if (events.length === 0) return 0;
-  const subs = db()
+  const subs = (await db()
     .prepare("SELECT * FROM subscribers WHERE confirmed = 1 AND daily_digest = 1 AND (last_digest_on IS NULL OR last_digest_on < ?)")
-    .all(today) as Subscriber[];
+    .all(today)) as Subscriber[];
   const list = events
     .map(
       (i) => `<tr><td style="padding:6px 8px 6px 0;white-space:nowrap;vertical-align:top;color:#6b655a">${formatTimeRange(i.start_time, i.end_time) || "All day"}</td>
@@ -226,7 +227,7 @@ export async function sendDailyDigests() {
         `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these emails</a>`,
       ),
     );
-    db().prepare("UPDATE subscribers SET last_digest_on = ? WHERE id = ?").run(today, s.id);
+    await db().prepare("UPDATE subscribers SET last_digest_on = ? WHERE id = ?").run(today, s.id);
   }
   return subs.length;
 }
@@ -234,20 +235,20 @@ export async function sendDailyDigests() {
 /** Two days before a listing expires, email the organiser a renew link. */
 export async function sendExpiryReminders() {
   const target = addDays(todayIST(), 2);
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `SELECT id, title, manage_token, organiser_email, live_until FROM events
        WHERE status = 'live' AND live_until = ? AND organiser_email IS NOT NULL AND is_demo = 0
          AND (reminder_sent_for IS NULL OR reminder_sent_for != live_until)`,
     )
-    .all(target) as { id: number; title: string; manage_token: string; organiser_email: string; live_until: string }[];
+    .all(target)) as { id: number; title: string; manage_token: string; organiser_email: string; live_until: string }[];
   for (const r of rows) {
     await sendEmail(
       r.organiser_email,
       `Your flyer comes down in 2 days: ${r.title}`,
       emailLayout("Keep it pinned?", `<p><b>${escapeHtml(r.title)}</b> is listed until ${formatDayLong(r.live_until)}. Renew for another 4 weeks in one tap.</p>${button(abs(`/manage/${r.manage_token}`), "Renew listing")}`),
     );
-    db().prepare("UPDATE events SET reminder_sent_for = live_until WHERE id = ?").run(r.id);
+    await db().prepare("UPDATE events SET reminder_sent_for = live_until WHERE id = ?").run(r.id);
   }
   return rows.length;
 }

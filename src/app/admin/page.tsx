@@ -67,21 +67,21 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
   const today = todayIST();
 
   const stats = {
-    live: (d.prepare("SELECT COUNT(*) n FROM events WHERE status='live' AND live_until >= ? AND is_demo = 0").get(today) as { n: number }).n,
-    revenueMonth: (d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved') AND paid_at >= date('now','start of month')").get() as { n: number }).n,
-    revenueTotal: (d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved')").get() as { n: number }).n,
+    live: ((await d.prepare("SELECT COUNT(*) n FROM events WHERE status='live' AND live_until >= ? AND is_demo = 0").get(today)) as { n: number }).n,
+    revenueMonth: ((await d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved') AND paid_at >= date('now','start of month')").get()) as { n: number }).n,
+    revenueTotal: ((await d.prepare("SELECT COALESCE(SUM(amount_paise),0) n FROM payments WHERE status IN ('paid','approved')").get()) as { n: number }).n,
     subscribers:
-      (d.prepare("SELECT COUNT(*) n FROM subscribers WHERE confirmed = 1").get() as { n: number }).n +
-      (d.prepare("SELECT COUNT(*) n FROM push_subscriptions").get() as { n: number }).n,
-    views: (d.prepare("SELECT COALESCE(SUM(views),0) n FROM events WHERE is_demo = 0").get() as { n: number }).n,
-    demo: (d.prepare("SELECT COUNT(*) n FROM events WHERE is_demo = 1").get() as { n: number }).n,
+      ((await d.prepare("SELECT COUNT(*) n FROM subscribers WHERE confirmed = 1").get()) as { n: number }).n +
+      ((await d.prepare("SELECT COUNT(*) n FROM push_subscriptions").get()) as { n: number }).n,
+    views: ((await d.prepare("SELECT COALESCE(SUM(views),0) n FROM events WHERE is_demo = 0").get()) as { n: number }).n,
+    demo: ((await d.prepare("SELECT COUNT(*) n FROM events WHERE is_demo = 1").get()) as { n: number }).n,
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-display text-3xl font-semibold">Admin</h1>
-        <span className="rounded-full bg-paper-2 px-3 py-1 text-xs font-bold">Payments: {payMode()}</span>
+        <span className="rounded-full bg-paper-2 px-3 py-1 text-xs font-bold">Payments: {await payMode()}</span>
         <span className="text-xs text-muted">version {process.env.GIT_SHA || "dev"}</span>
         <Link href="/admin?tab=queue#photos" className="ml-auto rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
           📸 Add photos
@@ -109,7 +109,7 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
         ))}
       </div>
 
-      <VisitorsChart data={dailySeries(14)} today={today} />
+      <VisitorsChart data={await dailySeries(14)} today={today} />
       <TopFlyers today={today} />
 
       <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b border-line">
@@ -149,30 +149,30 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin">["sear
   );
 }
 
-function Queue({ today }: { today: string }) {
+async function Queue({ today }: { today: string }) {
   const d = db();
-  const submitted = d
+  const submitted = (await d
     .prepare(
       `SELECT p.id AS pid, p.provider, p.upi_ref, p.purpose, p.amount_paise, p.created_at, e.id, e.title, e.flyer, e.manage_token,
               e.organiser_name, e.organiser_email, e.contact_phone
        FROM payments p JOIN events e ON e.id = p.event_id WHERE p.status = 'submitted' ORDER BY p.created_at`,
     )
-    .all() as Record<string, string | number | null>[];
-  const unpaid = d
+    .all()) as Record<string, string | number | null>[];
+  const unpaid = (await d
     .prepare(
       `SELECT e.id, e.title, e.flyer, e.manage_token, e.organiser_email, e.created_at FROM events e
        WHERE e.status = 'pending_payment' AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.event_id = e.id AND p.status = 'submitted')
        ORDER BY e.created_at DESC LIMIT 30`,
     )
-    .all() as Record<string, string | number | null>[];
-  const reports = d
+    .all()) as Record<string, string | number | null>[];
+  const reports = (await d
     .prepare("SELECT r.id, r.reason, r.created_at, e.id AS event_id, e.title, e.slug FROM reports r JOIN events e ON e.id = r.event_id WHERE r.resolved = 0 ORDER BY r.created_at")
-    .all() as Record<string, string | number>[];
+    .all()) as Record<string, string | number>[];
 
-  const starter = starterStatus().filter((s) => s.state !== "past");
+  const starter = (await starterStatus()).filter((s) => s.state !== "past");
   const ready = starter.filter((s) => s.state === "ready");
-  const photos = batchQueue();
-  const aiOn = aiEnabled();
+  const photos = await batchQueue();
+  const aiOn = await aiEnabled();
 
   return (
     <div className="grid gap-8">
@@ -349,8 +349,8 @@ function Queue({ today }: { today: string }) {
   );
 }
 
-function Listings({ today }: { today: string }) {
-  const rows = db()
+async function Listings({ today }: { today: string }) {
+  const rows = (await db()
     .prepare(
       `SELECT e.id, e.slug, e.title, e.status, e.live_until, e.views, e.featured, e.is_demo, e.manage_token, v.name AS venue,
               (SELECT MIN(date) FROM event_dates WHERE event_id = e.id AND date >= @today) AS next_date
@@ -358,7 +358,7 @@ function Listings({ today }: { today: string }) {
        WHERE e.status IN ('live','hidden','rejected')
        ORDER BY (e.status = 'live' AND e.live_until >= @today) DESC, e.updated_at DESC LIMIT 300`,
     )
-    .all({ today }) as Record<string, string | number | null>[];
+    .all({ today })) as Record<string, string | number | null>[];
   return (
     <div className="overflow-x-auto rounded-2xl border border-line bg-card">
       <table className="w-full text-left text-sm">
@@ -419,10 +419,10 @@ function Listings({ today }: { today: string }) {
   );
 }
 
-function Venues({ today }: { today: string }) {
-  const venues = db()
+async function Venues({ today }: { today: string }) {
+  const venues = (await db()
     .prepare("SELECT v.*, (SELECT COUNT(*) FROM events e WHERE e.venue_id = v.id) AS n FROM venues v ORDER BY v.coords_verified, v.name")
-    .all() as (Record<string, string | number | null> & { id: number; name: string; area: string; lat: number | null; lng: number | null; address: string | null; instagram: string | null; description: string | null; coords_verified: number; n: number; slug: string })[];
+    .all()) as (Record<string, string | number | null> & { id: number; name: string; area: string; lat: number | null; lng: number | null; address: string | null; instagram: string | null; description: string | null; coords_verified: number; n: number; slug: string })[];
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted">
@@ -452,12 +452,12 @@ function Venues({ today }: { today: string }) {
   );
 }
 
-function Emails() {
-  const rows = db().prepare("SELECT id, to_addr, subject, status, error, created_at FROM emails ORDER BY id DESC LIMIT 60").all() as Record<string, string | number | null>[];
+async function Emails() {
+  const rows = (await db().prepare("SELECT id, to_addr, subject, status, error, created_at FROM emails ORDER BY id DESC LIMIT 60").all()) as Record<string, string | number | null>[];
   return (
     <div className="grid gap-2">
       <p className="text-sm text-muted">
-        {config("RESEND_API_KEY") ? "Emails are sent through Resend." : "No Resend key yet (Settings tab), so emails are only logged here, not sent."}
+        {(await config("RESEND_API_KEY")) ? "Emails are sent through Resend." : "No Resend key yet (Settings tab), so emails are only logged here, not sent."}
       </p>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-card text-sm">
         {rows.map((r) => (
@@ -474,8 +474,10 @@ function Emails() {
   );
 }
 
-function Settings() {
+async function Settings() {
   const groups = [...new Set(SETTINGS.map((s) => s.group))];
+  const photos = new Map(await Promise.all(PHOTO_SLOTS.map(async (p) => [p.key, await getPhoto(p.key)] as const)));
+  const saved = new Map(await Promise.all(SETTINGS.map(async (s) => [s.key, { source: await configSource(s.key), value: await config(s.key) }] as const)));
   const input = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm disabled:opacity-60";
   return (
     <div className="grid max-w-2xl gap-6">
@@ -483,7 +485,7 @@ function Settings() {
       <h2 className="font-display text-xl font-semibold">Photos</h2>
       <p className="-mt-2 text-sm text-muted">Your own photos of Rishikesh. Until you add them, a plain placeholder shows in their place.</p>
       {PHOTO_SLOTS.map((p) => (
-        <PhotoUploader key={p.key} slot={p.key} label={p.label} want={p.want} current={getPhoto(p.key)} />
+        <PhotoUploader key={p.key} slot={p.key} label={p.label} want={p.want} current={photos.get(p.key) ?? null} />
       ))}
     </section>
     <form action={saveSettings} className="grid gap-6">
@@ -494,10 +496,10 @@ function Settings() {
         <section key={g} className="grid gap-3 rounded-2xl border border-line bg-card p-4">
           <h2 className="font-display text-lg font-semibold">{g}</h2>
           {SETTINGS.filter((s) => s.group === g).map((s) => {
-            const source = configSource(s.key);
+            const source = saved.get(s.key)?.source ?? null;
             const secret = "secret" in s && s.secret;
             const options = "options" in s ? s.options : null;
-            const current = secret ? "" : (config(s.key) ?? "");
+            const current = secret ? "" : (saved.get(s.key)?.value ?? "");
             return (
               <label key={s.key} className="grid gap-1 text-sm">
                 <span className="font-bold">
@@ -545,8 +547,8 @@ function Settings() {
 }
 
 /** Which live flyers people actually look at and act on. */
-function TopFlyers({ today }: { today: string }) {
-  const rows = db()
+async function TopFlyers({ today }: { today: string }) {
+  const rows = (await db()
     .prepare(
       `SELECT e.id, e.title, e.manage_token, e.views,
               COALESCE(SUM(CASE WHEN s.kind = 'interested' THEN s.n END), 0) AS interested,
@@ -555,7 +557,7 @@ function TopFlyers({ today }: { today: string }) {
        WHERE e.status = 'live' AND e.live_until >= ?
        GROUP BY e.id ORDER BY e.views DESC LIMIT 8`,
     )
-    .all(today) as { id: number; title: string; manage_token: string; views: number; interested: number; taps: number }[];
+    .all(today)) as { id: number; title: string; manage_token: string; views: number; interested: number; taps: number }[];
   if (!rows.length) return null;
   return (
     <section className="rounded-2xl border border-line bg-card p-4">

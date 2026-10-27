@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const d = token ? await getEventByToken(token) : null;
   if (!d || !paymentId) return Response.json({ error: "Listing not found" }, { status: 404 });
   try {
-    submitManualPayment(paymentId, d.event.id, ref);
+    await submitManualPayment(paymentId, d.event.id, ref);
     return Response.json({ ok: true });
   } catch (e) {
     if (e instanceof ListingError) return Response.json({ error: e.message }, { status: 400 });

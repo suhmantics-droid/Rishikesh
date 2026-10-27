@@ -10,7 +10,7 @@ const PLACES = [
 /** The one event that never needs a flyer: the evening Ganga Aarti. */
 export async function GangaDaily({ className = "" }: { className?: string }) {
   await connection();
-  const photo = getPhoto("aarti");
+  const photo = await getPhoto("aarti");
   return (
     <section className={`grid overflow-hidden rounded-2xl border border-ganga/30 bg-ganga-soft sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] ${className}`}>
       <SitePhoto photo={photo} want={PHOTO_SLOTS.find((s) => s.key === "aarti")!.want} className="h-44 sm:h-full sm:min-h-52" sizes="(min-width: 640px) 40vw, 100vw" />

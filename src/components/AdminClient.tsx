@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { login, saveVenue } from "@/app/admin/actions";
+import { fitForUpload } from "@/lib/shrink";
 import { AREAS } from "@/lib/site";
 import { MapLinkInput } from "./MapLinkInput";
 import { LazyMapView } from "./MiniMap";
@@ -76,6 +77,8 @@ export function PhotoUploader({
     const fd = new FormData(form);
     fd.set("slot", slot);
     if (remove) fd.set("remove", "1");
+    const photo = fd.get("photo");
+    if (!remove && photo instanceof File && photo.size) fd.set("photo", await fitForUpload(photo));
     const res = await fetch("/api/admin/photo", { method: "POST", body: fd });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
@@ -142,7 +145,7 @@ export function BatchUploader() {
     // One at a time: phone connections in Tapovan are slow, and each photo is read on arrival.
     for (const [i, file] of list.entries()) {
       const fd = new FormData();
-      fd.append("flyer", file);
+      fd.append("flyer", await fitForUpload(file));
       fd.append("batch", "1");
       const res = await fetch("/api/uploads", { method: "POST", body: fd }).catch(() => null);
       if (!res?.ok) failed.push(file.name);

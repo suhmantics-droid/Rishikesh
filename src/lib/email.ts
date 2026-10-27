@@ -7,8 +7,8 @@ import { SITE } from "./site";
 import { escapeHtml } from "./util";
 
 export async function sendEmail(to: string, subject: string, html: string) {
-  const key = config("RESEND_API_KEY");
-  const from = config("EMAIL_FROM") || `${SITE.name} ${SITE.place} <alerts@suhmantics.com>`;
+  const key = await config("RESEND_API_KEY");
+  const from = (await config("EMAIL_FROM")) || `${SITE.name} ${SITE.place} <alerts@suhmantics.com>`;
   let status = "logged";
   let error: string | null = null;
   if (key) {
@@ -27,7 +27,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
   } else {
     console.log(`[email:not-sent] to=${to} subject=${subject}`);
   }
-  db().prepare("INSERT INTO emails (to_addr, subject, html, status, error) VALUES (?, ?, ?, ?, ?)").run(to, subject, html, status, error);
+  await db().prepare("INSERT INTO emails (to_addr, subject, html, status, error) VALUES (?, ?, ?, ?, ?)").run(to, subject, html, status, error);
   return status !== "failed";
 }
 

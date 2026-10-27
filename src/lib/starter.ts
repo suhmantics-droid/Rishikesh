@@ -33,8 +33,8 @@ function readPack(): StarterFlyer[] {
   }
 }
 
-function imported(): Set<string> {
-  const row = db().prepare("SELECT value FROM settings WHERE key = ?").get(DONE_KEY) as { value: string } | undefined;
+async function imported(): Promise<Set<string>> {
+  const row = (await db().prepare("SELECT value FROM settings WHERE key = ?").get(DONE_KEY)) as { value: string } | undefined;
   try {
     return new Set(JSON.parse(row?.value ?? "[]") as string[]);
   } catch {
@@ -52,9 +52,9 @@ function upcoming(f: StarterFlyer, today: string) {
 }
 
 /** What's in the pack and whether each flyer can still go up. */
-export function starterStatus(): StarterItem[] {
+export async function starterStatus(): Promise<StarterItem[]> {
   const today = todayIST();
-  const done = imported();
+  const done = await imported();
   return readPack().map((f) => ({
     key: f.key,
     title: f.listing.title,
@@ -64,10 +64,10 @@ export function starterStatus(): StarterItem[] {
   }));
 }
 
-function ensureVenue(v: StarterVenue): string {
+async function ensureVenue(v: StarterVenue): Promise<string> {
   if (typeof v === "string") return v;
   // Venues the flyer doesn't locate get no pin until the admin sets one.
-  db()
+  await db()
     .prepare("INSERT OR IGNORE INTO venues (slug, name, area, address) VALUES (?, ?, ?, ?)")
     .run(v.slug, v.name, v.area, v.address ?? null);
   return v.slug;
@@ -77,17 +77,17 @@ function ensureVenue(v: StarterVenue): string {
 async function pinVenueFromFlyer(venue: { slug: string } | object, links: { kind: string; url: string }[]) {
   const map = links.find((l) => l.kind === "map");
   if (!map || !("slug" in venue)) return;
-  const v = db().prepare("SELECT id, coords_verified FROM venues WHERE slug = ?").get(venue.slug) as { id: number; coords_verified: number } | undefined;
+  const v = (await db().prepare("SELECT id, coords_verified FROM venues WHERE slug = ?").get(venue.slug)) as { id: number; coords_verified: number } | undefined;
   if (!v || v.coords_verified) return;
   const pin = await resolveMapLink(map.url).catch(() => null);
-  if (pin) db().prepare("UPDATE venues SET lat = ?, lng = ?, coords_verified = 1 WHERE id = ?").run(pin.lat, pin.lng, v.id);
+  if (pin) await db().prepare("UPDATE venues SET lat = ?, lng = ?, coords_verified = 1 WHERE id = ?").run(pin.lat, pin.lng, v.id);
 }
 
 /** Publishes every starter flyer that's ready (free, as the admin). Safe to run twice. */
 export async function importStarter(keys?: string[]) {
   const pack = readPack();
-  const status = new Map(starterStatus().map((s) => [s.key, s.state]));
-  const done = imported();
+  const status = new Map((await starterStatus()).map((s) => [s.key, s.state]));
+  const done = await imported();
   const published: string[] = [];
   const failed: { title: string; reason: string }[] = [];
   for (const f of pack) {
@@ -95,10 +95,10 @@ export async function importStarter(keys?: string[]) {
     try {
       const up = await saveFlyer(fs.readFileSync(path.join(DIR, f.image)));
       const links = (f.listing.links as unknown[]) ?? [];
-      db().prepare("UPDATE uploads SET qr_json = ? WHERE id = ?").run(JSON.stringify(links), up.id);
-      const input = ListingInput.parse({ ...f.listing, uploadId: up.id, venue: { slug: ensureVenue(f.venue) }, organiser_email: null });
-      const { id } = createListing(input);
-      adminPublish(id, 0);
+      await db().prepare("UPDATE uploads SET qr_json = ? WHERE id = ?").run(JSON.stringify(links), up.id);
+      const input = ListingInput.parse({ ...f.listing, uploadId: up.id, venue: { slug: await ensureVenue(f.venue) }, organiser_email: null });
+      const { id } = await createListing(input);
+      await adminPublish(id, 0);
       await pinVenueFromFlyer(input.venue, input.links);
       done.add(f.key);
       published.push(f.listing.title);
@@ -106,7 +106,7 @@ export async function importStarter(keys?: string[]) {
       failed.push({ title: f.listing.title, reason: e instanceof ListingError ? e.message : (e as Error).message });
     }
   }
-  db()
+  await db()
     .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(DONE_KEY, JSON.stringify([...done]));
   return { published, failed };

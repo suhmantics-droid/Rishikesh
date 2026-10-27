@@ -51,7 +51,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
   const d = await getEventBySlug(slug);
   // Expired listings keep their page (links in WhatsApp groups live forever); unpaid/hidden ones don't.
   if (!d || d.event.status !== "live") notFound();
-  const stats = eventStats(d.event.id);
+  const stats = await eventStats(d.event.id);
 
   const { event, venue, artists, isLive, links } = d;
   const today = todayIST();

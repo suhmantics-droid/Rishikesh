@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { page?: boolean; eventId?: number; kind?: string };
   const ua = req.headers.get("user-agent") ?? "";
   if (/bot|crawl|spider|preview|facebookexternalhit|whatsapp/i.test(ua)) return new Response(null, { status: 204 });
-  if (body.page) recordPageview(ip, ua);
-  if (body.eventId && CLICK_KINDS.includes(body.kind as ClickKind)) recordEventClick(Number(body.eventId), body.kind as ClickKind);
+  if (body.page) await recordPageview(ip, ua);
+  if (body.eventId && CLICK_KINDS.includes(body.kind as ClickKind)) await recordEventClick(Number(body.eventId), body.kind as ClickKind);
   return new Response(null, { status: 204 });
 }

@@ -59,8 +59,8 @@ const FlyerSchema = z.object({
 
 export type FlyerFields = z.infer<typeof FlyerSchema>;
 
-export function aiEnabled() {
-  return Boolean(config("ANTHROPIC_API_KEY"));
+export async function aiEnabled() {
+  return Boolean(await config("ANTHROPIC_API_KEY"));
 }
 
 const SYSTEM = `You read photos of event flyers and posters from Tapovan, Rishikesh (India) and turn them into a structured listing.
@@ -80,7 +80,7 @@ Guidelines:
 - If the image isn't an event flyer, set is_event_flyer to false and fill other fields with empty values.`;
 
 export async function extractFlyer(image: Buffer, venues: { slug: string; name: string }[]): Promise<FlyerFields> {
-  const client = new Anthropic({ apiKey: config("ANTHROPIC_API_KEY") });
+  const client = new Anthropic({ apiKey: await config("ANTHROPIC_API_KEY") });
   const today = todayIST();
   const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday(today)];
 

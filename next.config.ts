@@ -1,12 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Self-contained server bundle for the Docker image (includes better-sqlite3 and sharp).
-  output: "standalone",
+  // Self-contained server bundle for the Docker image (includes libsql and sharp). Vercel bundles its own way.
+  output: process.env.VERCEL ? undefined : "standalone",
   // The QR reader is WebAssembly loaded from disk at runtime; keep it out of the bundle and in the image.
   serverExternalPackages: ["zxing-wasm"],
+  // Files read from disk at runtime, which the bundler can't see: the QR reader, the share-image fonts,
+  // and the starter flyers (admin only).
   outputFileTracingIncludes: {
     "/api/uploads": ["./node_modules/zxing-wasm/dist/reader/zxing_reader.wasm"],
+    "/opengraph-image": ["./assets/fonts/**"],
+    "/today/og": ["./assets/fonts/**"],
+    "/today/story": ["./assets/fonts/**"],
+    "/admin": ["./seed/starter/**"],
+    "/api/admin/starter/[file]": ["./seed/starter/**"],
   },
   cacheComponents: true,
   experimental: {

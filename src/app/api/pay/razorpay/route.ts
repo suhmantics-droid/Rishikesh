@@ -6,6 +6,6 @@ export async function POST(req: Request) {
   if (!b.razorpay_order_id || !b.razorpay_payment_id || !b.razorpay_signature) {
     return Response.json({ error: "Missing payment details" }, { status: 400 });
   }
-  const ok = verifyRazorpay(b.razorpay_order_id, b.razorpay_payment_id, b.razorpay_signature);
+  const ok = await verifyRazorpay(b.razorpay_order_id, b.razorpay_payment_id, b.razorpay_signature);
   return ok ? Response.json({ ok: true }) : Response.json({ error: "Payment could not be verified" }, { status: 400 });
 }

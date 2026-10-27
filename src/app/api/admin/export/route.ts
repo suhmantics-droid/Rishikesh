@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const type = new URL(req.url).searchParams.get("type") ?? "";
   const sql = QUERIES[type];
   if (!sql) return new Response("Unknown export", { status: 400 });
-  const body = csv(db().prepare(sql).all() as Record<string, unknown>[]);
+  const body = csv((await db().prepare(sql).all()) as Record<string, unknown>[]);
   return new Response(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

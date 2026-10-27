@@ -3,10 +3,11 @@
 //  - renewal reminders to organisers two days before a listing expires
 //  - "starting soon" reminders for flyers people saved to their plan (needs the 15-minute rhythm)
 //  - deleting full-size upload photos after a few days (kept only for straightening)
-// Also callable from /api/cron?key=CRON_SECRET if you prefer an external scheduler.
+// Also callable from /api/cron?key=CRON_SECRET — how it runs on Vercel, which has no long-running process.
 
 import { sendDailyDigests, sendExpiryReminders } from "./alerts";
 import { nowTimeIST } from "./dates";
+import { deleteOrphans } from "./db";
 import { pruneOriginals } from "./images";
 import { sendPlanReminders, sendPushDigests } from "./push";
 
@@ -17,6 +18,7 @@ export async function runJobs({ force = false } = {}) {
   const pushDigests = morning ? await sendPushDigests() : 0;
   const planReminders = await sendPlanReminders();
   const prunedOriginals = await pruneOriginals();
+  await deleteOrphans();
   return { reminders, digests, pushDigests, planReminders, prunedOriginals };
 }
 

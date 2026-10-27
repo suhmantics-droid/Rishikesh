@@ -98,7 +98,7 @@ function BrowseSkeleton() {
 async function HeroPhoto() {
   await connection();
   const want = PHOTO_SLOTS.find((s) => s.key === "hero")!.want;
-  const photo = getPhoto("hero");
+  const photo = await getPhoto("hero");
   return (
     <>
       <SitePhoto photo={photo} want={want} className="absolute inset-0 -z-10" priority showCredit={false} />

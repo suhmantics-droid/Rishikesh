@@ -37,8 +37,8 @@ async function Flow({ searchParams }: { searchParams: PageProps<"/post">["search
       isAdmin={admin}
       editToken={typeof sp.edit === "string" ? sp.edit : undefined}
       openUpload={admin && typeof sp.upload === "string" ? sp.upload : undefined}
-      payMode={payMode()}
-      owner={ownerContact()}
+      payMode={await payMode()}
+      owner={await ownerContact()}
     />
   );
 }

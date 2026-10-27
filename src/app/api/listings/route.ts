@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Add your email — we send your private edit link there." }, { status: 400 });
   }
   try {
-    const { slug, manageToken } = createListing(parsed.data);
+    const { slug, manageToken } = await createListing(parsed.data);
     return Response.json({ slug, manageToken });
   } catch (e) {
     if (e instanceof ListingError) return Response.json({ error: e.message }, { status: 400 });

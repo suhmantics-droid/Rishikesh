@@ -52,43 +52,43 @@ async function settle() {
   await new Promise((r) => setTimeout(r, 150)); // onPublished runs in the background
 }
 
-test("VAPID keys are generated once and reused", () => {
-  const a = push.vapidPublicKey();
+test("VAPID keys are generated once and reused", async () => {
+  const a = await push.vapidPublicKey();
   assert.ok(a.length > 60);
-  assert.equal(push.vapidPublicKey(), a);
+  assert.equal(await push.vapidPublicKey(), a);
 });
 
 test("followers of an artist get one notification when the flyer goes live", async () => {
-  push.savePushSubscription(fakeSub(1), [{ kind: "artist", target: "test-healer" }], false);
-  push.savePushSubscription(fakeSub(2), [{ kind: "category", target: "party" }], false); // not a match
-  const { id, slug } = createListing(listing({}));
-  adminPublish(id, 5000);
+  await push.savePushSubscription(fakeSub(1), [{ kind: "artist", target: "test-healer" }], false);
+  await push.savePushSubscription(fakeSub(2), [{ kind: "category", target: "party" }], false); // not a match
+  const { id, slug } = await createListing(listing({}));
+  await adminPublish(id, 5000);
   await settle();
   assert.equal(sent.length, 1);
   assert.equal(sent[0].endpoint, "https://push.example.com/1");
   assert.match(sent[0].title, /Gong bath/);
   assert.equal(sent[0].url, `/e/${slug}`);
 
-  adminPublish(id, 5000); // renewal: no repeat notification
+  await adminPublish(id, 5000); // renewal: no repeat notification
   await settle();
   assert.equal(sent.length, 1);
 });
 
 test("a phone that unsubscribed (410) is forgotten", async () => {
-  push.savePushSubscription(fakeSub(3), [{ kind: "venue", target: "12-monks" }], false);
+  await push.savePushSubscription(fakeSub(3), [{ kind: "venue", target: "12-monks" }], false);
   failWith = 410;
-  const { id } = createListing(listing({ title: "Open mic", category: "comedy", venue: { slug: "12-monks" }, artists: [] }));
-  adminPublish(id, 0);
+  const { id } = await createListing(listing({ title: "Open mic", category: "comedy", venue: { slug: "12-monks" }, artists: [] }));
+  await adminPublish(id, 0);
   await settle();
   failWith = null;
-  assert.equal(db().prepare("SELECT 1 FROM push_subscriptions WHERE endpoint = ?").get(fakeSub(3).endpoint), undefined);
+  assert.equal(await db().prepare("SELECT 1 FROM push_subscriptions WHERE endpoint = ?").get(fakeSub(3).endpoint), undefined);
 });
 
 test("morning digest goes out once per day, only when something is on", async () => {
-  push.savePushSubscription(fakeSub(4), [], true);
+  await push.savePushSubscription(fakeSub(4), [], true);
   assert.equal(await push.sendPushDigests(), 0, "nothing on today yet");
-  const { id } = createListing(listing({ title: "Sunset jam", category: "music", artists: [], dates: [{ date: today, start_time: "23:00" }] }));
-  adminPublish(id, 0);
+  const { id } = await createListing(listing({ title: "Sunset jam", category: "music", artists: [], dates: [{ date: today, start_time: "23:00" }] }));
+  await adminPublish(id, 0);
   await settle();
   const before = sent.length;
   assert.equal(await push.sendPushDigests(), 1);
@@ -97,37 +97,37 @@ test("morning digest goes out once per day, only when something is on", async ()
   assert.equal(sent.length, before + 1);
 });
 
-test("visitors are counted once per day; page views every time", () => {
-  stats.recordPageview("1.2.3.4", "Mozilla/5.0 phone");
-  stats.recordPageview("1.2.3.4", "Mozilla/5.0 phone");
-  stats.recordPageview("5.6.7.8", "Mozilla/5.0 laptop");
-  const day = stats.dailySeries(1)[0];
+test("visitors are counted once per day; page views every time", async () => {
+  await stats.recordPageview("1.2.3.4", "Mozilla/5.0 phone");
+  await stats.recordPageview("1.2.3.4", "Mozilla/5.0 phone");
+  await stats.recordPageview("5.6.7.8", "Mozilla/5.0 laptop");
+  const day = (await stats.dailySeries(1))[0];
   assert.equal(day.visitors, 2);
   assert.equal(day.pageviews, 3);
 });
 
-test("flyer clicks are counted per flyer", () => {
-  const { id } = createListing(listing({ title: "Counted", artists: [] }));
-  stats.recordEventClick(id, "view");
-  stats.recordEventClick(id, "view");
-  stats.recordEventClick(id, "directions");
-  stats.recordEventClick(id, "interested");
-  assert.deepEqual(stats.eventStats(id), { view: 2, directions: 1, interested: 1 });
-  assert.equal((db().prepare("SELECT views FROM events WHERE id = ?").get(id) as { views: number }).views, 2);
-  stats.recordEventClick(999999, "view"); // unknown flyer: ignored, no crash
+test("flyer clicks are counted per flyer", async () => {
+  const { id } = await createListing(listing({ title: "Counted", artists: [] }));
+  await stats.recordEventClick(id, "view");
+  await stats.recordEventClick(id, "view");
+  await stats.recordEventClick(id, "directions");
+  await stats.recordEventClick(id, "interested");
+  assert.deepEqual(await stats.eventStats(id), { view: 2, directions: 1, interested: 1 });
+  assert.equal(((await db().prepare("SELECT views FROM events WHERE id = ?").get(id)) as { views: number }).views, 2);
+  await stats.recordEventClick(999999, "view"); // unknown flyer: ignored, no crash
 });
 
 test("a saved flyer sends one 'starting soon' reminder about an hour before", async () => {
   const tomorrow = addDays(today, 1);
-  const { id, slug } = createListing(listing({ title: "Sunset kirtan", artists: [], dates: [{ date: tomorrow, start_time: "18:00" }] }));
-  adminPublish(id, 0);
+  const { id, slug } = await createListing(listing({ title: "Sunset kirtan", artists: [], dates: [{ date: tomorrow, start_time: "18:00" }] }));
+  await adminPublish(id, 0);
   await settle();
-  push.savePushSubscription(fakeSub(77), [], false);
+  await push.savePushSubscription(fakeSub(77), [], false);
   sent.length = 0;
 
-  const at = push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
+  const at = await push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
   assert.deepEqual(at, { date: tomorrow, start_time: "18:00" });
-  assert.equal(push.setReminder("https://push.example.com/unknown", slug, true), null, "only subscribed phones");
+  assert.equal(await push.setReminder("https://push.example.com/unknown", slug, true), null, "only subscribed phones");
 
   assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "16:30" }), 0, "too early");
   assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:00" }), 1);
@@ -135,7 +135,7 @@ test("a saved flyer sends one 'starting soon' reminder about an hour before", as
   assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:15" }), 0, "only once");
 
   // Unsaving removes it.
-  push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
-  push.setReminder(fakeSub(77).endpoint, slug, false);
+  await push.setReminder(fakeSub(77).endpoint, slug, true, { date: today, time: "09:00" });
+  await push.setReminder(fakeSub(77).endpoint, slug, false);
   assert.equal(await push.sendPlanReminders({ date: tomorrow, time: "17:00" }), 0);
 });

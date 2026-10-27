@@ -31,19 +31,19 @@ export const SETTINGS = [
 
 export type SettingKey = (typeof SETTINGS)[number]["key"];
 
-export function config(key: SettingKey): string | undefined {
+export async function config(key: SettingKey): Promise<string | undefined> {
   const fromEnv = process.env[key];
   if (fromEnv) return fromEnv;
-  const row = db().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  const row = (await db().prepare("SELECT value FROM settings WHERE key = ?").get(key)) as { value: string } | undefined;
   return row?.value || undefined;
 }
 
-export function configSource(key: SettingKey): "env" | "admin" | null {
+export async function configSource(key: SettingKey): Promise<"env" | "admin" | null> {
   if (process.env[key]) return "env";
-  return db().prepare("SELECT 1 FROM settings WHERE key = ? AND value != ''").get(key) ? "admin" : null;
+  return (await db().prepare("SELECT 1 FROM settings WHERE key = ? AND value != ''").get(key)) ? "admin" : null;
 }
 
-export function setConfig(key: SettingKey, value: string) {
-  if (value) db().prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
-  else db().prepare("DELETE FROM settings WHERE key = ?").run(key);
+export async function setConfig(key: SettingKey, value: string) {
+  if (value) await db().prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+  else await db().prepare("DELETE FROM settings WHERE key = ?").run(key);
 }

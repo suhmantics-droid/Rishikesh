@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const slot = form.get("slot");
   if (!isSlot(slot)) return Response.json({ error: "Unknown photo slot" }, { status: 400 });
   if (form.get("remove")) {
-    removePhoto(slot);
+    await removePhoto(slot);
     return Response.json({ ok: true });
   }
   const credit = String(form.get("credit") ?? "");
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Couldn't read that image — try a JPG." }, { status: 422 });
     }
   } else {
-    setPhotoCredit(slot, credit);
+    await setPhotoCredit(slot, credit);
   }
   return Response.json({ ok: true });
 }

@@ -1,4 +1,5 @@
 import { isAdmin } from "@/lib/admin";
+import { inBackground } from "@/lib/background";
 import { db } from "@/lib/db";
 import { MAX_UPLOAD_BYTES, saveFlyer } from "@/lib/images";
 import { linksFromCodes, scanQr } from "@/lib/qr";
@@ -29,10 +30,10 @@ export async function POST(req: Request) {
         console.error("QR scan failed", e);
         return [];
       });
-    db().prepare("UPDATE uploads SET qr_json = ? WHERE id = ?").run(JSON.stringify(links), saved.id);
+    await db().prepare("UPDATE uploads SET qr_json = ? WHERE id = ?").run(JSON.stringify(links), saved.id);
     // Read batch photos straight away, so each is filled in by the time it's opened from the queue.
-    if (batch) void extractUpload(saved.id).catch((e) => console.error("batch extract failed", e));
-    return Response.json({ id: saved.id, w: saved.w, h: saved.h, url: flyerUrl(saved.id), links, duplicates: findDuplicates(saved.id) });
+    if (batch) inBackground("batch extract", () => extractUpload(saved.id));
+    return Response.json({ id: saved.id, w: saved.w, h: saved.h, url: flyerUrl(saved.id), links, duplicates: await findDuplicates(saved.id) });
   } catch (e) {
     console.error("upload failed", e);
     return Response.json({ error: "We couldn't read that image. Try a JPG or PNG screenshot." }, { status: 422 });

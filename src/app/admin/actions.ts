@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { checkPassword, clearAdminCookie, isAdmin, setAdminCookie } from "@/lib/admin";
 import { configSource, setConfig, SETTINGS } from "@/lib/config";
 import { runJobs } from "@/lib/cron";
-import { db } from "@/lib/db";
+import { db, deleteOrphans } from "@/lib/db";
 import { addDays, todayIST } from "@/lib/dates";
 import { setStatus } from "@/lib/listings";
 import { adminPublish, approvePayment, rejectPayment } from "@/lib/payments";
@@ -31,55 +31,56 @@ export async function logout() {
 
 export async function approve(form: FormData) {
   await guard();
-  approvePayment(id(form));
+  await approvePayment(id(form));
   refresh();
 }
 
 export async function reject(form: FormData) {
   await guard();
-  rejectPayment(id(form));
-  setStatus(id(form, "event"), "rejected");
+  await rejectPayment(id(form));
+  await setStatus(id(form, "event"), "rejected");
   refresh();
 }
 
 export async function publishCash(form: FormData) {
   await guard();
-  adminPublish(id(form), form.get("free") ? 0 : LISTING.pricePaise);
+  await adminPublish(id(form), form.get("free") ? 0 : LISTING.pricePaise);
   refresh();
 }
 
 export async function setListingStatus(form: FormData) {
   await guard();
   const s = String(form.get("status"));
-  if (s === "live" || s === "hidden") setStatus(id(form), s);
+  if (s === "live" || s === "hidden") await setStatus(id(form), s);
   refresh();
 }
 
 export async function toggleFeatured(form: FormData) {
   await guard();
-  db().prepare("UPDATE events SET featured = 1 - featured WHERE id = ?").run(id(form));
+  await db().prepare("UPDATE events SET featured = 1 - featured WHERE id = ?").run(id(form));
   refresh();
 }
 
 export async function extendFree(form: FormData) {
   await guard();
-  const e = db().prepare("SELECT live_until FROM events WHERE id = ?").get(id(form)) as { live_until: string | null } | undefined;
+  const e = (await db().prepare("SELECT live_until FROM events WHERE id = ?").get(id(form))) as { live_until: string | null } | undefined;
   const today = todayIST();
   const base = e?.live_until && e.live_until >= today ? e.live_until : today;
-  db().prepare("UPDATE events SET live_until = ?, status = 'live' WHERE id = ?").run(addDays(base, 7), id(form));
+  await db().prepare("UPDATE events SET live_until = ?, status = 'live' WHERE id = ?").run(addDays(base, 7), id(form));
   refresh();
 }
 
 export async function deleteListing(form: FormData) {
   await guard();
-  db().prepare("DELETE FROM events WHERE id = ?").run(id(form));
+  await db().prepare("DELETE FROM events WHERE id = ?").run(id(form));
+  await deleteOrphans();
   refresh();
 }
 
 export async function resolveReport(form: FormData) {
   await guard();
-  db().prepare("UPDATE reports SET resolved = 1 WHERE id = ?").run(id(form));
-  if (form.get("hide")) setStatus(id(form, "event"), "hidden");
+  await db().prepare("UPDATE reports SET resolved = 1 WHERE id = ?").run(id(form));
+  if (form.get("hide")) await setStatus(id(form, "event"), "hidden");
   refresh();
 }
 
@@ -93,7 +94,7 @@ export async function saveVenue(form: FormData) {
   };
   const lat = coord("lat");
   const lng = coord("lng");
-  db()
+  await db()
     .prepare(
       `UPDATE venues SET name = ?, area = ?, lat = ?, lng = ?, coords_verified = 1, address = ?, instagram = ?, description = ? WHERE id = ?`,
     )
@@ -112,21 +113,21 @@ export async function saveVenue(form: FormData) {
 
 export async function deleteVenue(form: FormData) {
   await guard();
-  const used = db().prepare("SELECT 1 FROM events WHERE venue_id = ? LIMIT 1").get(id(form));
-  if (!used) db().prepare("DELETE FROM venues WHERE id = ?").run(id(form));
+  const used = await db().prepare("SELECT 1 FROM events WHERE venue_id = ? LIMIT 1").get(id(form));
+  if (!used) await db().prepare("DELETE FROM venues WHERE id = ?").run(id(form));
   refresh();
 }
 
 export async function saveSettings(form: FormData) {
   await guard();
   for (const s of SETTINGS) {
-    if (configSource(s.key) === "env") continue; // .env wins; nothing to save
+    if ((await configSource(s.key)) === "env") continue; // .env wins; nothing to save
     const raw = form.get(s.key);
     if (raw === null) continue;
     const value = String(raw).trim();
     const isSecret = "secret" in s && s.secret;
     if (isSecret && !value && !form.get(`clear_${s.key}`)) continue; // blank = keep the saved secret
-    setConfig(s.key, value);
+    await setConfig(s.key, value);
   }
   refresh();
 }
@@ -140,9 +141,10 @@ export async function runDailyJobs() {
 export async function clearDemoData() {
   await guard();
   const d = db();
-  d.prepare("DELETE FROM events WHERE is_demo = 1").run();
-  d.prepare("DELETE FROM venues WHERE is_demo = 1 AND id NOT IN (SELECT venue_id FROM events)").run();
-  d.prepare("DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM event_artists)").run();
+  await d.prepare("DELETE FROM events WHERE is_demo = 1").run();
+  await deleteOrphans(); // its dates and artist links, before looking for artists with no events
+  await d.prepare("DELETE FROM venues WHERE is_demo = 1 AND id NOT IN (SELECT venue_id FROM events)").run();
+  await d.prepare("DELETE FROM artists WHERE id NOT IN (SELECT artist_id FROM event_artists)").run();
   refresh();
 }
 
@@ -156,6 +158,6 @@ export async function publishStarter(form: FormData) {
 
 export async function discardUpload(form: FormData) {
   await guard();
-  dismissUpload(String(form.get("id")));
+  await dismissUpload(String(form.get("id")));
   refresh();
 }

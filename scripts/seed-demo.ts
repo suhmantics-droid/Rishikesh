@@ -5,7 +5,7 @@
 //   npm run seed:demo
 
 import sharp from "sharp";
-import { db } from "../src/lib/db";
+import { db, deleteOrphans } from "../src/lib/db";
 import { addDays, todayIST, weekday } from "../src/lib/dates";
 import { saveFlyer } from "../src/lib/images";
 import { createListing, ListingInput, publishOrRenew } from "../src/lib/listings";
@@ -18,13 +18,13 @@ const nextWd = (wd: number) => {
   return d;
 };
 
-if (process.argv.includes("--clear")) {
+async function clear() {
   const d = db();
-  d.prepare("DELETE FROM events WHERE is_demo = 1").run();
-  d.prepare("DELETE FROM venues WHERE is_demo = 1").run();
-  d.prepare("DELETE FROM artists WHERE is_demo = 1 OR id NOT IN (SELECT artist_id FROM event_artists)").run();
+  await d.prepare("DELETE FROM events WHERE is_demo = 1").run();
+  await d.prepare("DELETE FROM venues WHERE is_demo = 1").run();
+  await d.prepare("DELETE FROM artists WHERE is_demo = 1 OR id NOT IN (SELECT artist_id FROM event_artists)").run();
+  await deleteOrphans();
   console.log("Demo data removed.");
-  process.exit(0);
 }
 
 const VENUES = [
@@ -243,13 +243,13 @@ async function main() {
   const insVenue = d.prepare(
     "INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, coords_verified, is_demo, description) VALUES (@slug, @name, @area, @lat, @lng, 1, 1, 'Fictional venue for sample listings.')",
   );
-  for (const v of VENUES) insVenue.run(v);
+  for (const v of VENUES) await insVenue.run(v);
 
   for (const demo of DEMOS) {
     const venue = VENUES.find((v) => v.slug === demo.venue)!;
     const png = await sharp(Buffer.from(flyerSvg(demo, venue.name))).png().toBuffer();
     const up = await saveFlyer(png);
-    const { id } = createListing(
+    const { id } = await createListing(
       ListingInput.parse({
         ...demo.input,
         title: demo.title,
@@ -259,12 +259,15 @@ async function main() {
         organiser_name: "Sample organiser",
       }),
     );
-    publishOrRenew(id);
-    d.prepare("UPDATE events SET is_demo = 1, featured = ?, views = ? WHERE id = ?").run(demo.featured ? 1 : 0, 20 + Math.floor(Math.random() * 300), id);
-    d.prepare("UPDATE artists SET is_demo = 1 WHERE id IN (SELECT artist_id FROM event_artists WHERE event_id = ?)").run(id);
+    await publishOrRenew(id);
+    await d.prepare("UPDATE events SET is_demo = 1, featured = ?, views = ? WHERE id = ?").run(demo.featured ? 1 : 0, 20 + Math.floor(Math.random() * 300), id);
+    await d.prepare("UPDATE artists SET is_demo = 1 WHERE id IN (SELECT artist_id FROM event_artists WHERE event_id = ?)").run(id);
     console.log(`  + ${demo.title}`);
   }
   console.log(`Seeded ${DEMOS.length} sample flyers.`);
 }
 
-main();
+(process.argv.includes("--clear") ? clear() : main()).catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -102,15 +102,15 @@ export function isOver(occ: Occurrence, today: string, now: string) {
 
 type Row = Record<string, unknown>;
 
-function artistsFor(eventIds: number[]) {
+async function artistsFor(eventIds: number[]) {
   const map = new Map<number, { slug: string; name: string }[]>();
   if (eventIds.length === 0) return map;
-  const rows = db()
+  const rows = (await db()
     .prepare(
       `SELECT ea.event_id, a.slug, a.name FROM event_artists ea JOIN artists a ON a.id = ea.artist_id
        WHERE ea.event_id IN (${eventIds.map(() => "?").join(",")}) ORDER BY a.name`,
     )
-    .all(...eventIds) as { event_id: number; slug: string; name: string }[];
+    .all(...eventIds)) as { event_id: number; slug: string; name: string }[];
   for (const r of rows) {
     const list = map.get(r.event_id) ?? [];
     list.push({ slug: r.slug, name: r.name });
@@ -190,7 +190,7 @@ export async function getWhatsOn(f: Filters) {
 }
 
 /** The query behind getWhatsOn, with "today" and "now" passed in so it can be tested. */
-export function queryWhatsOn(f: Filters, today: string, now: string) {
+export async function queryWhatsOn(f: Filters, today: string, now: string) {
   const { from, to } = whenRange(f.when, today);
   const where = [LIVE, "d.date BETWEEN @from AND @to"];
   const params: Record<string, unknown> = { today, from, to };
@@ -230,7 +230,7 @@ export function queryWhatsOn(f: Filters, today: string, now: string) {
       SELECT 1 FROM event_artists ea JOIN artists a ON a.id = ea.artist_id WHERE ea.event_id = e.id AND a.name LIKE @q))`);
     params.q = `%${f.q.trim()}%`;
   }
-  const rows = (db()
+  const rows = ((await db()
     .prepare(
       `SELECT e.*, d.date, d.start_time, d.end_time, d.label,
               v.slug AS v_slug, v.name AS v_name, v.area AS v_area, v.lat AS v_lat, v.lng AS v_lng
@@ -241,9 +241,9 @@ export function queryWhatsOn(f: Filters, today: string, now: string) {
        ORDER BY d.date, COALESCE(d.start_time, '99:99'), e.featured DESC, e.id
        LIMIT 3000`,
     )
-    .all(params) as Row[]).filter((r) => !isOver(r as unknown as Occurrence, today, now));
+    .all(params)) as Row[]).filter((r) => !isOver(r as unknown as Occurrence, today, now));
 
-  const artists = artistsFor([...new Set(rows.map((r) => r.id as number))]);
+  const artists = await artistsFor([...new Set(rows.map((r) => r.id as number))]);
   const days = new Map<number, number[]>();
   const agenda = rows.map((r) => toCard(r, artists, days));
 
@@ -328,17 +328,17 @@ export function parseLinks(json: string | null | undefined): FlyerLink[] {
   }
 }
 
-function loadDetail(where: string, value: string | number): EventDetail | null {
-  const event = db().prepare(`SELECT * FROM events WHERE ${where} = ?`).get(value) as EventDetail["event"] | undefined;
+async function loadDetail(where: string, value: string | number): Promise<EventDetail | null> {
+  const event = (await db().prepare(`SELECT * FROM events WHERE ${where} = ?`).get(value)) as EventDetail["event"] | undefined;
   if (!event) return null;
   const today = todayIST();
-  const venue = db().prepare("SELECT * FROM venues WHERE id = ?").get(event.venue_id) as Venue;
-  const dates = db()
+  const venue = (await db().prepare("SELECT * FROM venues WHERE id = ?").get(event.venue_id)) as Venue;
+  const dates = (await db()
     .prepare("SELECT date, start_time, end_time, label FROM event_dates WHERE event_id = ? ORDER BY date, start_time")
-    .all(event.id) as Occurrence[];
-  const artists = db()
+    .all(event.id)) as Occurrence[];
+  const artists = (await db()
     .prepare("SELECT a.* FROM event_artists ea JOIN artists a ON a.id = ea.artist_id WHERE ea.event_id = ? ORDER BY a.name")
-    .all(event.id) as Artist[];
+    .all(event.id)) as Artist[];
   const isLive = event.status === "live" && !!event.live_until && event.live_until >= today;
   return { event, venue, dates, artists, schedule: parseSchedule(event.schedule), links: parseLinks(event.links), isLive };
 }
@@ -353,51 +353,51 @@ export async function getEventByToken(token: string) {
   return loadDetail("manage_token", token);
 }
 
-export function getEventById(id: number) {
-  return loadDetail("id", id);
+export async function getEventById(id: number) {
+  return await loadDetail("id", id);
 }
 
 export async function getVenue(slug: string) {
   await connection();
-  return (db().prepare("SELECT * FROM venues WHERE slug = ?").get(slug) as Venue | undefined) ?? null;
+  return ((await db().prepare("SELECT * FROM venues WHERE slug = ?").get(slug)) as Venue | undefined) ?? null;
 }
 
 export async function getArtist(slug: string) {
   await connection();
-  return (db().prepare("SELECT * FROM artists WHERE slug = ?").get(slug) as Artist | undefined) ?? null;
+  return ((await db().prepare("SELECT * FROM artists WHERE slug = ?").get(slug)) as Artist | undefined) ?? null;
 }
 
 export async function listVenues() {
   await connection();
-  return db().prepare("SELECT * FROM venues ORDER BY name").all() as Venue[];
+  return (await db().prepare("SELECT * FROM venues ORDER BY name").all()) as Venue[];
 }
 
 export async function listArtists() {
   await connection();
-  return db()
+  return (await db()
     .prepare(
       `SELECT a.*, (SELECT COUNT(*) FROM event_artists ea JOIN events e ON e.id = ea.event_id
                     WHERE ea.artist_id = a.id AND e.status = 'live' AND e.live_until >= ?) AS live_count
        FROM artists a ORDER BY live_count DESC, a.name`,
     )
-    .all(todayIST()) as (Artist & { live_count: number })[];
+    .all(todayIST())) as (Artist & { live_count: number })[];
 }
 
 export async function countLive() {
   await connection();
-  const r = db()
+  const r = (await db()
     .prepare(
       `SELECT COUNT(DISTINCT e.id) AS n FROM events e JOIN event_dates d ON d.event_id = e.id
        WHERE e.status = 'live' AND e.live_until >= @today AND d.date >= @today`,
     )
-    .get({ today: todayIST() }) as { n: number };
+    .get({ today: todayIST() })) as { n: number };
   return r.n;
 }
 
 /** Venues with how many live flyers they have coming up, for the directory page. */
 export async function listVenuesWithCounts() {
   await connection();
-  return db()
+  return (await db()
     .prepare(
       `SELECT v.*, COUNT(DISTINCT e.id) AS upcoming, MIN(d.date) AS next_date
        FROM venues v
@@ -405,5 +405,5 @@ export async function listVenuesWithCounts() {
        LEFT JOIN event_dates d ON d.event_id = e.id AND d.date >= @today
        GROUP BY v.id ORDER BY upcoming DESC, v.name`,
     )
-    .all({ today: todayIST() }) as (Venue & { upcoming: number; next_date: string | null })[];
+    .all({ today: todayIST() })) as (Venue & { upcoming: number; next_date: string | null })[];
 }

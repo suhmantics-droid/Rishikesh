@@ -39,7 +39,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/listings/[token]
     return Response.json({ error: `Check "${issue.path.join(".") || "form"}": ${issue.message}` }, { status: 400 });
   }
   try {
-    updateListing(d.event.id, parsed.data);
+    await updateListing(d.event.id, parsed.data);
     return Response.json({ slug: d.event.slug, manageToken: d.event.manage_token });
   } catch (e) {
     if (e instanceof ListingError) return Response.json({ error: e.message }, { status: 400 });

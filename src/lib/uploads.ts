@@ -35,16 +35,16 @@ export function extractUpload(uploadId: string): Promise<ExtractResult> {
 }
 
 async function readUpload(uploadId: string): Promise<ExtractResult> {
-  if (!aiEnabled()) return { fields: null, reason: "Auto-fill isn't switched on — fill in the details below." };
-  const cached = db().prepare("SELECT extracted_json FROM uploads WHERE id = ?").get(uploadId) as { extracted_json: string | null } | undefined;
+  if (!(await aiEnabled())) return { fields: null, reason: "Auto-fill isn't switched on — fill in the details below." };
+  const cached = (await db().prepare("SELECT extracted_json FROM uploads WHERE id = ?").get(uploadId)) as { extracted_json: string | null } | undefined;
   if (!cached) return { fields: null, error: "Upload not found" };
   if (cached.extracted_json) return { fields: JSON.parse(cached.extracted_json) as FlyerFields };
   const image = await readFlyer(uploadId);
   if (!image) return { fields: null, error: "Upload not found" };
-  const venues = db().prepare("SELECT slug, name FROM venues WHERE is_demo = 0 ORDER BY name").all() as { slug: string; name: string }[];
+  const venues = (await db().prepare("SELECT slug, name FROM venues WHERE is_demo = 0 ORDER BY name").all()) as { slug: string; name: string }[];
   try {
     const fields = await extractFlyer(image, venues);
-    db().prepare("UPDATE uploads SET extracted_json = ? WHERE id = ?").run(JSON.stringify(fields), uploadId);
+    await db().prepare("UPDATE uploads SET extracted_json = ? WHERE id = ?").run(JSON.stringify(fields), uploadId);
     return { fields };
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return { fields: null, reason: "Auto-fill is busy right now — fill in the details below." };
@@ -66,20 +66,20 @@ function similarTitles(a: string, b: string) {
 }
 
 /** Listings this photo is probably already on the site as: a near-identical image, the same QR code, or the same name. */
-export function findDuplicates(uploadId: string): Duplicate[] {
+export async function findDuplicates(uploadId: string): Promise<Duplicate[]> {
   const d = db();
-  const up = d.prepare("SELECT * FROM uploads WHERE id = ?").get(uploadId) as UploadRow | undefined;
+  const up = (await d.prepare("SELECT * FROM uploads WHERE id = ?").get(uploadId)) as UploadRow | undefined;
   if (!up) return [];
   const links = parse<FlyerLink[]>(up.qr_json, []).map((l) => l.url);
   const title = parse<FlyerFields | null>(up.extracted_json, null)?.title ?? null;
-  const events = d
+  const events = (await d
     .prepare(
       `SELECT e.slug, e.title, e.status, e.links, u.phash, p.phash AS parent_phash
        FROM events e LEFT JOIN uploads u ON u.id = e.flyer LEFT JOIN uploads p ON p.id = u.parent
        WHERE e.status IN ('live', 'pending_payment', 'pending_review') AND (e.live_until IS NULL OR e.live_until >= ?)
          AND e.flyer IS NOT ? AND (u.parent IS NULL OR u.parent != ?)`,
     )
-    .all(todayIST(), uploadId, uploadId) as { slug: string; title: string; status: string; links: string | null; phash: string | null; parent_phash: string | null }[];
+    .all(todayIST(), uploadId, uploadId)) as { slug: string; title: string; status: string; links: string | null; phash: string | null; parent_phash: string | null }[];
   const out: Duplicate[] = [];
   for (const e of events) {
     const near = (h: string | null) => !!h && !!up.phash && hashDistance(h, up.phash) <= SAME_FLYER;
@@ -96,10 +96,10 @@ export function findDuplicates(uploadId: string): Duplicate[] {
   return out.slice(0, 3);
 }
 
-export function uploadInfo(uploadId: string) {
-  const up = db().prepare("SELECT * FROM uploads WHERE id = ?").get(uploadId) as UploadRow | undefined;
+export async function uploadInfo(uploadId: string) {
+  const up = (await db().prepare("SELECT * FROM uploads WHERE id = ?").get(uploadId)) as UploadRow | undefined;
   if (!up) return null;
-  return { id: up.id, w: up.w, h: up.h, url: flyerUrl(up.id)!, links: parse<FlyerLink[]>(up.qr_json, []), duplicates: findDuplicates(up.id) };
+  return { id: up.id, w: up.w, h: up.h, url: flyerUrl(up.id)!, links: parse<FlyerLink[]>(up.qr_json, []), duplicates: await findDuplicates(up.id) };
 }
 
 export type QueueItem = {
@@ -114,17 +114,17 @@ export type QueueItem = {
 };
 
 /** Batch-uploaded photos not yet posted (directly, or as a straightened copy) and not discarded. */
-export function batchQueue(): QueueItem[] {
+export async function batchQueue(): Promise<QueueItem[]> {
   const d = db();
-  const rows = d
+  const rows = (await d
     .prepare(
       `SELECT u.* FROM uploads u
        WHERE u.batch = 1 AND u.dismissed = 0 AND u.created_at >= ?
          AND NOT EXISTS (SELECT 1 FROM events e JOIN uploads c ON c.id = e.flyer WHERE c.id = u.id OR c.parent = u.id)
        ORDER BY u.created_at`,
     )
-    .all(addDays(todayIST(), -14)) as UploadRow[];
-  return rows.map((u, i) => {
+    .all(addDays(todayIST(), -14))) as UploadRow[];
+  return Promise.all(rows.map(async (u, i) => {
     const fields = parse<FlyerFields | null>(u.extracted_json, null);
     const firstDate = fields?.dates?.[0]?.date ?? null;
     return {
@@ -133,14 +133,14 @@ export function batchQueue(): QueueItem[] {
       title: fields?.is_event_flyer === false ? null : (fields?.title ?? null),
       firstDate,
       links: parse<FlyerLink[]>(u.qr_json, []).length,
-      duplicates: findDuplicates(u.id),
+      duplicates: await findDuplicates(u.id),
       // Two photos of the same flyer in one walk.
       similarInBatch: rows.slice(0, i).filter((o) => o.phash && u.phash && hashDistance(o.phash, u.phash) <= SAME_FLYER).map((o) => o.id),
       created_at: u.created_at,
     };
-  });
+  }));
 }
 
-export function dismissUpload(uploadId: string) {
-  db().prepare("UPDATE uploads SET dismissed = 1 WHERE id = ?").run(uploadId);
+export async function dismissUpload(uploadId: string) {
+  await db().prepare("UPDATE uploads SET dismissed = 1 WHERE id = ?").run(uploadId);
 }

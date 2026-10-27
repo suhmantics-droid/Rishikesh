@@ -22,7 +22,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/alerts/[token]"
   await connection();
   const { token } = await params;
   const sp = await searchParams;
-  const sub = getSubscriber(token);
+  const sub = await getSubscriber(token);
   if (!sub) notFound();
   const showDemo = process.env.NODE_ENV !== "production";
   const [venues, artists] = await Promise.all([listVenues(), listArtists()]);

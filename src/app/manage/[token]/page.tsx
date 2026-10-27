@@ -35,7 +35,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
   const expiringSoon = d.isLive && event.live_until! <= addDays(today, 5);
   const needsRenewalForDates = d.isLive && lastDate && lastDate > event.live_until!;
   const admin = await isAdmin();
-  const stats = eventStats(event.id);
+  const stats = await eventStats(event.id);
 
   const status =
     event.status === "live" && d.isLive
@@ -123,7 +123,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
       {event.status === "pending_payment" ? (
         <section className="rounded-2xl border border-line bg-card p-5">
           <h2 className="mb-3 font-display text-xl font-semibold">Publish for {rupees(LISTING.pricePaise)}</h2>
-          <ManageActions token={token} purpose="new" priceLabel={rupees(LISTING.pricePaise)} isAdmin={admin} mode={payMode()} />
+          <ManageActions token={token} purpose="new" priceLabel={rupees(LISTING.pricePaise)} isAdmin={admin} mode={await payMode()} />
         </section>
       ) : null}
 
@@ -137,7 +137,7 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
                 ? "Your listing ends in a few days."
                 : `Adds another ${LISTING.days / 7} weeks.`}
           </p>
-          <ManageActions token={token} purpose="renew" priceLabel={rupees(LISTING.pricePaise)} isAdmin={admin} mode={payMode()} />
+          <ManageActions token={token} purpose="renew" priceLabel={rupees(LISTING.pricePaise)} isAdmin={admin} mode={await payMode()} />
         </section>
       ) : null}
     </div>

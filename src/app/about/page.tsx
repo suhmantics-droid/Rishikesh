@@ -80,7 +80,7 @@ export default function AboutPage() {
 
 async function OwnerWhatsApp() {
   await connection();
-  const { whatsapp, name } = ownerContact();
+  const { whatsapp, name } = await ownerContact();
   if (!whatsapp) return null;
   return (
     <a

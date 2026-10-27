@@ -21,7 +21,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/uploads/[id]/st
     const flat = await straighten(source, parsed.data.corners);
     const saved = await saveFlyer(flat, { parent: id });
     // The QR codes and details were read from the full photo; they still belong to this flyer.
-    db()
+    await db()
       .prepare("UPDATE uploads SET qr_json = p.qr_json, extracted_json = p.extracted_json FROM (SELECT qr_json, extracted_json FROM uploads WHERE id = ?) AS p WHERE id = ?")
       .run(id, saved.id);
     return Response.json({ id: saved.id, w: saved.w, h: saved.h, url: flyerUrl(saved.id) });

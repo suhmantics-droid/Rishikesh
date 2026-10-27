@@ -1,12 +1,12 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import sharp from "sharp";
-import { db, UPLOAD_DIR } from "./db";
+import { db } from "./db";
+import { deleteFiles, readFile, saveFile } from "./storage";
 import { uploadId } from "./util";
 
 export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
-const ORIGINALS_DIR = () => path.join(UPLOAD_DIR, "originals");
+/** The sharper copy of a phone photo kept for straightening. */
+const original = (id: string) => `originals/${id}.jpg`;
 
 /**
  * 256-bit difference hash: shrink to 17×16 greys (via a smooth 128×128 step, so re-saved or resized
@@ -59,17 +59,15 @@ export async function saveFlyer(input: Buffer, { keepOriginal = false, batch = f
     .toBuffer({ resolveWithObject: true });
   const small = await base.clone().resize({ width: 640, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
 
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  await fs.writeFile(path.join(UPLOAD_DIR, `${id}.webp`), large.data);
-  await fs.writeFile(path.join(UPLOAD_DIR, `${id}-sm.webp`), small);
-  db()
+  await saveFile(`${id}.webp`, large.data, "image/webp");
+  await saveFile(`${id}-sm.webp`, small, "image/webp");
+  await db()
     .prepare("INSERT INTO uploads (id, w, h, phash, batch, parent) VALUES (?, ?, ?, ?, ?, ?)")
     .run(id, large.info.width, large.info.height, await differenceHash(large.data), batch ? 1 : 0, parent);
   if (keepOriginal) {
     // A sharper copy to straighten from, kept for a few days (EXIF and location are stripped here too).
-    await fs.mkdir(ORIGINALS_DIR(), { recursive: true });
     const orig = await base.clone().resize({ width: 3200, height: 3200, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 90 }).toBuffer();
-    await fs.writeFile(path.join(ORIGINALS_DIR(), `${id}.jpg`), orig);
+    await saveFile(original(id), orig, "image/jpeg");
   }
   return { id, w: large.info.width, h: large.info.height, data: large.data };
 }
@@ -77,34 +75,24 @@ export async function saveFlyer(input: Buffer, { keepOriginal = false, batch = f
 /** The best copy we have of an upload: the kept original, or the published-size WebP. */
 export async function readBestCopy(id: string) {
   if (!/^[a-z0-9]{14}$/.test(id)) return null;
-  try {
-    return await fs.readFile(path.join(ORIGINALS_DIR(), `${id}.jpg`));
-  } catch {
-    return readFlyer(id);
-  }
+  return (await readFile(original(id))) ?? (await readFlyer(id));
 }
 
-/** Deletes kept originals older than `days`. */
+/**
+ * Deletes the kept originals of uploads more than `days` old. Works through uploads by date (remembering
+ * how far it got) rather than listing files, so it's a single small call to the file store.
+ */
 export async function pruneOriginals(days = 3) {
-  const dir = ORIGINALS_DIR();
-  const cutoff = Date.now() - days * 86_400_000;
-  let removed = 0;
-  for (const f of await fs.readdir(dir).catch(() => [] as string[])) {
-    const p = path.join(dir, f);
-    const st = await fs.stat(p).catch(() => null);
-    if (st && st.mtimeMs < cutoff) {
-      await fs.unlink(p).catch(() => {});
-      removed++;
-    }
-  }
-  return removed;
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString().replace("T", " ").slice(0, 19);
+  const done = (await db().prepare("SELECT value FROM settings WHERE key = '_ORIGINALS_PRUNED_TO'").get<{ value: string }>())?.value ?? "";
+  if (done >= cutoff) return 0;
+  const ids = (await db().prepare("SELECT id FROM uploads WHERE created_at > ? AND created_at <= ?").all<{ id: string }>(done, cutoff)).map((u) => u.id);
+  await deleteFiles(ids.map(original)).catch((e) => console.error("pruning originals failed", e));
+  await db().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('_ORIGINALS_PRUNED_TO', ?)").run(cutoff);
+  return ids.length;
 }
 
 export async function readFlyer(id: string) {
   if (!/^[a-z0-9]{14}$/.test(id)) return null;
-  try {
-    return await fs.readFile(path.join(UPLOAD_DIR, `${id}.webp`));
-  } catch {
-    return null;
-  }
+  return readFile(`${id}.webp`);
 }

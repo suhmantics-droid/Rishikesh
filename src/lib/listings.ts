@@ -1,7 +1,7 @@
 // Write-side: creating, editing, publishing and renewing flyer listings.
 
 import { z } from "zod";
-import { db } from "./db";
+import { db, type Db } from "./db";
 import { addDays, isValidDate, isValidTime, todayIST, weekday } from "./dates";
 import { LINK_KINDS } from "./links";
 import { AREAS, CATEGORY_KEYS, LISTING } from "./site";
@@ -114,9 +114,8 @@ export function parseSchedule(json: string | null | undefined): Schedule | null 
 }
 
 /** Rebuilds a listing's dates from its schedule, through to the end of its paid period. */
-export function writeOccurrences(eventId: number) {
-  const d = db();
-  const e = d.prepare("SELECT schedule, live_until, kind FROM events WHERE id = ?").get(eventId) as
+export async function writeOccurrences(eventId: number, d: Db = db()) {
+  const e = (await d.prepare("SELECT schedule, live_until, kind FROM events WHERE id = ?").get(eventId)) as
     | { schedule: string | null; live_until: string | null; kind: string }
     | undefined;
   const schedule = parseSchedule(e?.schedule);
@@ -127,43 +126,41 @@ export function writeOccurrences(eventId: number) {
   if (occ.length === 0) {
     throw new ListingError(e.kind === "classes" ? "Add at least one class: its days and start time." : "Add at least one upcoming date.");
   }
-  d.prepare("DELETE FROM event_dates WHERE event_id = ?").run(eventId);
+  await d.prepare("DELETE FROM event_dates WHERE event_id = ?").run(eventId);
   const ins = d.prepare("INSERT INTO event_dates (event_id, date, start_time, end_time, label) VALUES (?, ?, ?, ?, ?)");
-  for (const o of occ) ins.run(eventId, o.date, o.start_time, o.end_time, o.label);
+  for (const o of occ) await ins.run(eventId, o.date, o.start_time, o.end_time, o.label);
   return occ.length;
 }
 
-function resolveVenue(v: ListingInputT["venue"]): number {
-  const d = db();
+async function resolveVenue(v: ListingInputT["venue"], d: Db): Promise<number> {
   if ("slug" in v) {
-    const row = d.prepare("SELECT id FROM venues WHERE slug = ?").get(v.slug) as { id: number } | undefined;
+    const row = (await d.prepare("SELECT id FROM venues WHERE slug = ?").get(v.slug)) as { id: number } | undefined;
     if (!row) throw new ListingError("Unknown venue");
     return row.id;
   }
-  const existing = d.prepare("SELECT id FROM venues WHERE lower(name) = lower(?)").get(v.name) as { id: number } | undefined;
+  const existing = (await d.prepare("SELECT id FROM venues WHERE lower(name) = lower(?)").get(v.name)) as { id: number } | undefined;
   if (existing) return existing.id;
   let slug = slugify(v.name, 40);
-  if (d.prepare("SELECT 1 FROM venues WHERE slug = ?").get(slug)) slug = `${slug}-${shortId()}`;
-  const r = d
+  if ((await d.prepare("SELECT 1 FROM venues WHERE slug = ?").get(slug))) slug = `${slug}-${shortId()}`;
+  const r = await d
     .prepare("INSERT INTO venues (slug, name, area, lat, lng, address) VALUES (?, ?, ?, ?, ?, ?)")
     .run(slug, v.name, v.area, v.lat, v.lng, v.address ?? null);
   return Number(r.lastInsertRowid);
 }
 
-function upsertArtist(name: string): number {
-  const d = db();
+async function upsertArtist(name: string, d: Db): Promise<number> {
   const clean = name.replace(/\s+/g, " ").trim();
-  const existing = d.prepare("SELECT id FROM artists WHERE lower(name) = lower(?)").get(clean) as { id: number } | undefined;
+  const existing = (await d.prepare("SELECT id FROM artists WHERE lower(name) = lower(?)").get(clean)) as { id: number } | undefined;
   if (existing) return existing.id;
   let slug = slugify(clean, 40);
-  if (d.prepare("SELECT 1 FROM artists WHERE slug = ?").get(slug)) slug = `${slug}-${shortId()}`;
-  return Number(d.prepare("INSERT INTO artists (slug, name) VALUES (?, ?)").run(slug, clean).lastInsertRowid);
+  if ((await d.prepare("SELECT 1 FROM artists WHERE slug = ?").get(slug))) slug = `${slug}-${shortId()}`;
+  return Number((await d.prepare("INSERT INTO artists (slug, name) VALUES (?, ?)").run(slug, clean)).lastInsertRowid);
 }
 
 export class ListingError extends Error {}
 
-function fields(input: ListingInputT) {
-  const upload = db().prepare("SELECT w, h FROM uploads WHERE id = ?").get(input.uploadId) as { w: number; h: number } | undefined;
+async function fields(input: ListingInputT, d: Db) {
+  const upload = (await d.prepare("SELECT w, h FROM uploads WHERE id = ?").get(input.uploadId)) as { w: number; h: number } | undefined;
   if (!upload) throw new ListingError("Flyer upload not found — please upload it again.");
   const priceMin = input.price_type === "paid" || input.price_type === "donation" ? (input.price_min ?? null) : null;
   const priceMax = input.price_type === "paid" && input.price_max && priceMin && input.price_max > priceMin ? input.price_max : null;
@@ -181,7 +178,7 @@ function fields(input: ListingInputT) {
     flyer: input.uploadId,
     flyer_w: upload.w,
     flyer_h: upload.h,
-    venue_id: resolveVenue(input.venue),
+    venue_id: await resolveVenue(input.venue, d),
     price_type: input.price_type,
     price_min: priceMin,
     price_max: priceMax,
@@ -195,21 +192,19 @@ function fields(input: ListingInputT) {
   };
 }
 
-function writeDatesAndArtists(eventId: number, input: ListingInputT) {
-  const d = db();
-  writeOccurrences(eventId);
-  d.prepare("DELETE FROM event_artists WHERE event_id = ?").run(eventId);
+async function writeDatesAndArtists(eventId: number, input: ListingInputT, d: Db) {
+  await writeOccurrences(eventId, d);
+  await d.prepare("DELETE FROM event_artists WHERE event_id = ?").run(eventId);
   const link = d.prepare("INSERT OR IGNORE INTO event_artists (event_id, artist_id) VALUES (?, ?)");
-  for (const name of input.artists) link.run(eventId, upsertArtist(name));
+  for (const name of input.artists) await link.run(eventId, await upsertArtist(name, d));
 }
 
-export function createListing(input: ListingInputT) {
-  const d = db();
-  return d.transaction(() => {
-    const f = fields(input);
+export async function createListing(input: ListingInputT) {
+  return await db().transaction(async (d) => {
+    const f = await fields(input, d);
     const slug = `${slugify(input.title, 40)}-${shortId()}`;
     const manage = token();
-    const r = d
+    const r = await d
       .prepare(
         `INSERT INTO events (slug, title, description, category, kind, schedule, flyer, flyer_w, flyer_h, venue_id, price_type, price_min,
            price_max, price_note, contact_phone, contact_instagram, booking_url, links, organiser_name, organiser_email,
@@ -220,16 +215,15 @@ export function createListing(input: ListingInputT) {
       )
       .run({ ...f, slug, manage, ai: input.ai_extracted ? 1 : 0 });
     const id = Number(r.lastInsertRowid);
-    writeDatesAndArtists(id, input);
+    await writeDatesAndArtists(id, input, d);
     return { id, slug, manageToken: manage };
-  })();
+  });
 }
 
-export function updateListing(eventId: number, input: ListingInputT) {
-  const d = db();
-  d.transaction(() => {
-    const f = fields(input);
-    d.prepare(
+export async function updateListing(eventId: number, input: ListingInputT) {
+  await db().transaction(async (d) => {
+    const f = await fields(input, d);
+    await d.prepare(
       `UPDATE events SET title=@title, description=@description, category=@category, kind=@kind, schedule=@schedule,
          flyer=@flyer, flyer_w=@flyer_w,
          flyer_h=@flyer_h, venue_id=@venue_id, price_type=@price_type, price_min=@price_min, price_max=@price_max,
@@ -237,35 +231,35 @@ export function updateListing(eventId: number, input: ListingInputT) {
          booking_url=@booking_url, links=@links, organiser_name=@organiser_name, organiser_email=@organiser_email,
          updated_at=datetime('now') WHERE id=@id`,
     ).run({ ...f, id: eventId });
-    writeDatesAndArtists(eventId, input);
-  })();
+    await writeDatesAndArtists(eventId, input, d);
+  });
 }
 
 /** Makes a listing live for LISTING.days, or extends it if it is already live. Returns the new end date. */
-export function publishOrRenew(eventId: number): { liveUntil: string; firstPublish: boolean } {
+export async function publishOrRenew(eventId: number): Promise<{ liveUntil: string; firstPublish: boolean }> {
   const d = db();
-  const e = d.prepare("SELECT status, live_until, published_at FROM events WHERE id = ?").get(eventId) as
+  const e = (await d.prepare("SELECT status, live_until, published_at FROM events WHERE id = ?").get(eventId)) as
     | { status: string; live_until: string | null; published_at: string | null }
     | undefined;
   if (!e) throw new ListingError("Listing not found");
   const today = todayIST();
   const start = e.live_until && e.live_until >= today ? addDays(e.live_until, 1) : today;
   const liveUntil = addDays(start, LISTING.days - 1);
-  d.transaction(() => {
-    d.prepare(
+  await d.transaction(async (tx) => {
+    await tx.prepare(
       `UPDATE events SET status='live', live_until=?, published_at=COALESCE(published_at, datetime('now')),
          updated_at=datetime('now') WHERE id=?`,
     ).run(liveUntil, eventId);
     // Weekly sessions continue for the whole paid period, including a renewal.
     try {
-      writeOccurrences(eventId);
+      await writeOccurrences(eventId, tx);
     } catch (err) {
       if (!(err instanceof ListingError)) throw err; // nothing upcoming left: keep the dates it has
     }
-  })();
+  });
   return { liveUntil, firstPublish: !e.published_at };
 }
 
-export function setStatus(eventId: number, status: "live" | "hidden" | "rejected" | "pending_review") {
-  db().prepare("UPDATE events SET status=?, updated_at=datetime('now') WHERE id=?").run(status, eventId);
+export async function setStatus(eventId: number, status: "live" | "hidden" | "rejected" | "pending_review") {
+  await db().prepare("UPDATE events SET status=?, updated_at=datetime('now') WHERE id=?").run(status, eventId);
 }

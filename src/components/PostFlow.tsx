@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FlyerFields } from "@/lib/extract";
 import { addDays, daysLabel, formatDayLong, formatTimeRange, WEEK_ORDER, WEEKDAY_SHORT } from "@/lib/dates";
 import { LINK_LABELS, type FlyerLink } from "@/lib/links";
+import { fitForUpload } from "@/lib/shrink";
 import { AREAS, CATEGORIES } from "@/lib/site";
 import type { Duplicate } from "@/lib/uploads";
 import { CropEditor, type Corners } from "./CropEditor";
@@ -161,8 +162,8 @@ export function PostFlow({
     setReading(true);
     setAiNote(null);
     const fd = new FormData();
-    fd.append("flyer", file);
     try {
+      fd.append("flyer", await fitForUpload(file));
       const res = await fetch("/api/uploads", { method: "POST", body: fd });
       const up = await res.json();
       if (!res.ok) throw new Error(up.error || "Upload failed");

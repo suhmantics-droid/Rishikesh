@@ -16,25 +16,25 @@ import { LISTING, SITE } from "./site";
 
 export type PayMode = "razorpay" | "upi" | "cash";
 
-export function payMode(): PayMode {
-  const forced = config("PAYMENTS_MODE");
+export async function payMode(): Promise<PayMode> {
+  const forced = await config("PAYMENTS_MODE");
   if (forced === "razorpay" || forced === "upi" || forced === "cash") return forced;
-  if (config("RAZORPAY_KEY_ID") && config("RAZORPAY_KEY_SECRET")) return "razorpay";
-  if (config("UPI_ID")) return "upi";
+  if ((await config("RAZORPAY_KEY_ID")) && (await config("RAZORPAY_KEY_SECRET"))) return "razorpay";
+  if ((await config("UPI_ID"))) return "upi";
   return "cash";
 }
 
 /** Who organisers should contact to pay or send flyers (shown in cash/UPI mode). */
-export function ownerContact() {
-  return { name: config("OWNER_NAME") || null, whatsapp: config("OWNER_WHATSAPP") || null };
+export async function ownerContact() {
+  return { name: (await config("OWNER_NAME")) || null, whatsapp: (await config("OWNER_WHATSAPP")) || null };
 }
 
 type EventForPay = { id: number; slug: string; title: string; organiser_email: string | null; organiser_name: string | null };
 
 export async function startPayment(event: EventForPay, purpose: "new" | "renew") {
-  const mode = payMode();
+  const mode = await payMode();
   const amount = LISTING.pricePaise;
-  const ins = db()
+  const ins = await db()
     .prepare("INSERT INTO payments (event_id, provider, purpose, amount_paise) VALUES (?, ?, ?, ?)")
     .run(event.id, mode, purpose, amount);
   const paymentId = Number(ins.lastInsertRowid);
@@ -44,20 +44,20 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
-        Authorization: "Basic " + Buffer.from(`${config("RAZORPAY_KEY_ID")}:${config("RAZORPAY_KEY_SECRET")}`).toString("base64"),
+        Authorization: "Basic " + Buffer.from(`${await config("RAZORPAY_KEY_ID")}:${await config("RAZORPAY_KEY_SECRET")}`).toString("base64"),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ amount, currency: "INR", receipt: ref, notes: { event_id: String(event.id), purpose } }),
     });
     if (!res.ok) throw new ListingError(`Could not start payment (${res.status}).`);
     const order = (await res.json()) as { id: string };
-    db().prepare("UPDATE payments SET order_id = ? WHERE id = ?").run(order.id, paymentId);
+    await db().prepare("UPDATE payments SET order_id = ? WHERE id = ?").run(order.id, paymentId);
     return {
       mode,
       paymentId,
       amount,
       razorpay: {
-        key: config("RAZORPAY_KEY_ID")!,
+        key: (await config("RAZORPAY_KEY_ID"))!,
         order_id: order.id,
         amount,
         currency: "INR",
@@ -69,12 +69,12 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
   }
 
   if (mode === "cash") {
-    return { mode, paymentId, amount, cash: ownerContact() };
+    return { mode, paymentId, amount, cash: await ownerContact() };
   }
 
   if (mode === "upi") {
-    const vpa = config("UPI_ID")!;
-    const payee = config("UPI_PAYEE_NAME") || `${SITE.name} ${SITE.place}`;
+    const vpa = (await config("UPI_ID"))!;
+    const payee = (await config("UPI_PAYEE_NAME")) || `${SITE.name} ${SITE.place}`;
     const uri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payee)}&am=${(amount / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(ref)}`;
     const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, width: 220 });
     return { mode, paymentId, amount, upi: { vpa, payee, uri, qrSvg, ref } };
@@ -83,37 +83,37 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
   return { mode, paymentId, amount };
 }
 
-function markPaid(paymentId: number, fields: { payment_id?: string; status?: "paid" | "approved" } = {}) {
+async function markPaid(paymentId: number, fields: { payment_id?: string; status?: "paid" | "approved" } = {}) {
   const d = db();
-  const p = d.prepare("SELECT * FROM payments WHERE id = ?").get(paymentId) as
+  const p = (await d.prepare("SELECT * FROM payments WHERE id = ?").get(paymentId)) as
     | { id: number; event_id: number; status: string }
     | undefined;
   if (!p) throw new ListingError("Payment not found");
   if (p.status === "paid" || p.status === "approved") return null; // idempotent: webhook + client both report
-  d.prepare("UPDATE payments SET status = ?, payment_id = COALESCE(?, payment_id), paid_at = datetime('now') WHERE id = ?").run(
+  await d.prepare("UPDATE payments SET status = ?, payment_id = COALESCE(?, payment_id), paid_at = datetime('now') WHERE id = ?").run(
     fields.status ?? "paid",
     fields.payment_id ?? null,
     paymentId,
   );
-  const result = publishOrRenew(p.event_id);
+  const result = await publishOrRenew(p.event_id);
   onPublished(p.event_id, result.firstPublish);
   return result;
 }
 
-export function verifyRazorpay(orderId: string, razorpayPaymentId: string, signature: string) {
+export async function verifyRazorpay(orderId: string, razorpayPaymentId: string, signature: string) {
   const expected = crypto
-    .createHmac("sha256", config("RAZORPAY_KEY_SECRET")!)
+    .createHmac("sha256", (await config("RAZORPAY_KEY_SECRET"))!)
     .update(`${orderId}|${razorpayPaymentId}`)
     .digest("hex");
   if (!safeEqual(expected, signature)) return false;
-  const p = db().prepare("SELECT id FROM payments WHERE order_id = ?").get(orderId) as { id: number } | undefined;
+  const p = (await db().prepare("SELECT id FROM payments WHERE order_id = ?").get(orderId)) as { id: number } | undefined;
   if (!p) return false;
-  markPaid(p.id, { payment_id: razorpayPaymentId });
+  await markPaid(p.id, { payment_id: razorpayPaymentId });
   return true;
 }
 
-export function handleRazorpayWebhook(rawBody: string, signature: string | null) {
-  const secret = config("RAZORPAY_WEBHOOK_SECRET");
+export async function handleRazorpayWebhook(rawBody: string, signature: string | null) {
+  const secret = await config("RAZORPAY_WEBHOOK_SECRET");
   if (!secret || !signature) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   if (!safeEqual(expected, signature)) return false;
@@ -123,40 +123,40 @@ export function handleRazorpayWebhook(rawBody: string, signature: string | null)
   };
   if (body.event === "payment.captured" || body.event === "order.paid") {
     const orderId = body.payload?.payment?.entity?.order_id ?? body.payload?.order?.entity?.id;
-    const p = orderId ? (db().prepare("SELECT id FROM payments WHERE order_id = ?").get(orderId) as { id: number } | undefined) : undefined;
-    if (p) markPaid(p.id, { payment_id: body.payload?.payment?.entity?.id });
+    const p = orderId ? ((await db().prepare("SELECT id FROM payments WHERE order_id = ?").get(orderId)) as { id: number } | undefined) : undefined;
+    if (p) await markPaid(p.id, { payment_id: body.payload?.payment?.entity?.id });
   }
   return true;
 }
 
 /** Cash or UPI: the organiser says they've paid (UPI adds the UTR); an admin confirms in /admin. */
-export function submitManualPayment(paymentId: number, eventId: number, ref?: string) {
-  const p = db().prepare("SELECT provider FROM payments WHERE id = ? AND event_id = ?").get(paymentId, eventId) as { provider: string } | undefined;
+export async function submitManualPayment(paymentId: number, eventId: number, ref?: string) {
+  const p = (await db().prepare("SELECT provider FROM payments WHERE id = ? AND event_id = ?").get(paymentId, eventId)) as { provider: string } | undefined;
   if (!p || (p.provider !== "upi" && p.provider !== "cash")) throw new ListingError("Payment not found.");
   const clean = (ref ?? "").replace(/\s+/g, "").slice(0, 40);
   if (p.provider === "upi" && clean.length < 6) throw new ListingError("Enter the UPI transaction ID (UTR) from your payment app.");
-  db()
+  await db()
     .prepare("UPDATE payments SET upi_ref = ?, status = 'submitted' WHERE id = ? AND status IN ('created','submitted')")
     .run(clean || null, paymentId);
-  db().prepare("UPDATE events SET status = 'pending_review' WHERE id = ? AND status = 'pending_payment'").run(eventId);
+  await db().prepare("UPDATE events SET status = 'pending_review' WHERE id = ? AND status = 'pending_payment'").run(eventId);
 }
 
-export function approvePayment(paymentId: number) {
-  return markPaid(paymentId, { status: "approved" });
+export async function approvePayment(paymentId: number) {
+  return await markPaid(paymentId, { status: "approved" });
 }
 
-export function rejectPayment(paymentId: number) {
-  db().prepare("UPDATE payments SET status = 'rejected' WHERE id = ?").run(paymentId);
+export async function rejectPayment(paymentId: number) {
+  await db().prepare("UPDATE payments SET status = 'rejected' WHERE id = ?").run(paymentId);
 }
 
 /**
  * Admin publishes directly: you were handed cash (amountPaise = listing price) or you're
  * seeding the board / comping a venue (amountPaise = 0). Renews if already live.
  */
-export function adminPublish(eventId: number, amountPaise: number) {
-  const e = db().prepare("SELECT status, live_until FROM events WHERE id = ?").get(eventId) as { status: string; live_until: string | null } | undefined;
+export async function adminPublish(eventId: number, amountPaise: number) {
+  const e = (await db().prepare("SELECT status, live_until FROM events WHERE id = ?").get(eventId)) as { status: string; live_until: string | null } | undefined;
   if (!e) throw new ListingError("Listing not found");
-  const ins = db()
+  const ins = await db()
     .prepare("INSERT INTO payments (event_id, provider, purpose, amount_paise) VALUES (?, ?, ?, ?)")
     .run(eventId, amountPaise > 0 ? "cash" : "admin", e.status === "live" ? "renew" : "new", amountPaise);
   return markPaid(Number(ins.lastInsertRowid), { status: "approved" });

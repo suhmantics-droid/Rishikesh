@@ -1,11 +1,10 @@
-import path from "node:path";
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { getWhatsOn, type EventCard } from "@/lib/data";
-import { UPLOAD_DIR } from "@/lib/db";
 import { addDays, daysLabel, formatDate, formatTime, whenRange } from "@/lib/dates";
 import { OG, ogFonts, Pin } from "@/lib/og";
 import { SITE } from "@/lib/site";
+import { readFile } from "@/lib/storage";
 
 // A 1080×1920 story of the day's flyers, for Instagram and WhatsApp status:
 // /today/story (today), ?when=tomorrow or ?when=weekend.
@@ -14,9 +13,10 @@ const W = 1080;
 const H = 1920;
 
 async function flyerImage(id: string | null, w: number, h: number) {
-  if (!id) return null;
+  const image = id && (await readFile(`${id}.webp`));
+  if (!image) return null;
   try {
-    const jpg = await sharp(path.join(UPLOAD_DIR, `${id}.webp`)).resize(w, h, { fit: "cover", position: "top" }).jpeg({ quality: 80 }).toBuffer();
+    const jpg = await sharp(image).resize(w, h, { fit: "cover", position: "top" }).jpeg({ quality: 80 }).toBuffer();
     return `data:image/jpeg;base64,${jpg.toString("base64")}`;
   } catch {
     return null;

@@ -1,0 +1,15 @@
+# The site's scheduled jobs (morning digest, renewal reminders, "starting soon" nudges, tidying up)
+# when it runs on Vercel, which has no long-running process and only allows a daily cron on the free
+# plan. Set the repo variable SITE_URL (e.g. https://rishikesh.suhmantics.com) and the repo secret
+# CRON_SECRET (the same value as on Vercel). Without them this does nothing.
+name: Scheduled jobs
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    if: ${{ vars.SITE_URL != '' }}
+    steps:
+      - run: curl -fsS --max-time 120 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ vars.SITE_URL }}/api/cron"

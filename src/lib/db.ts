@@ -1,4 +1,9 @@
-import Database from "better-sqlite3";
+// The database. On a server of your own it's a SQLite file in DATA_DIR; on Vercel (no disk that
+// survives between requests) it's the same SQLite schema hosted by Turso — set TURSO_DATABASE_URL
+// and TURSO_AUTH_TOKEN. Every query is async either way.
+
+import { createClient, type Client, type InArgs, type InValue, type ResultSet, type Transaction } from "@libsql/client";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { VENUE_SEED } from "./venue-seed";
@@ -212,43 +217,201 @@ CREATE TABLE IF NOT EXISTS emails (
 );
 `;
 
-function open() {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  const db = new Database(path.join(DATA_DIR, "app.db"));
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
-  db.exec(SCHEMA);
-  migrate(db);
+const MIGRATIONS: [table: string, column: string, def: string][] = [
+  ["events", "kind", "TEXT NOT NULL DEFAULT 'event'"],
+  ["events", "schedule", "TEXT"],
+  ["event_dates", "label", "TEXT"],
+  ["events", "links", "TEXT"],
+  ["uploads", "qr_json", "TEXT"],
+  ["uploads", "phash", "TEXT"],
+  ["uploads", "batch", "INTEGER NOT NULL DEFAULT 0"],
+  ["uploads", "dismissed", "INTEGER NOT NULL DEFAULT 0"],
+  ["uploads", "parent", "TEXT"],
+];
+
+// Changes whenever the schema, a migration or the starter venues change, so a cold start only
+// re-runs the setup below when there's something new (one query otherwise).
+const SCHEMA_VERSION = createHash("sha1")
+  .update(SCHEMA + JSON.stringify(MIGRATIONS) + JSON.stringify(VENUE_SEED))
+  .digest("hex")
+  .slice(0, 12);
+
+/** A value a query can take. `undefined` is stored as NULL and booleans as 1/0. */
+type Arg = InValue | undefined;
+type Params = Arg[] | [Record<string, unknown>] | [Arg[]];
+export type Row = Record<string, unknown>;
+export type RunResult = { changes: number; lastInsertRowid: number };
+type Executor = Pick<Client, "execute" | "executeMultiple">;
+
+const clean = (v: Arg): InValue => (v === undefined ? null : typeof v === "boolean" ? (v ? 1 : 0) : v);
+
+function toArgs(params: Params): InArgs {
+  const [first] = params;
+  if (params.length === 1 && Array.isArray(first)) return first.map(clean);
+  const named =
+    params.length === 1 &&
+    first !== null &&
+    typeof first === "object" &&
+    !(first instanceof Uint8Array) &&
+    !(first instanceof ArrayBuffer) &&
+    !(first instanceof Date);
+  if (named) return Object.fromEntries(Object.entries(first as Record<string, Arg>).map(([k, v]) => [k, clean(v)]));
+  return (params as Arg[]).map(clean);
+}
+
+/** Rows as plain objects keyed by column name (a repeated name keeps the last value, as SQLite drivers do). */
+function plain(rs: ResultSet): Row[] {
+  return rs.rows.map((r) => {
+    const o: Row = {};
+    rs.columns.forEach((c, i) => {
+      o[c] = r[i];
+    });
+    return o;
+  });
+}
+
+/**
+ * A local SQLite file is used through one connection (several can each keep an old snapshot of the
+ * file). While a transaction holds it, other queries get TRANSACTION_ACTIVE: wait and try again.
+ */
+async function whenFree<T>(attempt: () => Promise<T>): Promise<T> {
+  for (let wait = 5; ; wait = Math.min(wait * 2, 200)) {
+    try {
+      return await attempt();
+    } catch (e) {
+      if ((e as { code?: string }).code !== "TRANSACTION_ACTIVE" || wait >= 200) throw e;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
+export class Statement {
+  constructor(
+    private readonly executor: () => Promise<Executor>,
+    private readonly sql: string,
+  ) {}
+  private async execute(params: Params) {
+    const executor = await this.executor();
+    return whenFree(() => executor.execute({ sql: this.sql, args: toArgs(params) }));
+  }
+  async all<T = Row>(...params: Params): Promise<T[]> {
+    return plain(await this.execute(params)) as T[];
+  }
+  async get<T = Row>(...params: Params): Promise<T | undefined> {
+    return plain(await this.execute(params))[0] as T | undefined;
+  }
+  async run(...params: Params): Promise<RunResult> {
+    const rs = await this.execute(params);
+    return { changes: rs.rowsAffected, lastInsertRowid: Number(rs.lastInsertRowid ?? 0) };
+  }
+}
+
+export class Db {
+  constructor(
+    private readonly executor: () => Promise<Executor>,
+    private readonly isRoot: boolean,
+  ) {}
+  prepare(sql: string) {
+    return new Statement(this.executor, sql);
+  }
+  async exec(sql: string) {
+    const executor = await this.executor();
+    await whenFree(() => executor.executeMultiple(sql));
+  }
+  /** Runs `fn` as one write transaction: all of it is saved, or (if it throws) none of it. Use only `tx` inside. */
+  async transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T> {
+    if (!this.isRoot) throw new Error("Transactions can't be nested");
+    const { client } = await connection();
+    const tx = await whenFree(() => client.transaction("write"));
+    try {
+      const out = await fn(new Db(async () => tx, false));
+      await tx.commit();
+      return out;
+    } catch (e) {
+      await tx.rollback().catch(() => {});
+      throw e;
+    } finally {
+      tx.close();
+    }
+  }
+}
+
+async function setUp(client: Client, local: boolean) {
+  if (local) await client.execute("PRAGMA journal_mode = WAL");
+  await client.execute("PRAGMA foreign_keys = ON").catch(() => {});
+  const current = await client.execute("SELECT value FROM settings WHERE key = '_SCHEMA_VERSION'").catch(() => null);
+  if (current?.rows[0]?.[0] === SCHEMA_VERSION) return;
+
+  await client.executeMultiple(SCHEMA);
+  // Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database.
+  const columns = new Map<string, Set<string>>();
+  for (const [table, column, def] of MIGRATIONS) {
+    if (!columns.has(table)) columns.set(table, new Set(plain(await client.execute(`PRAGMA table_info(${table})`)).map((c) => String(c.name))));
+    if (!columns.get(table)!.has(column)) await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  }
   // Starter venues: added if missing, never overwritten (pins may have been corrected in Admin).
-  const insert = db.prepare(
-    `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, address, description)
-     VALUES (@slug, @name, @area, @lat, @lng, @address, @description)`,
+  await client.batch(
+    VENUE_SEED.map((v) => ({
+      sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, address, description)
+            VALUES (@slug, @name, @area, @lat, @lng, @address, @description)`,
+      args: toArgs([{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, address: v.address, description: v.description }]),
+    })),
+    "write",
   );
-  db.transaction(() => VENUE_SEED.forEach((v) => insert.run(v)))();
-  return db;
+  await client.execute({ sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('_SCHEMA_VERSION', ?)", args: [SCHEMA_VERSION] });
 }
 
-/** Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database. */
-function migrate(db: Database.Database) {
-  const add = (table: string, column: string, def: string) => {
-    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
-  };
-  add("events", "kind", "TEXT NOT NULL DEFAULT 'event'");
-  add("events", "schedule", "TEXT");
-  add("event_dates", "label", "TEXT");
-  add("events", "links", "TEXT");
-  add("uploads", "qr_json", "TEXT");
-  add("uploads", "phash", "TEXT");
-  add("uploads", "batch", "INTEGER NOT NULL DEFAULT 0");
-  add("uploads", "dismissed", "INTEGER NOT NULL DEFAULT 0");
-  add("uploads", "parent", "TEXT");
+type Connection = { client: Client; ready: Promise<void> };
+
+function connect(): Connection {
+  const remote = process.env.TURSO_DATABASE_URL;
+  if (remote) {
+    const client = createClient({ url: remote, authToken: process.env.TURSO_AUTH_TOKEN });
+    return { client, ready: setUp(client, false) };
+  }
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  const file = path.join(DATA_DIR, "app.db");
+  // libsql wants a file: URL; on Windows a relative one avoids the drive letter.
+  const url = "file:" + (process.platform === "win32" ? path.relative(process.cwd(), file).split(path.sep).join("/") : file);
+  const client = createClient({ url, timeout: 5000, concurrency: 1 });
+  return { client, ready: setUp(client, true) };
 }
 
-// One connection per server process; survive dev hot reloads.
-const g = globalThis as unknown as { __pinnedDb?: Database.Database };
-export function db(): Database.Database {
-  if (!g.__pinnedDb) g.__pinnedDb = open();
-  return g.__pinnedDb;
+// One client per server process; survive dev hot reloads. A failed setup is retried on the next query.
+const g = globalThis as unknown as { __pinnedDb?: Connection };
+async function connection() {
+  if (!g.__pinnedDb) {
+    const c = connect();
+    g.__pinnedDb = c;
+    c.ready.catch(() => {
+      if (g.__pinnedDb === c) g.__pinnedDb = undefined;
+    });
+  }
+  const c = g.__pinnedDb;
+  await c.ready;
+  return c;
+}
+
+const root = new Db(async () => (await connection()).client, true);
+export function db(): Db {
+  return root;
+}
+
+/**
+ * Removes rows a delete left behind. SQLite's ON DELETE CASCADE needs foreign keys switched on per
+ * connection, which a hosted database reached over HTTP doesn't keep between requests.
+ */
+export async function deleteOrphans() {
+  await db().exec(`
+    DELETE FROM event_dates WHERE event_id NOT IN (SELECT id FROM events);
+    DELETE FROM event_artists WHERE event_id NOT IN (SELECT id FROM events) OR artist_id NOT IN (SELECT id FROM artists);
+    DELETE FROM payments WHERE event_id NOT IN (SELECT id FROM events);
+    DELETE FROM reports WHERE event_id NOT IN (SELECT id FROM events);
+    DELETE FROM event_stats WHERE event_id NOT IN (SELECT id FROM events);
+    DELETE FROM notifications WHERE event_id NOT IN (SELECT id FROM events) OR subscriber_id NOT IN (SELECT id FROM subscribers);
+    DELETE FROM follows WHERE subscriber_id NOT IN (SELECT id FROM subscribers);
+    DELETE FROM push_follows WHERE push_id NOT IN (SELECT id FROM push_subscriptions);
+    DELETE FROM push_notified WHERE push_id NOT IN (SELECT id FROM push_subscriptions) OR event_id NOT IN (SELECT id FROM events);
+    DELETE FROM push_reminders WHERE push_id NOT IN (SELECT id FROM push_subscriptions) OR event_id NOT IN (SELECT id FROM events);
+  `);
 }
