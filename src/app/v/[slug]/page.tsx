@@ -48,6 +48,9 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
               </a>
             ) : null}
           </div>
+          <Link href={`/v/${v.slug}/poster`} className="mt-3 inline-block text-sm font-semibold text-muted underline hover:text-ink">
+            🖨 Is this your place? Print a QR poster for your wall
+          </Link>
           <h2 className="mt-8 mb-3 font-display text-xl font-semibold">Upcoming here</h2>
           {wall.length ? (
             <FlyerGrid items={wall} today={today} />

@@ -436,6 +436,9 @@ function Venues({ today }: { today: string }) {
           </summary>
           <div className="mt-3">
             <VenueEditor v={v} today={today} />
+            <Link href={`/v/${v.slug}/poster`} className="mt-2 inline-block text-xs font-bold underline">
+              🖨 Print their QR poster
+            </Link>
             {v.n === 0 ? (
               <form action={deleteVenue} className="mt-2">
                 <input type="hidden" name="id" value={v.id} />
