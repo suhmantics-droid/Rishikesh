@@ -44,3 +44,6 @@ data/
 deploy/backups/
 deploy/backup.log
 data-*/
+
+.vercel
+.env*
