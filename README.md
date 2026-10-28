@@ -20,19 +20,70 @@ Built for **rishikesh.suhmantics.com**.
 
 ---
 
-## Going live on rishikesh.suhmantics.com (trial run) — all from a browser
+## Going live on rishikesh.suhmantics.com — all from a browser
 
-The site runs on one small server: the app plus [Caddy](https://caddyserver.com) for automatic HTTPS. The
-database (SQLite) and flyer photos live on that server. You never need a terminal: the server installs itself
-from a script you paste into a web form, and it pulls new code from GitHub every 15 minutes.
+The site runs on **Vercel's free plan**: Vercel runs the app, **Turso** (free) holds the database, and **Vercel
+Blob** holds the flyer photos. Every push to `main` on GitHub deploys itself; your data lives in Turso and Blob, so
+deploys never touch it. (Prefer one server of your own? See the folded section below.)
 
-### 1. Code on GitHub
+### 1. The Vercel project
+In Vercel: *Add New → Project* → import `github.com/suhmantics-droid/rishikesh`. Then, in the project:
+
+- **Storage → Create → Blob**, and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN` for you.
+- **A Turso database** (<https://turso.tech>, free): create one in **AWS us-east-1** (next to the app's functions,
+  which run in Vercel's `iad1`), and copy its URL and a token.
+- **Settings → Environment Variables** (Production):
+
+| Name | Value |
+| --- | --- |
+| `ADMIN_PASSWORD` | your password for /admin — make it long |
+| `SESSION_SECRET` | any long random string (signs the admin login) |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | from Turso |
+| `CRON_SECRET` | any long random string — Vercel's daily cron sends it to `/api/cron` |
+| `CRON_GITHUB_REPO` | `suhmantics-droid/rishikesh` — lets the 15-minute GitHub job run the site's jobs |
+| `SITE_URL` | `https://rishikesh.suhmantics.com` once the domain is connected (until then the Vercel address is used) |
+
+Redeploy after changing variables (*Deployments → ⋯ → Redeploy*).
+
+### 2. Connect rishikesh.suhmantics.com
+Vercel → project → *Settings → Domains* → add `rishikesh.suhmantics.com`. Vercel shows the DNS record to add
+(a `CNAME` named `rishikesh`); add exactly that wherever suhmantics.com's DNS is managed. On Cloudflare, set it
+to **DNS only** (grey cloud). HTTPS is set up automatically. Then set `SITE_URL` (above) and redeploy, so links in
+emails, share previews and QR posters use the real address. For GitHub's 15-minute job, also set a repository
+**variable** `SITE_URL` (GitHub → repo → *Settings → Secrets and variables → Actions → Variables*) if the site
+isn't at rishikesh.suhmantics.com.
+
+### 3. Set it up from your phone
+1. Open **/admin** and sign in with your `ADMIN_PASSWORD`.
+2. **Settings tab → Photos:** upload your own photos — the home banner (the Ganga at Laxman Jhula or Tapovan,
+   landscape) and the Ganga Aarti card. Until then a plain placeholder shows in their place. These photos are the
+   first thing people see, so make them good ones.
+3. **Settings tab:** your name and WhatsApp number (shown to organisers), and later your Claude, Resend, UPI or
+   Razorpay keys. Everything here takes effect immediately.
+4. **Seed the board before you share the link.** Admin → **To do** shows the *starter flyers* (the real
+   flyers photographed in October 2026, already straightened and typed up) — tap **Publish all**. Ones that
+   have already happened are skipped. Then walk Tapovan, and for each flyer on a cafe wall:
+   **Post a flyer** → photo → **✂️ Straighten & crop** → check details → **Publish free**. Twenty or thirty
+   flyers make it feel alive.
+5. **Venues & pins tab:** fix any pin that's off — paste the place's Google Maps link (*Share → Copy link*). Until a
+   pin is checked, Directions searches Google Maps by the venue's name.
+6. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
+7. Offer organisers their first month free; then ₹50 cash.
+
+<details>
+<summary>Your own server instead (Oracle Cloud's free server, or any Ubuntu VPS)</summary>
+
+The same code runs as one Docker container plus [Caddy](https://caddyserver.com) for HTTPS, with the database
+(SQLite) and photos on the server's disk — leave the Turso and Blob variables empty. The server installs itself
+from a script pasted into a web form and pulls new code from GitHub every 15 minutes.
+
+#### 1. Code on GitHub
 The code lives at `github.com/suhmantics-droid/rishikesh`. If the repo is **private**, create a read-only token
 for the server: GitHub → Settings → Developer settings → *Fine-grained tokens* → *Generate* → Repository access:
 only `rishikesh` → Permissions: *Contents: Read-only*. Copy the token. (A **public** repo needs no token — the
 code contains no passwords or keys.)
 
-### 2. A free server (Oracle Cloud "Always Free")
+#### 2. A free server (Oracle Cloud "Always Free")
 1. Sign up at <https://www.oracle.com/cloud/free/> (needs a card for an identity check; Always Free resources
    aren't charged). Choose **India West (Mumbai)** as your home region — it can't be changed later.
 2. *Menu → Compute → Instances → Create instance*
@@ -49,7 +100,7 @@ code contains no passwords or keys.)
 
 The server now installs itself (about 10–15 minutes).
 
-### 3. Point the domain at it
+#### 3. Point the domain at it
 Wherever **suhmantics.com**'s DNS is managed (your registrar's website, or Cloudflare), add a record:
 
 | Type | Name | Value |
@@ -59,7 +110,7 @@ Wherever **suhmantics.com**'s DNS is managed (your registrar's website, or Cloud
 On Cloudflare, set it to **DNS only** (grey cloud). Within a few minutes **https://rishikesh.suhmantics.com**
 loads, with HTTPS set up automatically.
 
-### 4. Set it up from your phone
+#### 4. Set it up from your phone
 1. Open **/admin** and sign in with the password from the script.
 2. **Settings tab → Photos:** upload your own photos — the home banner (the Ganga at Laxman Jhula or Tapovan,
    landscape) and the Ganga Aarti card. Until then a plain placeholder shows in their place. These photos are the
@@ -77,10 +128,9 @@ loads, with HTTPS set up automatically.
 6. Print **/poster** for cafe and hostel noticeboards — the QR code brings travellers in.
 7. Offer organisers their first month free; then ₹50 cash.
 
-<details>
-<summary>Prefer a terminal, or a different server?</summary>
 
-Any Ubuntu server works (Hetzner, DigitalOcean, a ₹500/month VPS):
+
+From a terminal, any Ubuntu server works (Hetzner, DigitalOcean, a ₹500/month VPS):
 
 ```bash
 git clone https://github.com/suhmantics-droid/rishikesh.git && cd rishikesh
@@ -110,15 +160,19 @@ bash deploy/setup.sh      # installs Docker, asks for an admin password, builds 
 Organisers get a **private manage link** (by email, and on screen) to edit, see views and renew. If you posted it
 for them, open it from Admin → Listings and send them the link.
 
-**Automatic jobs** (run inside the app every 15 min): the morning "what's on today" email from 07:30 IST, a
-renewal reminder to organisers 2 days before their listing ends, "starting soon" reminders for flyers people saved to
-their plan, and clearing out full-size upload photos after 3 days (they're kept only for straightening).
+**Automatic jobs**, every 15 minutes: the morning "what's on today" email from 07:30 IST, a renewal reminder to
+organisers 2 days before their listing ends, "starting soon" reminders for flyers people saved to their plan, and
+clearing out full-size upload photos after 3 days (they're kept only for straightening). On Vercel they're run by
+the GitHub job in `.github/workflows/jobs.yml` (plus Vercel's own daily cron as a backstop); on your own server, by
+the app itself. GitHub pauses scheduled jobs in a repository with no commits for 60 days — if the morning emails
+stop, re-enable *Scheduled jobs* under the repo's *Actions* tab. **Admin → Send today's digests** runs them by hand.
 
-**Backups** run nightly at 03:15 into `deploy/backups/` on the server (last 14 kept).
+**Updates:** on Vercel, every push to `main` deploys in a couple of minutes, and a failed build leaves the previous
+version running. (Your own server checks GitHub every 15 minutes and rebuilds.) Your data is never touched by
+updates.
 
-**Updates:** the server checks GitHub every 15 minutes and rebuilds when there's new code on `main`; the
-version is shown at the top of the admin page. If a build ever fails, the previous version keeps running.
-Your data is never touched by updates.
+**Backups:** Admin has CSV downloads of listings, payments and subscribers. On your own server a full backup runs
+nightly at 03:15 into `deploy/backups/` (last 14 kept).
 
 ---
 
@@ -203,7 +257,9 @@ npm test                 # unit + listing-lifecycle tests
 ## How it's built
 
 - **Next.js 16** (App Router, Cache Components), TypeScript, Tailwind CSS 4
-- **SQLite** via better-sqlite3 (`data/app.db`); flyers resized to WebP with sharp (`data/uploads/`)
+- **SQLite** through `@libsql/client`: hosted by **Turso** when `TURSO_DATABASE_URL` is set, otherwise a file in
+  `data/app.db`. Flyers resized to WebP with sharp, stored in **Vercel Blob** when `BLOB_READ_WRITE_TOKEN` is set,
+  otherwise in `data/uploads/` — `src/lib/storage.ts`
 - **Leaflet** + OpenStreetMap for the map; QR codes read with `zxing-wasm`; Web Push (`web-push`, VAPID keys generated on first use) for phone notifications
 - Share images generated with `next/og`; type set in Fraunces (headings) and Inter
 - **Claude** (`@anthropic-ai/sdk`, structured outputs) for reading flyers — `src/lib/extract.ts`
@@ -217,7 +273,8 @@ src/app/            pages: / (browse), /map (flyer map), /e/[slug] (event), /v/[
 src/components/     Browse (filters + views), MapView, FlyerCard, PostFlow, PayWidget, AlertsForm …
 src/lib/            db (schema), data (queries), listings (incl. timetables), payments, alerts, extract,
                     qr (QR codes → links), warp (straightening), collage (map layout), starter, uploads (batch
-                    queue, duplicates), maplink (Google Maps links → pins), push (incl. plan reminders), cron, site
+                    queue, duplicates), maplink (Google Maps links → pins), push (incl. plan reminders), storage
+                    (disk or Vercel Blob), cron, site
 seed/starter/       the starter pack: flyers.json plus the straightened flyer images
 deploy/             cloud-init.sh (browser setup), setup.sh, auto-update.sh, backup.sh, update.sh, Caddyfile
 tests/              node:test suites (dates, utils, listing lifecycle, filters, payments)
