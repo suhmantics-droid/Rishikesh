@@ -45,8 +45,9 @@ export const ListingInput = z.object({
     z.object({
       name: z.string().trim().min(2).max(80),
       area: z.enum(AREAS.map((a) => a.key) as [string, ...string[]]),
-      lat: z.number().min(29.9).max(30.4),
-      lng: z.number().min(78.1).max(78.6),
+      // Both null: the flyer doesn't say where exactly ("location on request") — no map pin, ask the organiser.
+      lat: z.number().min(29.9).max(30.4).nullable(),
+      lng: z.number().min(78.1).max(78.6).nullable(),
       address: z.string().trim().max(160).nullish(),
     }),
   ]),

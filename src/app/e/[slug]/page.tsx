@@ -266,6 +266,9 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             </a>
           ) : null}
 
+          {venue.lat == null || venue.lng == null ? (
+            <AskWhere title={event.title} phone={event.contact_phone} instagram={event.contact_instagram} venue={venue.name} />
+          ) : (
           <div className="flex flex-col gap-3">
             {venue.lat != null && venue.lng != null ? (
               <MiniMap
@@ -287,6 +290,7 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
             </a>
             {!venue.coords_verified ? <p className="text-xs text-muted">Map pin is approximate — use Directions for the exact spot.</p> : null}
           </div>
+          )}
 
           <div className="rounded-2xl border border-line bg-card p-4">
             <p className="text-sm font-bold">Hear about the next one</p>
@@ -359,4 +363,28 @@ function eventJsonLd(d: NonNullable<Awaited<ReturnType<typeof getEventBySlug>>>,
     organizer: event.organiser_name ? { "@type": "Organization", name: event.organiser_name, url } : undefined,
     url,
   }));
+}
+
+/** The flyer doesn't say exactly where: one tap to ask the organiser. */
+function AskWhere({ title, phone, instagram, venue }: { title: string; phone: string | null; instagram: string | null; venue: string }) {
+  const wa = whatsappNumber(phone);
+  const ig = instagramHandle(instagram);
+  const text = `Hi! I saw your flyer for "${title}" on ${SITE.name}. Where exactly is it in Tapovan?`;
+  return (
+    <div className="rounded-2xl border border-dashed border-line bg-card p-4">
+      <p className="text-sm font-bold">📍 {venue}, Tapovan</p>
+      <p className="mb-3 text-sm text-muted">The flyer doesn&apos;t give the exact spot. Ask the organiser:</p>
+      {wa ? (
+        <a data-track="whatsapp" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="inline-block rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
+          WhatsApp for the exact spot ↗
+        </a>
+      ) : ig ? (
+        <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="inline-block rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
+          Message @{ig} for the exact spot ↗
+        </a>
+      ) : (
+        <p className="text-sm">Ask at any cafe nearby, or check the flyer for a contact.</p>
+      )}
+    </div>
+  );
 }

@@ -135,6 +135,18 @@ test("hidden listings never show", async () => {
   assert.ok(!(await queryWhatsOn({ when: "all" }, today, nowTimeIST())).wall.some((e) => e.id === id));
 });
 
+test("location on request: on the board, off the map, venue saved without a pin", async () => {
+  const { id } = await createListing(
+    listing({ title: "Somewhere in Tapovan", venue: { name: "Unpinned Studio", area: "upper-tapovan", lat: null, lng: null }, contact_phone: "9853181006" }),
+  );
+  await adminPublish(id, 0);
+  const { wall, pins } = await queryWhatsOn({ when: "all" }, today, "00:00");
+  assert.ok(wall.some((e) => e.id === id), "the flyer is on the board");
+  assert.ok(!pins.some((p) => p.name === "Unpinned Studio"), "but not pinned on the map");
+  const v = (await db().prepare("SELECT lat, lng FROM venues WHERE name = 'Unpinned Studio'").get()) as { lat: number | null; lng: number | null };
+  assert.deepEqual(v, { lat: null, lng: null });
+});
+
 test("a class timetable becomes named sessions, and events lead the wall", async () => {
   const timetable = (await createListing(
     listing({

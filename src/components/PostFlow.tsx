@@ -28,7 +28,7 @@ type Form = {
   sessions: SessionRow[]; // the weekly times: a class timetable, or a repeating event's slot
   repeatUntil: string; // "" = for as long as the listing is up
   venueSlug: string; // "" = none chosen, "__new" = new venue
-  newVenue: { name: string; area: string; address: string; lat: number | null; lng: number | null };
+  newVenue: { name: string; area: string; address: string; lat: number | null; lng: number | null; onRequest: boolean };
   price_type: "free" | "donation" | "paid" | "unknown";
   price_min: string;
   price_max: string;
@@ -55,7 +55,7 @@ function emptyForm(today: string): Form {
     sessions: [],
     repeatUntil: "",
     venueSlug: "",
-    newVenue: { name: "", area: "upper-tapovan", address: "", lat: null, lng: null },
+    newVenue: { name: "", area: "upper-tapovan", address: "", lat: null, lng: null, onRequest: false },
     price_type: "unknown",
     price_min: "",
     price_max: "",
@@ -290,8 +290,8 @@ export function PostFlow({
             name: form.newVenue.name,
             area: form.newVenue.area,
             address: form.newVenue.address || null,
-            lat: form.newVenue.lat ?? NaN,
-            lng: form.newVenue.lng ?? NaN,
+            lat: form.newVenue.onRequest ? null : (form.newVenue.lat ?? NaN),
+            lng: form.newVenue.onRequest ? null : (form.newVenue.lng ?? NaN),
           }
         : { slug: form.venueSlug };
     const num = (s: string) => (s.trim() ? Math.round(Number(s.replace(/[^\d.]/g, ""))) : null);
@@ -338,7 +338,9 @@ export function PostFlow({
     if (!form.venueSlug) return "Choose where it's happening.";
     if (form.venueSlug === "__new") {
       if (form.newVenue.name.trim().length < 2) return "Add the venue's name.";
-      if (form.newVenue.lat == null) return "Tap the map to drop a pin where the venue is.";
+      if (form.newVenue.onRequest) {
+        if (!form.contact_phone && !form.contact_instagram) return "Add a WhatsApp number or Instagram, so people can ask where it is.";
+      } else if (form.newVenue.lat == null) return "Tap the map to drop a pin, or tick “Flyer doesn't say where exactly”.";
     }
     if (form.organiser_email && !/^\S+@\S+\.\S+$/.test(form.organiser_email)) return "That email doesn't look right.";
     if (!form.organiser_email && !isAdmin) return "Add your email — we send your private edit link there.";
@@ -679,11 +681,19 @@ export function PostFlow({
                   </select>
                 </div>
                 <input className={input} placeholder="Directions / landmark (optional) — e.g. above the German Bakery" value={form.newVenue.address} onChange={(e) => set("newVenue", { ...form.newVenue, address: e.target.value })} />
-                <p className="text-sm font-semibold">{newVenuePin ? "📍 Pin dropped — tap again to move it." : "Tap the map where the venue is:"}</p>
-                <MapLinkInput onPin={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
-                <div className="h-64 overflow-hidden rounded-xl border border-line">
-                  <LazyMapView pins={[]} today={today} pick picked={newVenuePin} onPick={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
-                </div>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input type="checkbox" checked={form.newVenue.onRequest} onChange={(e) => set("newVenue", { ...form.newVenue, onRequest: e.target.checked })} />
+                  Flyer doesn&apos;t say where exactly: people message the organiser for the spot
+                </label>
+                {form.newVenue.onRequest ? null : (
+                  <>
+                    <p className="text-sm font-semibold">{newVenuePin ? "📍 Pin dropped — tap again to move it." : "Tap the map where the venue is:"}</p>
+                    <MapLinkInput onPin={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
+                    <div className="h-64 overflow-hidden rounded-xl border border-line">
+                      <LazyMapView pins={[]} today={today} pick picked={newVenuePin} onPick={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
+                    </div>
+                  </>
+                )}
               </div>
             ) : null}
           </section>

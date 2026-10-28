@@ -49,9 +49,13 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
           {v.description ? <p className="mt-2 max-w-xl text-ink-2">{v.description}</p> : null}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <FollowButton kind="venue" target={v.slug} label={v.name} />
-            <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-on-ganga">
-              Directions ↗
-            </a>
+            {v.lat != null && v.lng != null ? (
+              <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-on-ganga">
+                Directions ↗
+              </a>
+            ) : (
+              <span className="rounded-full border border-dashed border-line px-3 py-1.5 text-[13px] font-semibold text-muted">📍 Exact spot on request: ask via a flyer</span>
+            )}
             <a href={googleListingLink(v)} target="_blank" rel="noreferrer" className="rounded-full border border-line px-3 py-1.5 text-[13px] font-bold">
               ★ Google reviews ↗
             </a>
