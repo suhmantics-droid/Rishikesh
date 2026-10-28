@@ -7,7 +7,10 @@ export const SITE = {
   tagline: "Every flyer in Tapovan, on one map.",
   description:
     "What's on tonight in Tapovan, Rishikesh: live music, ecstatic dance, sound healing, kirtan, workshops and more. Every flyer in one place, filterable by date, price and area.",
-  url: process.env.SITE_URL || "http://localhost:3000",
+  // On Vercel without SITE_URL, its production domain (QR posters, emails and calendar links need the real address).
+  url:
+    process.env.SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000"),
   timeZone: "Asia/Kolkata",
   // Map default view: Tapovan, between Upper Tapovan and Laxman Jhula.
   mapCenter: [30.1302, 78.3228] as [number, number],
