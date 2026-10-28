@@ -2,7 +2,7 @@
 // survives between requests) it's the same SQLite schema hosted by Turso — set TURSO_DATABASE_URL
 // and TURSO_AUTH_TOKEN. Every query is async either way.
 
-import { createClient, type Client, type InArgs, type InValue, type ResultSet, type Transaction } from "@libsql/client";
+import { createClient, type Client, type InArgs, type InValue, type ResultSet } from "@libsql/client";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

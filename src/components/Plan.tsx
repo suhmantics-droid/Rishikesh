@@ -35,6 +35,8 @@ function write(next: string[]) {
   if (token) void saveCalendar(token, next);
 }
 
+const noSubscription = () => () => {};
+
 // "My calendar": a private link to the plan that a calendar app subscribes to. The token lives on this phone.
 const CAL_KEY = "pinned:calendar";
 function calendarToken() {
@@ -264,10 +266,12 @@ export function PlanList() {
 
 /** Puts the plan into Google, Apple or Outlook Calendar as a subscription that updates itself. */
 function CalendarSubscribe({ plan }: { plan: string[] }) {
-  const [token, setToken] = useState<string | null>(null);
+  // The link already made on this phone (read after hydration), or the one just made.
+  const stored = useSyncExternalStore(noSubscription, calendarToken, () => null);
+  const [created, setToken] = useState<string | null>(null);
+  const token = created ?? stored;
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  useEffect(() => setToken(calendarToken()), []);
   const host = typeof window === "undefined" ? "" : window.location.host;
   const https = token ? `https://${host}/plan/${token}/calendar` : "";
   const webcal = token ? `webcal://${host}/plan/${token}/calendar` : "";

@@ -256,7 +256,7 @@ export function Browse({ today, agenda, wall, pins, when }: Props) {
         </div>
         <div className={view === "map" ? "" : "hidden lg:block"}>
           <div className="sticky top-[4.5rem] h-[calc(100svh-6rem)] min-h-[360px] overflow-hidden rounded-2xl border border-line shadow-card max-lg:h-[70svh]">
-            <MapView pins={pins} today={today} here={here} />
+            <MapView pins={pins} today={today} here={here} dots={view !== "map"} />
           </div>
           {pins.length === 0 ? <p className="mt-2 text-sm text-muted">No venues to show for these filters.</p> : null}
         </div>

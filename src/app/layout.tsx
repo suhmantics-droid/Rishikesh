@@ -79,29 +79,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span className="font-semibold">
                 {SITE.name} {SITE.place} · made beside the Ganga in Tapovan
               </span>
-              <Link href="/today" className="text-[#a9d6cf] hover:text-white">
-                Today
-              </Link>
-              <Link href="/map" className="text-[#a9d6cf] hover:text-white">
-                Flyer map
-              </Link>
               <Link href="/plan" className="text-[#a9d6cf] hover:text-white">
                 My plan
               </Link>
               <Link href="/venues" className="text-[#a9d6cf] hover:text-white">
-                Venues
-              </Link>
-              <Link href="/artists" className="text-[#a9d6cf] hover:text-white">
-                Artists
-              </Link>
-              <Link href="/about" className="text-[#a9d6cf] hover:text-white">
-                How it works
+                Venues & stays
               </Link>
               <Link href="/about#organisers" className="text-[#a9d6cf] hover:text-white">
                 For organisers
-              </Link>
-              <Link href="/poster" className="text-[#a9d6cf] hover:text-white">
-                Cafe poster
               </Link>
             </div>
           </div>

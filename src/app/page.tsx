@@ -7,7 +7,6 @@ import { SitePhoto } from "@/components/SitePhoto";
 import { getPhoto, PHOTO_SLOTS } from "@/lib/photos";
 import { getWhatsOn } from "@/lib/data";
 import { isValidDate } from "@/lib/dates";
-import { LISTING, rupees } from "@/lib/site";
 
 export default function Home({ searchParams }: PageProps<"/">) {
   return (
@@ -45,18 +44,6 @@ export default function Home({ searchParams }: PageProps<"/">) {
             Today&apos;s list →
           </Link>
         </nav>
-        <section className="my-6 grid gap-3 sm:grid-cols-2">
-          <Link href="/alerts" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
-            <p className="font-display text-lg font-semibold">🔔 Never miss your favourite musician</p>
-            <p className="mt-1 text-sm text-muted">Follow artists, cafes or a vibe (say, ecstatic dance) and get a phone notification the moment a new flyer goes up.</p>
-          </Link>
-          <Link href="/post" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
-            <p className="font-display text-lg font-semibold">📸 Running an event? Snap your flyer.</p>
-            <p className="mt-1 text-sm text-muted">
-              Snap it, check the details, done. {rupees(LISTING.pricePaise)} keeps it on the map for {LISTING.days / 7} weeks.
-            </p>
-          </Link>
-        </section>
       </div>
     </div>
   );

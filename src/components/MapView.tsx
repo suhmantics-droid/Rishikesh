@@ -77,6 +77,16 @@ function popupHtml(e: Item, venue: MapPin, today: string) {
       </span></a>`;
 }
 
+/** Everything on at one venue, for the calm dots map: titles and times, each linking to its flyer. */
+function listPopupHtml(items: Item[], venue: MapPin, today: string) {
+  const rows = items
+    .slice(0, 5)
+    .map((e) => `<a href="/e/${e.slug}" class="fc-pop-row"><b>${escapeHtml(e.title)}</b><span>${escapeHtml(when(e, today))}</span></a>`)
+    .join("");
+  const more = items.length > 5 ? `<span class="fc-pop-more">+${items.length - 5} more at ${escapeHtml(venue.name)}</span>` : "";
+  return `<div class="fc-pop-list"><span class="fc-pop-cat">${escapeHtml(venue.name)}</span>${rows}${more}</div>`;
+}
+
 /** A recommended place or a place to stay: name, what it is, its Google rating, and a link to its page. */
 function placePopupHtml(p: Place) {
   const what = [p.recommended ? "✦ Recommended" : p.stay ? "Place to stay" : null, p.kind].filter(Boolean).join(" · ");
@@ -105,6 +115,7 @@ export default function MapView({
   insetBottom = 0,
   here = null,
   places = [],
+  dots = false,
 }: {
   pins: MapPin[];
   /** Recommended places and places to stay, drawn as small markers under the flyers. */
@@ -121,6 +132,8 @@ export default function MapView({
   insetBottom?: number;
   /** The visitor's location, shown as a blue dot. */
   here?: { lat: number; lng: number } | null;
+  /** Calm mode: a dot per venue (with a count) instead of the flyer collage; tap a dot for what's on. */
+  dots?: boolean;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
@@ -134,6 +147,8 @@ export default function MapView({
   pinsRef.current = pins;
   const placesRef = useRef(places);
   placesRef.current = places;
+  const dotsRef = useRef(dots);
+  dotsRef.current = dots;
   const hereProp = useRef(here);
   hereProp.current = here;
 
@@ -192,6 +207,21 @@ export default function MapView({
       );
       return { pin: p, items, key: p.slug, x: pt.x, y: pt.y, cards: items.map((e) => cardSize(e, zoom)) };
     });
+    if (dotsRef.current) {
+      for (const v of venues) {
+        const n = v.items.length;
+        const html = `<span class="fc-dot fc-dot-lg" style="background:${category(v.items[0]?.category ?? "other").color}"></span>${n > 1 ? `<span class="fc-count">${n}</span>` : ""}`;
+        const marker = L.marker([v.pin.lat, v.pin.lng], { icon: L.divIcon({ className: "fc-marker", html, iconSize: [0, 0] }), keyboard: false, riseOnHover: true }).addTo(layer);
+        marker.on("click", () =>
+          L.popup({ offset: L.point(0, -8), maxWidth: 280, minWidth: 220, className: "fc-popup" })
+            .setLatLng([v.pin.lat, v.pin.lng])
+            .setContent(n === 1 ? popupHtml(v.items[0], v.pin, today) : listPopupHtml(v.items, v.pin, today))
+            .openOn(map),
+        );
+      }
+      drawPlaces(venues.map((v) => v.key));
+      return null;
+    }
     const { placed, hidden } = layoutCollage(venues);
     const box = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
     for (const v of venues) {
@@ -237,9 +267,18 @@ export default function MapView({
           .openOn(map);
       });
     }
-    // Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot.
+    drawPlaces(venues.map((v) => v.key));
+    return venues.length ? box : null;
+  }
+
+  /** Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot. */
+  function drawPlaces(taken: string[]) {
+    const L = LRef.current;
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    if (!L || !map || !layer) return;
     for (const p of placesRef.current) {
-      if (venues.some((v) => v.key === p.slug)) continue;
+      if (taken.includes(p.slug)) continue;
       const marker = L.marker([p.lat, p.lng], {
         icon: L.divIcon({
           className: "fc-marker",
@@ -252,7 +291,6 @@ export default function MapView({
         L.popup({ offset: L.point(0, -8), maxWidth: 240, minWidth: 180, className: "fc-popup" }).setLatLng([p.lat, p.lng]).setContent(placePopupHtml(p)).openOn(map),
       );
     }
-    return venues.length ? box : null;
   }
 
   /** Re-draws for new pins and, unless told not to, frames them. */
