@@ -52,7 +52,7 @@ export default function AboutPage() {
         </div>
       </div>
       <p className="mt-3 text-sm text-muted">
-        Snap your flyer and we read the date, time, venue and price from it — you just check and submit. For now payment is in cash; we publish as soon
+        Snap your flyer, add the date, time and place, and submit. For now payment is in cash; we publish as soon
         as it&apos;s received.
       </p>
 

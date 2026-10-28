@@ -53,7 +53,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
           <Link href="/post" className="rounded-2xl border border-line bg-card p-5 shadow-card hover:border-ink-2">
             <p className="font-display text-lg font-semibold">📸 Running an event? Snap your flyer.</p>
             <p className="mt-1 text-sm text-muted">
-              We read the date, time and price for you. {rupees(LISTING.pricePaise)} keeps it on the map for {LISTING.days / 7} weeks.
+              Snap it, check the details, done. {rupees(LISTING.pricePaise)} keeps it on the map for {LISTING.days / 7} weeks.
             </p>
           </Link>
         </section>

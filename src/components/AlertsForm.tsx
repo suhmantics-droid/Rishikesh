@@ -14,12 +14,15 @@ export function AlertsForm({
   artists,
   token,
   initial,
+  emailOn = true,
 }: {
   venues: Opt[];
   artists: Opt[];
   /** Present when managing an existing subscription. */
   token?: string;
   initial?: { follows: Follow[]; daily: boolean; email: string };
+  /** Emails are actually sent. When they aren't, only phone notifications are offered. */
+  emailOn?: boolean;
 }) {
   const local = useFollows();
   const [picked, setPicked] = useState<Follow[] | null>(initial?.follows ?? null);
@@ -97,7 +100,7 @@ export function AlertsForm({
     <form onSubmit={submit} className="flex flex-col gap-6">
       <section>
         <h2 className="font-display text-lg font-semibold">Vibes</h2>
-        <p className="mb-2 text-sm text-muted">Get an email when any new flyer of this kind goes up.</p>
+        <p className="mb-2 text-sm text-muted">Hear when any new flyer of this kind goes up.</p>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.filter((c) => c.key !== "other").map((c) => (
             <button key={c.key} type="button" className={chip(has("category", c.key))} onClick={() => toggle("category", c.key, c.label)}>
@@ -142,12 +145,13 @@ export function AlertsForm({
 
       {!token ? (
         <section className="grid gap-2 rounded-2xl border border-ganga/40 bg-ganga-soft/50 p-4">
-          <h2 className="font-display text-lg font-semibold">Get them on this phone</h2>
+          <h2 className="font-display text-lg font-semibold">{emailOn ? "Get them on this phone" : "Turn on notifications"}</h2>
           <p className="-mt-1 text-sm text-ink-2">Instant notifications, no email or account needed.</p>
           <PushToggle />
         </section>
       ) : null}
 
+      {emailOn || token ? (
       <section className="grid gap-3 rounded-2xl border border-saffron/40 bg-saffron-soft/40 p-4">
         {!token ? <h2 className="font-display text-lg font-semibold">…or by email</h2> : null}
         <label className="flex items-start gap-3 text-sm">
@@ -184,6 +188,7 @@ export function AlertsForm({
           <p className="text-xs text-muted">No account, no spam. Every email has a one-tap unsubscribe.</p>
         )}
       </section>
+      ) : null}
     </form>
   );
 }

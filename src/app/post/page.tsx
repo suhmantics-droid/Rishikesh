@@ -4,12 +4,14 @@ import { PostFlow } from "@/components/PostFlow";
 import { isAdmin } from "@/lib/admin";
 import { listVenues } from "@/lib/data";
 import { todayIST } from "@/lib/dates";
+import { config } from "@/lib/config";
+import { aiEnabled } from "@/lib/extract";
 import { ownerContact, payMode } from "@/lib/payments";
 import { LISTING, rupees } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Post a flyer",
-  description: `Put your event on the Tapovan map for ${rupees(LISTING.pricePaise)}. Snap your flyer and we fill in the details.`,
+  description: `Put your event on the Tapovan map for ${rupees(LISTING.pricePaise)}. Snap your flyer, add the details, and it's on the map.`,
 };
 
 export default function PostPage({ searchParams }: PageProps<"/post">) {
@@ -39,6 +41,8 @@ async function Flow({ searchParams }: { searchParams: PageProps<"/post">["search
       openUpload={admin && typeof sp.upload === "string" ? sp.upload : undefined}
       payMode={await payMode()}
       owner={await ownerContact()}
+      autoFill={await aiEnabled()}
+      emailOn={Boolean(await config("RESEND_API_KEY"))}
     />
   );
 }

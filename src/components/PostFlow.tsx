@@ -84,6 +84,8 @@ export function PostFlow({
   openUpload,
   payMode,
   owner,
+  autoFill,
+  emailOn,
 }: {
   venues: VenueOpt[];
   today: string;
@@ -95,6 +97,10 @@ export function PostFlow({
   openUpload?: string;
   payMode: "cash" | "upi" | "razorpay";
   owner: { name: string | null; whatsapp: string | null };
+  /** Flyer auto-fill (a Claude API key) is switched on. */
+  autoFill: boolean;
+  /** Emails are actually sent (a Resend key), not just logged. */
+  emailOn: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<"upload" | "details" | "pay">(editToken || openUpload ? "details" : "upload");
@@ -381,7 +387,8 @@ export function PostFlow({
         <Steps step={1} />
         <h1 className="font-display text-3xl font-semibold tracking-tight">Pin your flyer</h1>
         <p className="mt-2 text-ink-2">
-          Snap a photo of the poster or upload the image you share on WhatsApp. We&apos;ll read the date, time, venue and price for you.
+          Snap a photo of the poster or upload the image you share on WhatsApp.{" "}
+          {autoFill ? <>We&apos;ll read the date, time, venue and price for you.</> : <>Then add the date, time and place: about a minute.</>}
         </p>
         <button
           type="button"
@@ -421,7 +428,7 @@ export function PostFlow({
         ) : null}
         <ul className="mt-8 grid gap-3 text-sm text-ink-2">
           <li>✅ {priceLabel} keeps your flyer on the map for {listingDays / 7} weeks</li>
-          <li>✅ Followers of your venue, artists or event type get an email the moment it goes live</li>
+          <li>✅ Followers of your venue, artists or event type get {emailOn ? "an email or a phone notification" : "a phone notification"} the moment it goes live</li>
           <li>✅ Edit any time, see how many people viewed it, renew in one tap</li>
         </ul>
       </div>
