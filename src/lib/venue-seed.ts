@@ -2,7 +2,63 @@
 // (coords_verified = 0) — fix each one from /admin/venues by clicking the map.
 // Organisers can also add new venues when they post a flyer.
 
-export const VENUE_SEED = [
+export type SeedVenue = {
+  slug: string;
+  name: string;
+  area: string;
+  lat: number;
+  lng: number;
+  address: string;
+  description: string;
+  /** The pin was taken from the place's own Google Maps listing. */
+  coords_verified?: boolean;
+  /** Recommended places, highest first (true = 1). */
+  recommended?: boolean | number;
+  /** What the place is, in a few words: "Yoga school". */
+  kind?: string;
+  website?: string;
+  google_url?: string;
+  google_rating?: number;
+  google_reviews?: number;
+  google_checked?: string;
+};
+
+export const VENUE_SEED: SeedVenue[] = [
+  // Recommended. Pins, ratings and review counts from each place's Google Maps listing, checked on the date given.
+  {
+    slug: "yog-upasana",
+    name: "Yog Upasana",
+    area: "upper-tapovan",
+    lat: 30.132054,
+    lng: 78.3202483,
+    coords_verified: true,
+    address: "Balaknath Road, Tapovan",
+    description: "Traditional hatha yoga, taught with care for alignment. Drop-in classes and teacher training.",
+    recommended: 2,
+    kind: "Yoga school",
+    website: "https://yogupasana.com",
+    google_url: "https://www.google.com/maps/place/Yog+Upasana/@30.132054,78.3202483,17z",
+    google_rating: 4.7,
+    google_reviews: 181,
+    google_checked: "2026-10-27",
+  },
+  {
+    slug: "samedhya",
+    name: "Samedhya Wellbeing Center",
+    area: "upper-tapovan",
+    lat: 30.1305228,
+    lng: 78.3197123,
+    coords_verified: true,
+    address: "Inside Secret Garden Cafe, Upper Tapovan",
+    description: "Ayurvedic healing and wellbeing centre. Women-owned.",
+    recommended: true,
+    kind: "Ayurvedic centre",
+    website: "https://www.samedhyawellness.com",
+    google_url: "https://www.google.com/maps/place/SAMEDHYA+WELLBEING+CENTER/@30.1305228,78.3197123,17z",
+    google_rating: 5.0,
+    google_reviews: 85,
+    google_checked: "2026-10-27",
+  },
   // Upper Tapovan
   { slug: "12-monks", name: "12 Monks Hostel & MakaMaka Cafe", area: "upper-tapovan", lat: 30.1331, lng: 78.3196, address: "Upper Tapovan", description: "Hostel cafe with open mics, ecstatic dances, kirtan and live gigs most weekends." },
   { slug: "aavya", name: "Aavya Creative Wellness", area: "upper-tapovan", lat: 30.1343, lng: 78.3183, address: "Balaknath Road, near Prakriti Cafe, Upper Tapovan", description: "Wellness space with sound healing, kirtans, movement workshops, ecstatic dance and festival nights." },

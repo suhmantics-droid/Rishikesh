@@ -30,6 +30,29 @@ function write(next: string[]) {
   subs.forEach((f) => f());
   // The header and the page can be separate bundles with their own copy of this module.
   window.dispatchEvent(new Event(KEY));
+  // Keep their calendar subscription (if they set one up) in step with the plan.
+  const token = calendarToken();
+  if (token) void saveCalendar(token, next);
+}
+
+// "My calendar": a private link to the plan that a calendar app subscribes to. The token lives on this phone.
+const CAL_KEY = "pinned:calendar";
+function calendarToken() {
+  try {
+    return localStorage.getItem(CAL_KEY);
+  } catch {
+    return null;
+  }
+}
+async function saveCalendar(token: string | null, slugs: string[]) {
+  const res = await fetch("/api/plan/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, slugs }) }).catch(() => null);
+  const d = (await res?.json().catch(() => null)) as { token?: string } | null;
+  if (d?.token) {
+    try {
+      localStorage.setItem(CAL_KEY, d.token);
+    } catch {}
+  }
+  return d?.token ?? null;
 }
 function subscribe(cb: () => void) {
   subs.add(cb);
@@ -234,6 +257,63 @@ export function PlanList() {
         <p className="mb-3 text-sm text-muted">Turn on notifications, then add flyers to your plan — we&apos;ll nudge you about an hour before they start.</p>
         <PushToggle compact />
       </div>
+      <CalendarSubscribe plan={plan} />
+    </div>
+  );
+}
+
+/** Puts the plan into Google, Apple or Outlook Calendar as a subscription that updates itself. */
+function CalendarSubscribe({ plan }: { plan: string[] }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setToken(calendarToken()), []);
+  const host = typeof window === "undefined" ? "" : window.location.host;
+  const https = token ? `https://${host}/plan/${token}/calendar` : "";
+  const webcal = token ? `webcal://${host}/plan/${token}/calendar` : "";
+  const chip = "inline-flex items-center gap-1 rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] font-bold";
+  return (
+    <div className="rounded-2xl border border-line bg-card p-4">
+      <p className="text-sm font-bold">📅 My plan in my calendar</p>
+      {!token ? (
+        <>
+          <p className="mb-3 text-sm text-muted">Add it once; anything you save here shows up in your calendar by itself.</p>
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-full bg-ganga px-4 py-2 text-sm font-bold text-on-ganga disabled:opacity-60"
+            onClick={async () => {
+              setBusy(true);
+              setToken(await saveCalendar(null, plan));
+              setBusy(false);
+            }}
+          >
+            {busy ? "Making your link…" : "Put my plan in my calendar"}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-muted">Pick your calendar. It checks for changes every few hours. The link is private: share it only with people you want to see your plan.</p>
+          <div className="flex flex-wrap gap-2">
+            <a className={chip} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noreferrer">
+              Google Calendar ↗
+            </a>
+            <a className={chip} href={webcal}>
+              Apple / iPhone
+            </a>
+            <button
+              type="button"
+              className={chip}
+              onClick={async () => {
+                await navigator.clipboard?.writeText(https).catch(() => {});
+                setCopied(true);
+              }}
+            >
+              {copied ? "Copied ✓" : "Copy link (Outlook, others)"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

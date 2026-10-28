@@ -16,8 +16,9 @@ import { getEventBySlug, isOver, pinEvent, scheduleDays } from "@/lib/data";
 import { eventStats } from "@/lib/stats";
 import { daysLabel, formatDayLong, formatTime, formatTimeRange, nowTimeIST, todayIST, weekday } from "@/lib/dates";
 import { area, category, SITE } from "@/lib/site";
+import { googleCalendarLink } from "@/lib/ics";
 import { LINK_LABELS } from "@/lib/links";
-import { directionsLink, flyerUrl, instagramHandle, priceLabel, safeUrl, whatsappNumber } from "@/lib/util";
+import { directionsLink, flyerUrl, googleListingLink, instagramHandle, priceLabel, safeUrl, whatsappNumber } from "@/lib/util";
 
 export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Promise<Metadata> {
   const { slug } = await params;
@@ -245,6 +246,25 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
           </div>
 
           <ShareBar title={event.title} text={shareText} calendarHref={isClasses ? null : `/e/${event.slug}/calendar`} />
+          {!isClasses && next ? (
+            <a
+              data-track="calendar"
+              href={googleCalendarLink({
+                title: event.title,
+                date: next.date,
+                start_time: next.start_time,
+                end_time: next.end_time,
+                location: `${venue.name}, Tapovan, Rishikesh`,
+                description: `${event.description ?? ""}\n\n${SITE.url}/e/${event.slug}`.trim(),
+                url: `${SITE.url}/e/${event.slug}`,
+              })}
+              target="_blank"
+              rel="noreferrer"
+              className="-mt-2 self-start text-sm font-semibold text-ink-2 underline hover:text-ink"
+            >
+              + Add to Google Calendar ↗
+            </a>
+          ) : null}
 
           <div className="flex flex-col gap-3">
             {venue.lat != null && venue.lng != null ? (
@@ -261,6 +281,9 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
               className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga"
             >
               Directions (Google Maps) ↗
+            </a>
+            <a href={googleListingLink(venue)} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-ink-2 underline hover:text-ink">
+              ★ {venue.name} on Google: reviews & photos ↗
             </a>
             {!venue.coords_verified ? <p className="text-xs text-muted">Map pin is approximate — use Directions for the exact spot.</p> : null}
           </div>

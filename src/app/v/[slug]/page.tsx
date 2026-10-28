@@ -5,9 +5,10 @@ import { Suspense } from "react";
 import { FlyerGrid } from "@/components/FlyerCard";
 import { FollowButton } from "@/components/Follow";
 import { MiniMap } from "@/components/MiniMap";
+import { GoogleRating, RecommendedBadge } from "@/components/VenueBadges";
 import { getVenue, getWhatsOn, pinEvent } from "@/lib/data";
 import { area } from "@/lib/site";
-import { directionsLink, instagramHandle } from "@/lib/util";
+import { directionsLink, googleListingLink, instagramHandle } from "@/lib/util";
 
 export async function generateMetadata({ params }: PageProps<"/v/[slug]">): Promise<Metadata> {
   const v = await getVenue((await params).slug);
@@ -34,14 +35,31 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
       </Link>
       <div className="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div>
-          <p className="text-sm font-semibold text-saffron-ink">{area(v.area).label}</p>
+          <p className="text-sm font-semibold text-saffron-ink">
+            {v.kind ? `${v.kind} · ` : ""}
+            {area(v.area).label}
+          </p>
           <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{v.name}</h1>
+          {v.recommended || v.google_rating ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              {v.recommended ? <RecommendedBadge /> : null}
+              {v.google_rating ? <GoogleRating venue={v} /> : null}
+            </div>
+          ) : null}
           {v.description ? <p className="mt-2 max-w-xl text-ink-2">{v.description}</p> : null}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <FollowButton kind="venue" target={v.slug} label={v.name} />
             <a href={directionsLink(v)} target="_blank" rel="noreferrer" className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-on-ganga">
               Directions ↗
             </a>
+            <a href={googleListingLink(v)} target="_blank" rel="noreferrer" className="rounded-full border border-line px-3 py-1.5 text-[13px] font-bold">
+              ★ Google reviews ↗
+            </a>
+            {v.website ? (
+              <a href={v.website} target="_blank" rel="noreferrer" className="rounded-full border border-line px-3 py-1.5 text-[13px] font-bold">
+                Website ↗
+              </a>
+            ) : null}
             {ig ? (
               <a href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="rounded-full border border-line px-3 py-1.5 text-[13px] font-bold">
                 @{ig}

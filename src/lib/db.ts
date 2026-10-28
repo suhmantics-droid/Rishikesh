@@ -206,6 +206,14 @@ CREATE TABLE IF NOT EXISTS push_reminders (
   PRIMARY KEY (push_id, event_id)
 );
 
+-- "My calendar": a private link that turns someone's saved plan into a calendar subscription (no account).
+CREATE TABLE IF NOT EXISTS calendar_feeds (
+  token TEXT PRIMARY KEY,
+  slugs TEXT NOT NULL, -- JSON array of the listing slugs saved on their phone
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS emails (
   id INTEGER PRIMARY KEY,
   to_addr TEXT NOT NULL,
@@ -227,6 +235,14 @@ const MIGRATIONS: [table: string, column: string, def: string][] = [
   ["uploads", "batch", "INTEGER NOT NULL DEFAULT 0"],
   ["uploads", "dismissed", "INTEGER NOT NULL DEFAULT 0"],
   ["uploads", "parent", "TEXT"],
+  // Venues we recommend, and what Google Maps says about a place (copied by hand, with the date checked).
+  ["venues", "recommended", "INTEGER NOT NULL DEFAULT 0"],
+  ["venues", "kind", "TEXT"],
+  ["venues", "website", "TEXT"],
+  ["venues", "google_url", "TEXT"],
+  ["venues", "google_rating", "REAL"],
+  ["venues", "google_reviews", "INTEGER"],
+  ["venues", "google_checked", "TEXT"],
 ];
 
 // Changes whenever the schema, a migration or the starter venues change, so a cold start only
@@ -352,9 +368,23 @@ async function setUp(client: Client, local: boolean) {
   // Starter venues: added if missing, never overwritten (pins may have been corrected in Admin).
   await client.batch(
     VENUE_SEED.map((v) => ({
-      sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, address, description)
-            VALUES (@slug, @name, @area, @lat, @lng, @address, @description)`,
-      args: toArgs([{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, address: v.address, description: v.description }]),
+      sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, coords_verified, address, description, recommended, kind, website,
+              google_url, google_rating, google_reviews, google_checked)
+            VALUES (@slug, @name, @area, @lat, @lng, @coords_verified, @address, @description, @recommended, @kind, @website,
+              @google_url, @google_rating, @google_reviews, @google_checked)`,
+      args: toArgs([
+        {
+          ...v,
+          coords_verified: v.coords_verified ? 1 : 0,
+          recommended: typeof v.recommended === "number" ? v.recommended : v.recommended ? 1 : 0,
+          kind: v.kind ?? null,
+          website: v.website ?? null,
+          google_url: v.google_url ?? null,
+          google_rating: v.google_rating ?? null,
+          google_reviews: v.google_reviews ?? null,
+          google_checked: v.google_checked ?? null,
+        },
+      ]),
     })),
     "write",
   );

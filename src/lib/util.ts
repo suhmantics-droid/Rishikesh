@@ -86,6 +86,11 @@ export function directionsLink(v: { lat: number | null; lng: number | null; name
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`;
 }
 
+/** The place's Google Maps listing (reviews, photos, opening hours), or a Maps search for it by name. */
+export function googleListingLink(v: { name: string; google_url?: string | null }) {
+  return v.google_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${v.name}, Tapovan, Rishikesh`)}`;
+}
+
 /** Tiny fixed-window rate limiter, per process. Good enough for one server. */
 const buckets = new Map<string, { n: number; reset: number }>();
 export function rateLimit(key: string, max: number, windowMs: number): boolean {

@@ -23,6 +23,13 @@ export type Venue = {
   phone: string | null;
   description: string | null;
   is_demo: number;
+  recommended: number;
+  kind: string | null;
+  website: string | null;
+  google_url: string | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+  google_checked: string | null;
 };
 
 export type Artist = { id: number; slug: string; name: string; instagram: string | null; is_demo: number };
@@ -403,7 +410,7 @@ export async function listVenuesWithCounts() {
        FROM venues v
        LEFT JOIN events e ON e.venue_id = v.id AND e.status = 'live' AND e.live_until >= @today
        LEFT JOIN event_dates d ON d.event_id = e.id AND d.date >= @today
-       GROUP BY v.id ORDER BY upcoming DESC, v.name`,
+       GROUP BY v.id ORDER BY v.recommended DESC, upcoming DESC, v.name`,
     )
     .all({ today: todayIST() })) as (Venue & { upcoming: number; next_date: string | null })[];
 }
