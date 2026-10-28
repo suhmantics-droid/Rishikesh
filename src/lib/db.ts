@@ -416,6 +416,8 @@ async function setUp(client: Client, local: boolean) {
   );
   // One-off corrections. yogupasana.com is an empty placeholder site.
   await client.execute("UPDATE venues SET website = NULL WHERE slug = 'yog-upasana' AND website = 'https://yogupasana.com'");
+  // Yogamani's pin, added with its first flyer, is the one on its Google Maps listing.
+  await client.execute("UPDATE venues SET coords_verified = 1 WHERE slug = 'yogamani' AND abs(lat - 30.1292388) < 0.00001 AND abs(lng - 78.321948) < 0.00001");
   await client.execute({ sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('_SCHEMA_VERSION', ?)", args: [SCHEMA_VERSION] });
 }
 

@@ -2,7 +2,7 @@ import type { Photo } from "@/lib/photos";
 
 /**
  * A site photograph, or — until one is uploaded in Admin → Settings — a plain river-coloured
- * placeholder that says which photo belongs there.
+ * gradient. (Admin → Settings says which photo belongs where; visitors just see the river colours.)
  */
 export function SitePhoto({
   photo,
@@ -22,11 +22,7 @@ export function SitePhoto({
 }) {
   if (!photo) {
     return (
-      <div className={`flex items-start justify-end bg-gradient-to-br from-river-1 via-river-2 to-river-deep ${className}`} aria-hidden>
-        <span className="m-3 max-w-[70%] rounded-full bg-black/25 px-3 py-1 text-right text-[11px] font-semibold text-white/90" title={want}>
-          Photo placeholder<span className="hidden sm:inline"> · {want}</span>
-        </span>
-      </div>
+      <div className={`bg-gradient-to-br from-river-1 via-river-2 to-river-deep ${className}`} aria-hidden data-want={want} />
     );
   }
   return (

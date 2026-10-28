@@ -103,9 +103,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/poster" className="text-[#a9d6cf] hover:text-white">
                 Cafe poster
               </Link>
-              <Link href="/admin" className="ml-auto text-[#a9d6cf] opacity-70 hover:text-white">
-                Admin
-              </Link>
             </div>
           </div>
         </footer>

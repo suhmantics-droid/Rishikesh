@@ -63,6 +63,22 @@ export const VENUE_SEED: SeedVenue[] = [
     google_reviews: 85,
     google_checked: "2026-10-27",
   },
+  // Yogamani: first added through a flyer; pin and rating from its Google Maps listing.
+  {
+    slug: "yogamani",
+    name: "Yogamani",
+    area: "upper-tapovan",
+    lat: 30.1292388,
+    lng: 78.321948,
+    coords_verified: true,
+    address: "Balaknath Rd, near Bodhi Cafe, next to Hostel Bunk and Beds, Tapovan",
+    description: "Yoga studio for sound healing, nāda yoga and courses.",
+    kind: "Yoga studio",
+    google_url: "https://www.google.com/maps/place/Yogamani/@30.1292388,78.321948,17z",
+    google_rating: 5.0,
+    google_reviews: 25,
+    google_checked: "2026-10-27",
+  },
   // Places to stay: well-reviewed hostels in Tapovan, from their Google Maps listings (descriptions are Google's summaries).
   {
     slug: "the-hosteller-upper-tapovan",
