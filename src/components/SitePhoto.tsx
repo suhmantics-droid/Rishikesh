@@ -25,9 +25,10 @@ export function SitePhoto({
       <div className={`bg-gradient-to-br from-river-1 via-river-2 to-river-deep ${className}`} aria-hidden data-want={want} />
     );
   }
+  // Callers that place the photo themselves (absolute inset-0) must not also get "relative": it wins and the box collapses.
+  const placed = className.split(" ").some((c) => c === "absolute" || c === "fixed");
   return (
-    // Callers that place the photo themselves (absolute inset-0) must not also get relative: it wins and the box collapses.
-    <div className={`${/(absolute|fixed)/.test(className) ? "" : "relative "}overflow-hidden ${className}`}>
+    <div className={`${placed ? "" : "relative "}overflow-hidden ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/f/${photo.id}.webp`}
