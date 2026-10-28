@@ -55,7 +55,9 @@ async function FlyerMap({ searchParams }: { searchParams: PageProps<"/map">["sea
               </Link>
             ))}
           </nav>
-          <p className="mt-2 text-xs text-muted">Tap a flyer to look closer. <span className="font-bold text-saffron-ink">✦</span> recommended · 🛏 places to stay</p>
+          <p className="mt-2 text-xs text-muted">
+            Tap a flyer to look closer. <span className="font-bold text-saffron-ink">✦</span> recommended · 🛏 stays · zoom in for ☕ cafes and 🧘 studios
+          </p>
         </div>
       </div>
     </>

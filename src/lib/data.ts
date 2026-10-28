@@ -31,10 +31,22 @@ export type Venue = {
   google_reviews: number | null;
   google_checked: string | null;
   stay: number;
+  guide: "eat" | "wellness" | null;
 };
 
-/** A recommended place or a place to stay, shown on the map as a small marker. */
-export type Place = { slug: string; name: string; lat: number; lng: number; kind: string | null; stay: number; recommended: number; google_rating: number | null; google_reviews: number | null };
+/** A recommended place, a place to stay, or a guide place (food, studios), shown on the map as a small marker. */
+export type Place = {
+  slug: string;
+  name: string;
+  lat: number;
+  lng: number;
+  kind: string | null;
+  stay: number;
+  recommended: number;
+  guide: "eat" | "wellness" | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+};
 
 export type Artist = { id: number; slug: string; name: string; instagram: string | null; is_demo: number };
 
@@ -409,8 +421,8 @@ export async function listPlaces() {
   await connection();
   return (await db()
     .prepare(
-      `SELECT slug, name, lat, lng, kind, stay, recommended, google_rating, google_reviews FROM venues
-       WHERE (recommended > 0 OR stay = 1) AND lat IS NOT NULL AND lng IS NOT NULL AND is_demo = 0`,
+      `SELECT slug, name, lat, lng, kind, stay, recommended, guide, google_rating, google_reviews FROM venues
+       WHERE (recommended > 0 OR stay = 1 OR guide IS NOT NULL) AND lat IS NOT NULL AND lng IS NOT NULL AND is_demo = 0`,
     )
     .all()) as Place[];
 }

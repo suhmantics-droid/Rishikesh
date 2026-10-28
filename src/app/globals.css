@@ -199,6 +199,17 @@ body {
   color: var(--saffron-ink);
   font-weight: 700;
 }
+/* Cafes and studios from the guide: smaller and quieter, under everything else. */
+.fc-place-guide {
+  left: -10px;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  font-size: 10px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+}
 .fc-dot-picked {
   left: -10px;
   top: -10px;

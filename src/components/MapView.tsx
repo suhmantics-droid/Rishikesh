@@ -14,6 +14,9 @@ const ATTRIBUTION =
 
 type Item = MapPin["events"][number];
 
+/** Zoom at which the cafes and studios in the guide appear (street level). */
+const GUIDE_ZOOM = 16;
+
 /** Card width by zoom: thumbnails grow as you zoom into a lane. */
 const cardWidth = (zoom: number) => (zoom >= 18 ? 120 : zoom >= 17 ? 96 : zoom >= 16 ? 74 : zoom >= 15 ? 58 : 44);
 
@@ -271,20 +274,28 @@ export default function MapView({
     return venues.length ? box : null;
   }
 
-  /** Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot. */
+  /**
+   * Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot. Guide places (☕ food,
+   * 🧘 studios) are many and small: they only appear once the map is zoomed in to street level.
+   */
   function drawPlaces(taken: string[]) {
     const L = LRef.current;
     const map = mapRef.current;
     const layer = layerRef.current;
     if (!L || !map || !layer) return;
+    const close = map.getZoom() >= GUIDE_ZOOM;
     for (const p of placesRef.current) {
       if (taken.includes(p.slug)) continue;
+      const featured = p.recommended || p.stay;
+      if (!featured && !close) continue;
+      const [cls, mark] = p.recommended ? ["fc-place-rec", "✦"] : p.stay ? ["fc-place-stay", "🛏"] : ["fc-place-guide", p.guide === "eat" ? "☕" : "🧘"];
       const marker = L.marker([p.lat, p.lng], {
         icon: L.divIcon({
           className: "fc-marker",
-          html: `<span class="fc-place ${p.recommended ? "fc-place-rec" : "fc-place-stay"}" title="${escapeHtml(p.name)}">${p.recommended ? "✦" : "🛏"}</span>`,
+          html: `<span class="fc-place ${cls}" title="${escapeHtml(p.name)}">${mark}</span>`,
           iconSize: [0, 0],
         }),
+        zIndexOffset: featured ? 0 : -500,
         keyboard: false,
       }).addTo(layer);
       marker.on("click", () =>

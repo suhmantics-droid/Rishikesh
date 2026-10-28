@@ -244,6 +244,7 @@ const MIGRATIONS: [table: string, column: string, def: string][] = [
   ["venues", "google_reviews", "INTEGER"],
   ["venues", "google_checked", "TEXT"],
   ["venues", "stay", "INTEGER NOT NULL DEFAULT 0"], // hostels, guesthouses: shown on the map as places to stay
+  ["venues", "guide", "TEXT"], // 'eat' or 'wellness': in the guide (and on the map, zoomed in) even without a flyer
 ];
 
 // Changes whenever the schema, a migration or the starter venues change, so a cold start only
@@ -370,9 +371,9 @@ async function setUp(client: Client, local: boolean) {
   await client.batch(
     VENUE_SEED.map((v) => ({
       sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, coords_verified, address, description, instagram, recommended, kind,
-              website, stay, google_url, google_rating, google_reviews, google_checked)
+              website, stay, guide, google_url, google_rating, google_reviews, google_checked)
             VALUES (@slug, @name, @area, @lat, @lng, @coords_verified, @address, @description, @instagram, @recommended, @kind,
-              @website, @stay, @google_url, @google_rating, @google_reviews, @google_checked)`,
+              @website, @stay, @guide, @google_url, @google_rating, @google_reviews, @google_checked)`,
       args: toArgs([
         {
           ...v,
@@ -381,6 +382,7 @@ async function setUp(client: Client, local: boolean) {
           kind: v.kind ?? null,
           instagram: v.instagram ?? null,
           stay: v.stay ? 1 : 0,
+          guide: v.guide ?? null,
           website: v.website ?? null,
           google_url: v.google_url ?? null,
           google_rating: v.google_rating ?? null,
@@ -396,7 +398,7 @@ async function setUp(client: Client, local: boolean) {
   await client.batch(
     VENUE_SEED.map((v) => ({
       sql: `UPDATE venues SET instagram = COALESCE(instagram, @instagram), website = COALESCE(website, @website), kind = COALESCE(kind, @kind),
-              google_url = COALESCE(google_url, @google_url), google_rating = COALESCE(google_rating, @google_rating),
+              guide = COALESCE(guide, @guide), google_url = COALESCE(google_url, @google_url), google_rating = COALESCE(google_rating, @google_rating),
               google_reviews = COALESCE(google_reviews, @google_reviews), google_checked = COALESCE(google_checked, @google_checked)
             WHERE slug = @slug`,
       args: toArgs([
@@ -405,12 +407,21 @@ async function setUp(client: Client, local: boolean) {
           instagram: v.instagram ?? null,
           website: v.website ?? null,
           kind: v.kind ?? null,
+          guide: v.guide ?? null,
           google_url: v.google_url ?? null,
           google_rating: v.google_rating ?? null,
           google_reviews: v.google_reviews ?? null,
           google_checked: v.google_checked ?? null,
         },
       ]),
+    })),
+    "write",
+  );
+  // Pins since checked against the place's Google Maps listing replace an approximate one (never one verified in Admin).
+  await client.batch(
+    VENUE_SEED.filter((v) => v.coords_verified).map((v) => ({
+      sql: "UPDATE venues SET lat = ?, lng = ?, area = ?, coords_verified = 1 WHERE slug = ? AND coords_verified = 0",
+      args: [v.lat, v.lng, v.area, v.slug],
     })),
     "write",
   );

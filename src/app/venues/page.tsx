@@ -9,7 +9,7 @@ import { area, AREAS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Venues",
-  description: "Cafes, shalas and stages in Tapovan, Laxman Jhula and Ram Jhula — and what's on at each.",
+  description: "Cafes, yoga studios, sound healing, hostels and stages in Tapovan, with their Google ratings, and what's on at each.",
 };
 
 export default function VenuesPage() {
@@ -25,11 +25,16 @@ export default function VenuesPage() {
   );
 }
 
+/** Google rating, pulled towards 4.5 when there are few reviews: a 5.0 from 4 reviews shouldn't beat a 4.8 from 800. */
+const trusted = (v: { google_rating: number | null; google_reviews: number | null }) =>
+  v.google_rating == null ? 0 : (v.google_rating * (v.google_reviews ?? 0) + 4.5 * 50) / ((v.google_reviews ?? 0) + 50);
+
 async function List() {
   const showDemo = process.env.NODE_ENV !== "production";
   const venues = (await listVenuesWithCounts()).filter((v) => showDemo || !v.is_demo);
   const recommended = venues.filter((v) => v.recommended);
   const stays = venues.filter((v) => v.stay && !v.recommended).sort((a, b) => (b.google_rating ?? 0) - (a.google_rating ?? 0));
+  const guide = (g: "eat" | "wellness") => venues.filter((v) => v.guide === g && !v.recommended && !v.stay).sort((a, b) => trusted(b) - trusted(a));
   const today = todayIST();
   return (
     <div className="grid gap-10">
@@ -73,8 +78,52 @@ async function List() {
           </ul>
         </section>
       ) : null}
+      {(
+        [
+          ["eat", "☕ Cafes & food"],
+          ["wellness", "🧘 Yoga & sound healing"],
+        ] as const
+      ).map(([g, title]) => {
+        const list = guide(g);
+        if (!list.length) return null;
+        const cards = (vs: typeof list) => (
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {vs.map((v) => (
+              <li key={v.slug} className="rounded-xl border border-line bg-card px-3 py-2.5">
+                <Link href={`/v/${v.slug}`} className="font-semibold hover:underline">
+                  {v.name}
+                </Link>
+                <p className="text-[13px] text-muted">{[v.kind, area(v.area).label].filter(Boolean).join(" · ")}</p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px]">
+                  <GoogleRating venue={v} />
+                  {v.upcoming ? (
+                    <span className="font-semibold text-saffron-ink">
+                      {v.upcoming} flyer{v.upcoming === 1 ? "" : "s"} up
+                    </span>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        );
+        // The best-rated nine, the rest a tap away: a long list is a wall on a phone.
+        return (
+          <section key={g}>
+            <h2 className="mb-3 border-b border-line pb-2 font-display text-2xl font-semibold">{title}</h2>
+            {cards(list.slice(0, 9))}
+            {list.length > 9 ? (
+              <details className="group mt-2">
+                <summary className="cursor-pointer list-none rounded-full border border-line px-3 py-1.5 text-center text-[13px] font-bold text-ink-2 group-open:mb-2 group-open:hidden sm:inline-block">
+                  Show all {list.length}
+                </summary>
+                {cards(list.slice(9))}
+              </details>
+            ) : null}
+          </section>
+        );
+      })}
       {AREAS.map((a) => {
-        const list = venues.filter((v) => v.area === a.key && !v.recommended && !v.stay);
+        const list = venues.filter((v) => v.area === a.key && !v.recommended && !v.stay && !v.guide);
         if (!list.length) return null;
         return (
           <section key={a.key}>
