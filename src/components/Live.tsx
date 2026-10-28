@@ -50,11 +50,10 @@ export function LiveBadge({ date, start, end, className = "" }: { date: string; 
   if (!st) return null;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold tracking-wide uppercase ${
-        st.on ? "bg-saffron text-white" : "bg-ink text-paper"
+      className={`inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[13px] font-extrabold tracking-wide uppercase ${
+        st.on ? "bg-now text-on-now" : "bg-ink text-wall"
       } ${className}`}
     >
-      {st.on ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden /> : null}
       {st.label}
     </span>
   );
@@ -130,5 +129,5 @@ export function walkLabel(m: number) {
 export function WalkTime({ lat, lng, className = "" }: { lat: number | null; lng: number | null; className?: string }) {
   const here = useHere();
   if (!here || lat == null || lng == null) return null;
-  return <span className={className}>🚶 {walkLabel(metres(here, { lat, lng }))}</span>;
+  return <span className={className}>{walkLabel(metres(here, { lat, lng }))}</span>;
 }

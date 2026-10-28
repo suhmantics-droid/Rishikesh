@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { formatDayLong, formatTimeRange, todayIST } from "@/lib/dates";
+import { Icon } from "./Icon";
 import { LiveBadge, WalkTime } from "./Live";
 import { PushToggle } from "./PushToggle";
 import { send } from "./Track";
@@ -120,30 +121,31 @@ export function PlanButton({ slug, eventId, initial }: { slug: string; eventId: 
       send({ eventId, kind: "interested" });
     }
     const at = await remind(slug, true);
-    setNote(at ? `⏰ We'll remind you before it starts (${formatDayLong(at.date).split(" · ")[0]} ${formatTimeRange(at.start_time)}).` : "Saved to your plan.");
+    setNote(at ? `We'll remind you before it starts (${formatDayLong(at.date).split(" · ")[0]} ${formatTimeRange(at.start_time)}).` : "Saved to your plan.");
   }
 
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-pressed={saved}
-          className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
-            saved ? "border-saffron bg-saffron-soft text-saffron-ink" : "border-line bg-card hover:border-ink-2"
-          }`}
-        >
-          {saved ? "★ In my plan" : "☆ Add to my plan"}
-          {count > 0 ? <span className="rounded-full bg-paper-2 px-2 py-0.5 text-xs text-ink-2" title="People interested">{count}</span> : null}
-        </button>
-        {saved ? (
-          <Link href="/plan" className="text-sm font-semibold underline">
+    <div className="flex flex-col items-stretch gap-1.5">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={saved}
+        className={`inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-5 text-[17px] font-bold transition ${
+          saved ? "bg-ink text-wall" : "bg-act text-on-act hover:brightness-110"
+        }`}
+      >
+        <Icon name="save" filled={saved} />
+        {saved ? "Saved to my plan" : "Save to my plan"}
+        {count > 0 ? <span className="text-[15px] font-semibold opacity-85">· {count} interested</span> : null}
+      </button>
+      {note || saved ? (
+        <p className="text-[15px] text-ink-2">
+          {note ?? "In your plan."}{" "}
+          <Link href="/plan" className="font-bold underline">
             See my plan
           </Link>
-        ) : null}
-      </div>
-      {note ? <p className="text-xs text-muted">{note}</p> : null}
+        </p>
+      ) : null}
     </div>
   );
 }

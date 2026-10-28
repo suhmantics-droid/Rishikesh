@@ -13,6 +13,7 @@ test("weekday and addDays", () => {
 
 test("whenRange: today / tomorrow / week", () => {
   assert.deepEqual(whenRange("today", MON), { from: MON, to: MON });
+  assert.deepEqual(whenRange("tonight", MON), { from: MON, to: MON });
   assert.deepEqual(whenRange("tomorrow", MON), { from: "2026-10-20", to: "2026-10-20" });
   assert.deepEqual(whenRange("week", MON), { from: MON, to: "2026-10-25" });
   assert.deepEqual(whenRange("2026-11-02", MON), { from: "2026-11-02", to: "2026-11-02" });

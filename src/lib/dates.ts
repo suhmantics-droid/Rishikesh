@@ -46,6 +46,7 @@ export function whenRange(when: string | undefined, today = todayIST()): { from:
   if (when && isValidDate(when)) return { from: when, to: when };
   switch (when) {
     case "today":
+    case "tonight":
       return { from: today, to: today };
     case "tomorrow": {
       const t = addDays(today, 1);

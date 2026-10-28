@@ -41,7 +41,7 @@ async function Today() {
         {agenda.length
           ? [events ? `${events} event${events === 1 ? "" : "s"}` : "", classes ? `${classes} drop-in class${classes === 1 ? "" : "es"}` : ""].filter(Boolean).join(" and ") + " today."
           : "Nothing pinned for today yet."}{" "}
-        <Link href="/?view=map&when=today" className="font-semibold underline">
+        <Link href="/map?when=today" className="font-semibold underline">
           See them on the map
         </Link>
       </p>
@@ -54,10 +54,10 @@ async function Today() {
       {agenda.length ? <Agenda items={agenda} today={today} dayHeaders={false} classesOpen /> : null}
       <GangaDaily className="mt-8" />
       <div className="mt-8 flex flex-wrap gap-2">
-        <Link href="/?when=tomorrow" className="rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
+        <Link href="/flyers?when=tomorrow" className="rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
           Tomorrow →
         </Link>
-        <Link href="/?when=weekend" className="rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
+        <Link href="/flyers?when=weekend" className="rounded-full border border-line bg-card px-4 py-2 text-sm font-bold">
           This weekend →
         </Link>
         <Link href="/alerts" className="rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">

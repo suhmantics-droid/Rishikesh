@@ -8,7 +8,7 @@ import { escapeHtml } from "./util";
 
 export async function sendEmail(to: string, subject: string, html: string) {
   const key = await config("RESEND_API_KEY");
-  const from = (await config("EMAIL_FROM")) || `${SITE.name} ${SITE.place} <alerts@suhmantics.com>`;
+  const from = (await config("EMAIL_FROM")) || `${SITE.name} <alerts@suhmantics.com>`;
   let status = "logged";
   let error: string | null = null;
   if (key) {

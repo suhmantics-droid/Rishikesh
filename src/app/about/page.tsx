@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ownerContact } from "@/lib/payments";
 import { LISTING, rupees, SITE } from "@/lib/site";
 
-export const metadata: Metadata = { title: "How it works", description: `How ${SITE.name} ${SITE.place} works, for visitors and event organisers.` };
+export const metadata: Metadata = { title: "How it works", description: `How ${SITE.name} works, for visitors and event organisers.` };
 
 const price = rupees(LISTING.pricePaise);
 const weeks = LISTING.days / 7;

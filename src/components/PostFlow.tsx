@@ -417,7 +417,7 @@ export function PostFlow({
             Rather not fill in a form?{" "}
             <a
               className="font-bold text-ink underline"
-              href={`https://wa.me/${owner.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi! I'd like to put my event flyer on Pinned.")}`}
+              href={`https://wa.me/${owner.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi! I'd like to put my event flyer on WhatsOnTapovan.")}`}
               target="_blank"
               rel="noreferrer"
             >

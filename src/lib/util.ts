@@ -26,9 +26,9 @@ export function priceLabel(e: { price_type: string; price_min: number | null; pr
     case "paid":
       if (e.price_min && e.price_max && e.price_max !== e.price_min) return `₹${e.price_min}–${e.price_max}`;
       if (e.price_min) return `₹${e.price_min}`;
-      return e.price_note || "Paid";
+      return "Price not listed";
     default:
-      return e.price_note || "Price on flyer";
+      return "Price not listed";
   }
 }
 

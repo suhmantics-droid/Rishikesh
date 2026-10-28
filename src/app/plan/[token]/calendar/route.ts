@@ -41,7 +41,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/plan/[token]/calend
         url,
       };
     });
-  return new Response(icsCalendar(entries, `My plan · ${SITE.name} ${SITE.place}`), {
+  return new Response(icsCalendar(entries, `My plan · ${SITE.name}`), {
     headers: { "Content-Type": "text/calendar; charset=utf-8", "Cache-Control": "private, max-age=900" },
   });
 }

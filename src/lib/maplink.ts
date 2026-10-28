@@ -56,7 +56,7 @@ export async function resolveMapLink(input: string, fetcher: typeof fetch = fetc
   for (let hop = 0; hop < 6; hop++) {
     const res = await fetcher(current, {
       redirect: "manual",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; PinnedRishikesh/1.0)", "Accept-Language": "en" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; WhatsOnTapovan/1.0)", "Accept-Language": "en" },
       signal: AbortSignal.timeout(6000),
     }).catch(() => null);
     if (!res) return null;

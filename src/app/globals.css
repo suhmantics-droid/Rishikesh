@@ -1,52 +1,117 @@
 @import "tailwindcss";
 
-/* Warm "cafe noticeboard" palette: paper, ink, saffron (marigold) and Ganga teal. */
+/* WhatsOnTapovan, "The Wall": lime-washed wall, paper slips, ink, one marigold for "now",
+   jade for actions. Every text pair here is checked for WCAG AA (ratios in the design system board). */
 :root {
-  --paper: #f6f1e7;
-  --paper-2: #ede4d3;
-  --card: #fffdf8;
-  --ink: #1d1b16;
-  --ink-2: #3d3a33;
-  --muted: #6b655a;
-  --line: #e2d7c3;
-  --saffron: #e8672a;
-  --saffron-ink: #b4441a;
-  --saffron-soft: #fbe3d5;
-  /* The Ganga at Rishikesh: clear emerald-turquoise water. */
-  --ganga: #0c7268;
-  --ganga-soft: #d6efea;
-  --on-ganga: #ffffff;
-  --river-1: #3cc4b1;
-  --river-2: #0f8a7e;
-  --river-deep: #0b5550;
-  --chart: #008f87; /* validated: lightness band, chroma floor, contrast vs card */
-  --shadow: 0 1px 2px rgb(60 40 10 / 0.08), 0 6px 18px -8px rgb(60 40 10 / 0.25);
+  --wall: #eae8e3;
+  --wall-2: #dfdcd5;
+  --surface: #fffdf7;
+  --slip: #fffdf7;
+  --slip-ink: #1b1a17;
+  --ink: #1b1a17;
+  --ink-2: #3b3934;
+  --muted: #4e4b44;
+  --line: #cfcbc2;
+  --line-strong: #77726a;
+  --tape: rgb(222 203 150 / 0.78);
+  --now: #f2a33a;
+  --now-soft: #fcebcf;
+  --on-now: #1b1a17;
+  --act: #0b6b5e;
+  --on-act: #ffffff;
+  --act-ink: #0b5f54;
+  --act-soft: #d5e8e3;
+  --act-soft-ink: #0a4a41;
+  --warn: #9a3412;
+  --warn-soft: #fbe0d3;
+  --warn-soft-ink: #7a2a0c;
+  --sandal: #7a4e12;
+  --dusk: #2a2320;
+  --dusk-ink: #f6e7c8;
+  --dusk-muted: #cdbfa6;
+  --focus: #0b5f54;
+  --e1: 0 1px 0 rgb(0 0 0 / 0.08), 0 4px 10px -6px rgb(0 0 0 / 0.35);
+  --e2: 0 8px 18px -10px rgb(0 0 0 / 0.55);
+  --e3: 0 -10px 24px -14px rgb(0 0 0 / 0.5);
+  --pin-in: 240ms cubic-bezier(0.3, 0.7, 0.2, 1);
+  --settle: 400ms cubic-bezier(0.3, 0.7, 0.2, 1);
+  --sheet: 320ms cubic-bezier(0.3, 0.7, 0.2, 1);
+
+  /* Older names, kept so screens not yet redesigned still read well on the new palette. */
+  --paper: var(--wall);
+  --paper-2: var(--wall-2);
+  --card: var(--surface);
+  --saffron: var(--warn);
+  --saffron-ink: var(--warn);
+  --saffron-soft: var(--warn-soft);
+  --ganga: var(--act);
+  --ganga-soft: var(--act-soft);
+  --on-ganga: var(--on-act);
+  --river-1: #9fd3c8;
+  --river-2: #0b6b5e;
+  --river-deep: #0e3b35;
+  --chart: #008f87;
+  --shadow: var(--e1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #15130f;
-    --paper-2: #1e1b15;
-    --card: #221f19;
-    --ink: #f4eee2;
-    --ink-2: #d9d1c2;
-    --muted: #a3998a;
-    --line: #3a342b;
-    --saffron: #f27c43;
-    --saffron-ink: #ffa173;
-    --saffron-soft: #3d2416;
-    --ganga: #4fc3b4;
-    --ganga-soft: #143330;
-    --on-ganga: #0f1412;
+    --wall: #1a1916;
+    --wall-2: #12110f;
+    --surface: #24221e;
+    --slip: #e9e3d5;
+    --ink: #f2eee4;
+    --ink-2: #d9d3c7;
+    --muted: #b5afa3;
+    --line: #3a3731;
+    --line-strong: #857f73;
+    --act: #4fc3b0;
+    --on-act: #0f1412;
+    --act-ink: #6fd3c1;
+    --act-soft: #17332e;
+    --act-soft-ink: #bfede4;
+    --warn: #f59e7a;
+    --warn-soft: #3d2416;
+    --warn-soft-ink: #ffcdb5;
+    --sandal: #e0b77a;
+    --focus: #f2a33a;
+    --e1: 0 1px 0 rgb(0 0 0 / 0.4), 0 6px 14px -8px rgb(0 0 0 / 0.8);
     --river-1: #1f8f84;
-    --river-2: #0c524c;
-    --river-deep: #0a3b37;
+    --river-deep: #0a2b27;
     --chart: #14a39a;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -10px rgb(0 0 0 / 0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --pin-in: 0ms;
+    --settle: 0ms;
+    --sheet: 0ms;
   }
 }
 
 @theme inline {
+  --color-wall: var(--wall);
+  --color-wall-2: var(--wall-2);
+  --color-surface: var(--surface);
+  --color-slip: var(--slip);
+  --color-slip-ink: var(--slip-ink);
+  --color-line-strong: var(--line-strong);
+  --color-now: var(--now);
+  --color-now-soft: var(--now-soft);
+  --color-on-now: var(--on-now);
+  --color-act: var(--act);
+  --color-on-act: var(--on-act);
+  --color-act-ink: var(--act-ink);
+  --color-act-soft: var(--act-soft);
+  --color-act-soft-ink: var(--act-soft-ink);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-soft-ink: var(--warn-soft-ink);
+  --color-sandal: var(--sandal);
+  --color-dusk: var(--dusk);
+  --color-dusk-ink: var(--dusk-ink);
+  --color-dusk-muted: var(--dusk-muted);
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
   --color-card: var(--card);
@@ -64,9 +129,23 @@
   --color-river-2: var(--river-2);
   --color-river-deep: var(--river-deep);
   --color-chart: var(--chart);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --shadow-card: var(--shadow);
+  --font-sans: var(--font-anek), ui-sans-serif, system-ui, "Noto Sans Devanagari", sans-serif;
+  --font-display: var(--font-anek), ui-sans-serif, system-ui, "Noto Sans Devanagari", sans-serif;
+  --font-hi: var(--font-hi-labels), "Noto Sans Devanagari", var(--font-anek), sans-serif;
+  --shadow-card: var(--e1);
+  --shadow-e1: var(--e1);
+  --shadow-e2: var(--e2);
+  --shadow-e3: var(--e3);
+}
+
+/* Headings in Anek's narrower width, so long titles and venue names fit before they wrap. */
+.font-display {
+  font-stretch: 88%;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 html {
@@ -80,8 +159,51 @@ body {
 
 /* Subtle paper grain so the wall feels like a noticeboard, not a spreadsheet. */
 .paper-grain {
-  background-image: radial-gradient(rgb(120 90 40 / 0.06) 1px, transparent 1px);
-  background-size: 14px 14px;
+  background-image: radial-gradient(rgb(60 50 30 / 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* The slip taped to each flyer, and the bit of masking tape that holds it. */
+.slip-time {
+  font-size: 15px;
+  font-weight: 800;
+  font-stretch: 85%;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.slip-name {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.slip-meta {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #3b3934;
+}
+.tape {
+  position: absolute;
+  top: -8px;
+  left: 36%;
+  width: 44px;
+  height: 16px;
+  background: var(--tape);
+}
+/* Hindi labels above section headings, in sandalwood. */
+.hi {
+  display: block;
+  font-family: var(--font-hi);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--sandal);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tilt {
+    transform: none !important;
+  }
 }
 
 .no-scrollbar {

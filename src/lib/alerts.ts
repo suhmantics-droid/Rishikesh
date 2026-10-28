@@ -60,7 +60,7 @@ export async function subscribe(email: string, follows: Follow[], daily: boolean
   }
   await sendEmail(
     addr,
-    `Confirm your ${SITE.name} ${SITE.place} alerts`,
+    `Confirm your ${SITE.name} alerts`,
     emailLayout(
       "One tap to confirm",
       `<p>Confirm your email and we'll tell you when new flyers go up for the things you follow in Tapovan.</p>

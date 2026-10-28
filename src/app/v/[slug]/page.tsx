@@ -83,7 +83,7 @@ async function Venue({ params }: { params: PageProps<"/v/[slug]">["params"] }) {
           )}
         </div>
         {v.lat != null && v.lng != null ? (
-          <MiniMap className="h-72 lg:sticky lg:top-20" today={today} pins={[{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, events: wall.map((e) => pinEvent(e, e.next)) }]} />
+          <MiniMap className="h-72 lg:sticky lg:top-20" today={today} pins={[{ slug: v.slug, name: v.name, area: v.area, lat: v.lat, lng: v.lng, coords_verified: v.coords_verified, events: wall.map((e) => pinEvent(e, e.next)) }]} />
         ) : null}
       </div>
     </div>

@@ -26,7 +26,7 @@ export const SETTINGS = [
     secret: true,
   },
   { key: "RESEND_API_KEY", label: "Resend API key (email)", help: "resend.com → API keys, after verifying your domain", group: "Email", secret: true },
-  { key: "EMAIL_FROM", label: "Send emails from", help: "e.g. Pinned Rishikesh <alerts@suhmantics.com>", group: "Email" },
+  { key: "EMAIL_FROM", label: "Send emails from", help: "e.g. WhatsOnTapovan <alerts@suhmantics.com>", group: "Email" },
 ] as const;
 
 export type SettingKey = (typeof SETTINGS)[number]["key"];

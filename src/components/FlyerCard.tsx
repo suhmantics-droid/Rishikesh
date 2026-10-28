@@ -1,119 +1,172 @@
 import Link from "next/link";
 import type { EventCard } from "@/lib/data";
-import { dateParts, daysLabel, formatDay, formatTime, formatTimeRange } from "@/lib/dates";
+import { dateParts, formatDay, formatTime, formatTimeRange, WEEK_ORDER, WEEKDAY_SHORT, weekday } from "@/lib/dates";
 import { category } from "@/lib/site";
 import { flyerUrl, priceShort } from "@/lib/util";
-import { LiveBadge, WalkTime } from "./Live";
+import { LiveBadge } from "./Live";
 
 export function CategoryTag({ cat, className = "" }: { cat: string; className?: string }) {
   const c = category(cat);
   return (
-    // Text stays in ink for legibility; the coloured dot carries the category.
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-ink-2 uppercase ${className}`}>
-      <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+    // The word carries the category; the dot is a quick visual cue, ringed so it shows on any ground.
+    <span className={`inline-flex items-center gap-1.5 text-[13px] font-extrabold tracking-[0.08em] text-muted uppercase ${className}`}>
+      <span className="h-2.5 w-2.5 rounded-full ring-1 ring-ink" style={{ background: c.color }} />
       {c.short}
     </span>
   );
 }
 
-/** A flyer pinned to the wall: the image is the hero, with a date sticker and the essentials beneath. */
+/** A small, stable tilt for each flyer (−1.2° to 1.2°), the same wherever it appears. */
+export function tiltFor(id: number) {
+  return (((id * 37) % 25) - 12) / 10;
+}
+
+/** Mon…Sun with the days that have sessions filled in; closed days struck through, today outlined. */
+export function WeekStrip({ days, todayWd, size = "sm" }: { days: number[]; todayWd: number; size?: "sm" | "md" }) {
+  const set = new Set(days);
+  const box = size === "md" ? "h-6 w-6 text-[12px]" : "h-[19px] w-[19px] text-[11px]";
+  return (
+    <span className="flex gap-0.5" aria-label={`On ${WEEK_ORDER.filter((d) => set.has(d)).map((d) => WEEKDAY_SHORT[d]).join(", ")}`}>
+      {WEEK_ORDER.map((d) => (
+        <span
+          key={d}
+          aria-hidden
+          className={`flex items-center justify-center rounded-[2px] font-extrabold ${box} ${
+            set.has(d) ? "bg-act text-on-act" : "border border-line-strong text-muted line-through"
+          } ${d === todayWd ? "outline-2 outline-offset-1 outline-ink" : ""}`}
+        >
+          {WEEKDAY_SHORT[d][0]}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function DateBlock({ date, className = "" }: { date: string; className?: string }) {
+  const { wd, day, mon } = dateParts(date);
+  return (
+    <span className={`flex shrink-0 flex-col items-center bg-ink px-2 py-1 leading-none text-wall ${className}`}>
+      <span className="text-[11px] font-extrabold uppercase">{wd}</span>
+      <span className="text-[21px] font-extrabold">{day}</span>
+      <span className="text-[11px] font-extrabold uppercase">{mon}</span>
+    </span>
+  );
+}
+
+/** Where, and how sure we are of the spot. Never implies a precise pin we don't have. */
+export function placeNote(v: { lat: number | null; coords_verified: number }) {
+  if (v.lat == null) return "spot on request";
+  if (!v.coords_verified) return "approx. spot";
+  return null;
+}
+
+export function priceOrNotListed(e: Parameters<typeof priceShort>[0]) {
+  return priceShort(e) || "Price not listed";
+}
+
+/** The taped slip: every fact you need, readable at a glance, without touching the artwork. */
+export function Slip({ e, today, className = "", style }: { e: EventCard; today: string; className?: string; style?: React.CSSProperties }) {
+  const classes = e.kind === "classes";
+  const noTime = !e.next.start_time;
+  const price = priceOrNotListed(e);
+  const where = [e.venue.name, placeNote(e.venue)].filter(Boolean).join(" · ");
+  const day = formatDay(e.next.date, today).toLowerCase();
+  return (
+    <span className={`slip relative flex flex-col gap-0.5 bg-slip px-2.5 pt-2.5 pb-2.5 text-slip-ink shadow-e1 ${noTime ? "border-[1.5px] border-dashed border-line-strong" : ""} ${className}`} style={style}>
+      <span className="tape" aria-hidden />
+      <LiveBadge date={e.next.date} start={e.next.start_time} end={e.next.end_time} className="mb-1 self-start" />
+      {classes ? (
+        <>
+          <WeekStrip days={e.days} todayWd={weekday(today)} />
+          <span className="slip-time mt-1">
+            {noTime ? `${formatDay(e.next.date, today)} · time not listed` : `Next ${day} ${formatTime(e.next.start_time)}`}
+          </span>
+          {e.next.label ? <span className="slip-name">{e.next.label}</span> : null}
+          <span className="slip-meta">{e.title}</span>
+        </>
+      ) : (
+        <>
+          <span className="flex items-center gap-2">
+            <DateBlock date={e.next.date} />
+            <span className="slip-time">
+              {noTime ? "Time not listed" : formatTimeRange(e.next.start_time, e.next.end_time)}
+              <br />
+              {price}
+            </span>
+          </span>
+          <span className="slip-name mt-1">{e.title}</span>
+        </>
+      )}
+      <span className="slip-meta [font-stretch:88%]">
+        {classes ? `${where} · ${price}` : where}
+      </span>
+    </span>
+  );
+}
+
+function isTall(e: EventCard) {
+  return e.flyer_w && e.flyer_h ? e.flyer_h / e.flyer_w > 1.6 : false;
+}
+export function isWide(e: EventCard) {
+  return e.flyer_w && e.flyer_h ? e.flyer_w / e.flyer_h > 1.3 : false;
+}
+
+/** A flyer pinned to the wall: the artwork whole, never cropped, with its slip taped on. */
 export function FlyerCard({ e, today, priority = false }: { e: EventCard; today: string; priority?: boolean }) {
   const src = flyerUrl(e.flyer, "sm");
-  const { wd, day, mon } = dateParts(e.next.date);
-  const isToday = e.next.date === today;
-  const price = priceShort(e);
-  const classes = e.kind === "classes";
+  const tilt = tiltFor(e.id);
   return (
     <Link
       href={`/e/${e.slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-card shadow-card transition hover:-translate-y-0.5 hover:border-ganga/50 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-saffron"
+      className="group mb-7 block break-inside-avoid focus-visible:outline-offset-4"
+      aria-label={`${e.title}, ${e.venue.name}`}
     >
-      <div className="relative aspect-[4/5] overflow-hidden bg-paper-2">
+      <span className="tilt relative block transition-transform duration-[var(--pin-in)] group-hover:-translate-y-0.5" style={{ transform: `rotate(${tilt}deg)` }}>
         {src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src}
-            alt={`Flyer: ${e.title}`}
-            loading={priority ? "eager" : "lazy"}
-            className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
-          />
+          isTall(e) ? (
+            <span className="flex aspect-[1/1.6] justify-center bg-wall-2 shadow-e2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" loading={priority ? "eager" : "lazy"} className="h-full w-auto" />
+            </span>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={src}
+              alt=""
+              width={e.flyer_w ?? undefined}
+              height={e.flyer_h ?? undefined}
+              loading={priority ? "eager" : "lazy"}
+              className="block h-auto w-full bg-wall-2 shadow-e2 outline-1 -outline-offset-1 outline-black/10"
+            />
+          )
         ) : (
-          <div className="flex h-full items-center justify-center p-4 text-center font-display text-lg font-semibold">{e.title}</div>
-        )}
-        {classes ? (
-          <div className="absolute top-2 left-2 rounded-xl bg-ganga px-2 py-1.5 text-center leading-none text-on-ganga shadow-card">
-            <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Classes</div>
-            <div className="mt-0.5 font-display text-[15px] font-semibold">{daysLabel(e.days) || "Weekly"}</div>
-          </div>
-        ) : (
-          <div
-            className={`absolute top-2 left-2 rounded-xl px-1.5 py-1 text-center leading-none shadow-card sm:px-2 ${isToday ? "bg-saffron text-white" : "bg-card text-ink"}`}
-          >
-            <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{isToday ? "Today" : wd}</div>
-            <div className="font-display text-lg font-semibold sm:text-xl">{day}</div>
-            <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{mon}</div>
-          </div>
-        )}
-        {e.featured ? (
-          <span className="absolute top-2 right-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-paper uppercase">Featured</span>
-        ) : null}
-        <LiveBadge date={e.next.date} start={e.next.start_time} end={e.next.end_time} className="absolute bottom-2 left-2 shadow-card" />
-        {e.is_demo ? (
-          <span className="absolute right-2 bottom-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white uppercase">Sample</span>
-        ) : null}
-      </div>
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <CategoryTag cat={e.category} />
-        <h3 className="line-clamp-2 font-display text-[15px] leading-snug font-semibold">{e.title}</h3>
-        <p className="line-clamp-1 text-[13px] text-muted">{e.venue.name}</p>
-        <WalkTime lat={e.venue.lat} lng={e.venue.lng} className="text-[12px] font-semibold text-ganga" />
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[13px] font-semibold">
-          <span className="truncate">
-            {classes
-              ? `Next ${isToday ? "" : `${formatDay(e.next.date, today)} `}${formatTime(e.next.start_time)}`.replace(/\s+$/, "")
-              : formatTimeRange(e.next.start_time, e.next.end_time) || "All day"}
+          <span className="flex aspect-[4/5] items-center justify-center border-[1.5px] border-dashed border-line-strong bg-wall-2 p-4 text-center text-lg font-bold">
+            {e.title}
           </span>
-          <span className={`shrink-0 ${price === "Free" || price === "Donation" ? "text-ganga" : ""}`}>{price}</span>
-        </div>
-        {classes && e.next.label ? (
-          <p className="truncate text-[12px] text-muted">{e.next.label}</p>
-        ) : !classes && e.dates_in_range > 1 ? (
-          <p className="text-[12px] text-muted">+{e.dates_in_range - 1} more date{e.dates_in_range > 2 ? "s" : ""}</p>
-        ) : null}
-      </div>
+        )}
+        {e.is_demo ? <span className="absolute top-2 right-2 bg-ink px-2 py-0.5 text-[12px] font-bold text-wall uppercase">Sample</span> : null}
+      </span>
+      <Slip
+        e={e}
+        today={today}
+        className="tilt -mt-3.5 ml-2 mr-[-4px]"
+        style={{ transform: `rotate(${-tilt * 0.9}deg)` }}
+      />
     </Link>
   );
 }
 
-const grid = "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3";
-
-/** Events first; regular classes get their own shelf below so they don't crowd out one-off events. */
-export function FlyerGrid({ items, today }: { items: EventCard[]; today: string }) {
-  const events = items.filter((e) => e.kind !== "classes");
-  const classes = items.filter((e) => e.kind === "classes");
+/** The wall: flyers in columns at their real shape. Wide flyers span the whole row. */
+export function FlyerGrid({ items, today, cols = "columns-2 sm:columns-3 lg:columns-4" }: { items: EventCard[]; today: string; cols?: string }) {
   return (
-    <div className="flex flex-col gap-6">
-      {events.length ? (
-        <div className={grid}>
-          {events.map((e, i) => (
-            <FlyerCard key={e.id} e={e} today={today} priority={i < 4} />
-          ))}
-        </div>
-      ) : null}
-      {classes.length ? (
-        <section>
-          {events.length ? (
-            <h2 className="mb-3 flex items-baseline gap-2 font-display text-xl font-semibold">
-              Drop-in classes &amp; timetables <span className="font-sans text-sm font-semibold text-muted">{classes.length}</span>
-            </h2>
-          ) : null}
-          <div className={grid}>
-            {classes.map((e, i) => (
-              <FlyerCard key={e.id} e={e} today={today} priority={!events.length && i < 4} />
-            ))}
+    <div className={`${cols} gap-3 lg:gap-6`}>
+      {items.map((e, i) => (
+        <div key={e.id} className={isWide(e) ? "[column-span:all]" : ""}>
+          <div className={isWide(e) ? "mx-auto max-w-xl" : ""}>
+            <FlyerCard e={e} today={today} priority={i < 4} />
           </div>
-        </section>
-      ) : null}
+        </div>
+      ))}
     </div>
   );
 }

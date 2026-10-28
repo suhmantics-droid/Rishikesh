@@ -28,6 +28,9 @@ test("prices read naturally", () => {
   assert.equal(priceLabel(p("paid", 600)), "₹600");
   assert.equal(priceLabel(p("paid", 800, 1000)), "₹800–1000");
   assert.equal(priceShort(p("paid", 800, 1000)), "₹800+");
+  // A price we don't have is said plainly, never left blank or shown as "on flyer".
+  assert.equal(priceLabel(p("unknown")), "Price not listed");
+  assert.equal(priceLabel({ ...p("unknown"), price_note: "Pre-booking only" }), "Price not listed");
 });
 
 test("slugify", () => {

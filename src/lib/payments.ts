@@ -61,7 +61,7 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
         order_id: order.id,
         amount,
         currency: "INR",
-        name: `${SITE.name} ${SITE.place}`,
+        name: SITE.name,
         description: `${LISTING.days}-day flyer listing: ${event.title}`.slice(0, 250),
         prefill: { email: event.organiser_email ?? "", name: event.organiser_name ?? "" },
       },
@@ -74,7 +74,7 @@ export async function startPayment(event: EventForPay, purpose: "new" | "renew")
 
   if (mode === "upi") {
     const vpa = (await config("UPI_ID"))!;
-    const payee = (await config("UPI_PAYEE_NAME")) || `${SITE.name} ${SITE.place}`;
+    const payee = (await config("UPI_PAYEE_NAME")) || SITE.name;
     const uri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payee)}&am=${(amount / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(ref)}`;
     const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, width: 220 });
     return { mode, paymentId, amount, upi: { vpa, payee, uri, qrSvg, ref } };

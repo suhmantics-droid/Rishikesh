@@ -127,7 +127,7 @@ export function PushToggle({ compact = false }: { compact?: boolean }) {
   if (state === "ios-install")
     return (
       <p className="text-sm text-ink-2">
-        📲 On iPhone: tap <b>Share</b> → <b>Add to Home Screen</b>, open {compact ? "it" : "Pinned"} from your home screen, then turn on notifications.
+        📲 On iPhone: tap <b>Share</b> → <b>Add to Home Screen</b>, open {compact ? "it" : "WhatsOnTapovan"} from your home screen, then turn on notifications.
       </p>
     );
   if (state === "denied") return <p className="text-sm text-muted">Notifications are blocked for this site in your browser settings.</p>;

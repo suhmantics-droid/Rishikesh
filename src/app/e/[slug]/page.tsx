@@ -2,19 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { CategoryTag } from "@/components/FlyerCard";
+import { CategoryTag, DateBlock, tiltFor, WeekStrip } from "@/components/FlyerCard";
+import { Icon } from "@/components/Icon";
 import { FollowButton } from "@/components/Follow";
 import { MiniMap } from "@/components/MiniMap";
 import { PushToggle } from "@/components/PushToggle";
 import { ReportLink, ShareBar } from "@/components/ShareBar";
-import { WhatsAppIcon } from "@/components/Browse";
 import { PlanButton } from "@/components/Plan";
 import { EventTracker } from "@/components/Track";
 import { LiveBadge, WalkTime } from "@/components/Live";
 import { Timetable } from "@/components/Timetable";
 import { getEventBySlug, isOver, pinEvent, scheduleDays } from "@/lib/data";
 import { eventStats } from "@/lib/stats";
-import { daysLabel, formatDayLong, formatTime, formatTimeRange, nowTimeIST, todayIST, weekday } from "@/lib/dates";
+import { daysLabel, formatDay, formatDayLong, formatTime, formatTimeRange, nowTimeIST, todayIST, weekday } from "@/lib/dates";
 import { area, category, SITE } from "@/lib/site";
 import { googleCalendarLink } from "@/lib/ics";
 import { LINK_LABELS } from "@/lib/links";
@@ -71,180 +71,158 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
   const isClasses = event.kind === "classes";
   const days = scheduleDays(d.schedule);
   const shareText = isClasses
-    ? `📌 ${event.title} — ${daysLabel(days)} @ ${venue.name}, Tapovan`
-    : `📌 ${event.title}${next ? ` — ${formatDayLong(next.date, today)} ${formatTimeRange(next.start_time, next.end_time)}` : ""} @ ${venue.name}, Tapovan (${priceLabel(event)})`;
+    ? `${event.title}: ${daysLabel(days)} at ${venue.name}, Tapovan`
+    : `${event.title}${next ? `, ${formatDayLong(next.date, today)} ${formatTimeRange(next.start_time, next.end_time)}` : ""} at ${venue.name}, Tapovan (${priceLabel(event)})`;
+
+  const daysAway = next ? Math.round((Date.parse(next.date) - Date.parse(today)) / 86_400_000) : null;
+  const away = daysAway == null ? null : daysAway === 0 ? "today" : daysAway === 1 ? "tomorrow" : `in ${daysAway} days`;
+  const price = priceLabel(event);
+  const note = event.price_note && event.price_note !== price ? event.price_note : null;
+  const tilt = tiltFor(event.id);
+  const certainty = venue.lat == null || venue.lng == null ? "request" : venue.coords_verified ? "exact" : "approx";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5 sm:py-8">
+    <div className="mx-auto max-w-6xl px-4 pt-3 pb-8 lg:px-12 lg:pt-6">
       {isLive && !isClasses ? (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(d, upcoming.slice(0, 10))).replace(/</g, "\\u003c") }}
         />
       ) : null}
-      <nav className="mb-3 text-sm text-muted">
-        <Link href="/" className="hover:text-ink">
-          ← All flyers
+      <nav className="mb-2">
+        <Link href="/" className="inline-flex min-h-11 items-center gap-1 text-[17px] font-bold">
+          <Icon name="back" /> What&apos;s on
         </Link>
       </nav>
       {!isLive ? (
-        <div className="mb-4 rounded-2xl border border-line bg-paper-2 p-4 text-sm">
-          This flyer is no longer on the board{upcoming.length === 0 ? " — the event has passed" : ""}.{" "}
-          <Link href="/" className="font-semibold underline">
+        <div className="mb-4 border-[1.5px] border-line-strong bg-wall-2 p-4 text-[16px]">
+          This flyer is no longer on the wall{upcoming.length === 0 ? ": the event has passed" : ""}.{" "}
+          <Link href="/" className="font-bold underline">
             See what&apos;s on now
           </Link>
         </div>
       ) : null}
-      {event.is_demo ? (
-        <div className="mb-4 rounded-2xl border border-dashed border-line p-3 text-sm text-muted">Sample listing for demonstration — not a real event.</div>
-      ) : null}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
-        <div>
+      {event.is_demo ? <div className="mb-4 border-[1.5px] border-dashed border-line-strong p-3 text-[16px] text-muted">Sample listing for demonstration, not a real event.</div> : null}
+
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] lg:gap-14">
+        <figure className="flex flex-col">
           {img ? (
-            <a href={img} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-2xl border border-line bg-card shadow-card">
+            <a href={img} target="_blank" rel="noreferrer" aria-label="See the flyer full size" className="tilt block" style={{ transform: `rotate(${tilt * 0.5}deg)` }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={img}
                 alt={`Flyer for ${event.title}`}
                 width={event.flyer_w ?? undefined}
                 height={event.flyer_h ?? undefined}
-                className="h-auto w-full"
+                className="block h-auto w-full bg-wall-2 shadow-e2"
               />
             </a>
           ) : null}
-          <p className="mt-2 text-center text-xs text-muted">Tap the flyer to see it full size</p>
-        </div>
+          <div className={`tilt relative -mt-5 mr-2 ml-5 flex flex-col gap-1 bg-slip px-4 py-3 text-slip-ink shadow-e1 lg:ml-24 ${!next?.start_time ? "border-[1.5px] border-dashed border-line-strong" : ""}`} style={{ transform: `rotate(${-tilt * 0.7}deg)` }}>
+            <span className="tape" aria-hidden />
+            {next ? <LiveBadge date={next.date} start={next.start_time} end={next.end_time} className="self-start" /> : null}
+            {isClasses ? (
+              <>
+                <WeekStrip days={days} todayWd={weekday(today)} size="md" />
+                <span className="slip-time !text-[20px]">
+                  {next ? (next.start_time ? `Next: ${formatDay(next.date, today).toLowerCase()} ${formatTime(next.start_time)}` : `Next: ${formatDay(next.date, today)}, time not listed`) : "No upcoming sessions"}
+                </span>
+                {next?.label ? <span className="text-[17px] font-semibold">{next.label}</span> : null}
+              </>
+            ) : next ? (
+              <span className="flex items-center gap-3">
+                <DateBlock date={next.date} />
+                <span className="flex flex-col">
+                  <span className="slip-time !text-[22px]">{formatTimeRange(next.start_time, next.end_time) || "Time not listed"}</span>
+                  <span className="slip-time">
+                    {price}
+                    {away ? ` · ${away}` : ""}
+                  </span>
+                </span>
+              </span>
+            ) : (
+              <span className="slip-time">No upcoming dates</span>
+            )}
+          </div>
+          {img ? <figcaption className="mt-2 text-center text-[14px] text-muted">Tap the flyer to see it full size</figcaption> : null}
+        </figure>
 
-        <div className="flex flex-col gap-5">
-          <div>
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1.5">
+            <span className="flex flex-wrap items-center gap-2">
               <CategoryTag cat={event.category} />
-              {next ? <LiveBadge date={next.date} start={next.start_time} end={next.end_time} /> : null}
-            </div>
-            <h1 className="mt-1 font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{event.title}</h1>
-            {event.organiser_name ? <p className="mt-1 text-sm text-muted">by {event.organiser_name}</p> : null}
+              <span className="text-[13px] font-extrabold tracking-[0.08em] text-muted uppercase">· {isClasses ? "drop-in classes" : "one-off event"}</span>
+            </span>
+            <h1 className="text-[32px] leading-[1.08] font-extrabold [font-stretch:88%] lg:text-[44px]">{event.title}</h1>
+            {event.organiser_name ? <p className="text-[17px] text-ink-2">by {event.organiser_name}</p> : null}
           </div>
 
-          <dl className="grid gap-3 rounded-2xl border border-line bg-card p-4 text-[15px]">
-            <div className="flex gap-3">
-              <dt className="w-16 shrink-0 text-sm font-semibold text-muted">When</dt>
+          <dl className="bg-surface px-4 py-1 text-[17px] shadow-[0_1px_0_rgb(0_0_0/0.06)]">
+            <div className="grid grid-cols-[72px_1fr] gap-3 py-3">
+              <dt className="text-[16px] font-bold text-muted">When</dt>
               <dd className="flex flex-col gap-0.5">
                 {isClasses ? (
                   <>
-                    <span className="font-semibold">{daysLabel(days)} · regular classes</span>
+                    <span className="font-bold">{daysLabel(days)} · regular classes</span>
                     {next ? (
                       <span className="text-ink-2">
-                        Next: <b className={next.date === today ? "text-saffron-ink" : ""}>{formatDayLong(next.date, today).split(" · ")[0]} {formatTime(next.start_time)}</b>
+                        Next: {formatDayLong(next.date, today).split(" · ")[0]} {formatTime(next.start_time) || "(time not listed)"}
                         {next.label ? ` · ${next.label}` : ""}
                       </span>
                     ) : null}
                   </>
                 ) : upcoming.length ? (
                   upcoming.slice(0, 8).map((x) => (
-                    <span key={`${x.date}${x.start_time}`} className={x.date === today ? "font-bold text-saffron-ink" : "font-semibold"}>
-                      {formatDayLong(x.date, today)} <span className="font-normal text-ink-2">{formatTimeRange(x.start_time, x.end_time)}</span>
+                    <span key={`${x.date}${x.start_time}`} className="font-bold">
+                      {formatDayLong(x.date, today)} <span className="font-normal text-ink-2">{formatTimeRange(x.start_time, x.end_time) || "time not listed"}</span>
                     </span>
                   ))
                 ) : (
                   <span className="text-muted">No upcoming dates</span>
                 )}
-                {!isClasses && upcoming.length > 8 ? <span className="text-sm text-muted">+{upcoming.length - 8} more dates</span> : null}
+                {!isClasses && upcoming.length === 1 ? <span className="text-[16px] text-ink-2">One date only</span> : null}
+                {!isClasses && upcoming.length > 8 ? <span className="text-[16px] text-muted">+{upcoming.length - 8} more dates</span> : null}
               </dd>
             </div>
-            <div className="flex gap-3">
-              <dt className="w-16 shrink-0 text-sm font-semibold text-muted">Where</dt>
+            <div className="grid grid-cols-[72px_1fr] gap-3 border-t border-line py-3">
+              <dt className="text-[16px] font-bold text-muted">Price</dt>
               <dd>
-                <Link href={`/v/${venue.slug}`} className="font-semibold underline decoration-line underline-offset-4 hover:decoration-ink">
+                <span className="font-bold">{price}</span>
+                {note ? <span className="block text-[16px] text-ink-2">{note}</span> : null}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[72px_1fr] gap-3 border-t border-line py-3">
+              <dt className="text-[16px] font-bold text-muted">Where</dt>
+              <dd className="flex flex-col gap-1">
+                <Link href={`/v/${venue.slug}`} className="font-bold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                   {venue.name}
                 </Link>
-                <div className="text-sm text-muted">
-                  {[venue.address, area(venue.area).label].filter((x, i, all) => x && all.indexOf(x) === i).join(" · ")}
-                </div>
-                <WalkTime lat={venue.lat} lng={venue.lng} className="text-sm font-semibold text-ganga" />
-              </dd>
-            </div>
-            <div className="flex gap-3">
-              <dt className="w-16 shrink-0 text-sm font-semibold text-muted">Price</dt>
-              <dd className="font-semibold">
-                {priceLabel(event)}
-                {event.price_note && priceLabel(event) !== event.price_note ? <span className="font-normal text-ink-2"> · {event.price_note}</span> : null}
+                <span className="text-[16px] text-ink-2">{[venue.address, area(venue.area).label].filter((x, i, all) => x && all.indexOf(x) === i).join(" · ")}</span>
+                <span className="inline-flex items-center gap-1.5 text-[16px] font-bold">
+                  <Icon name={certainty === "exact" ? "place-exact" : certainty === "approx" ? "place-approx" : "place-request"} size={18} />
+                  {certainty === "exact" ? "Exact spot" : certainty === "approx" ? "Approximate spot" : "Exact spot from the organiser"}
+                </span>
+                <WalkTime lat={venue.lat} lng={venue.lng} className="text-[16px] font-bold text-act-ink" />
               </dd>
             </div>
             {artists.length ? (
-              <div className="flex gap-3">
-                <dt className="w-16 shrink-0 text-sm font-semibold text-muted">With</dt>
-                <dd className="flex flex-col gap-2">
+              <div className="grid grid-cols-[72px_1fr] gap-3 border-t border-line py-3">
+                <dt className="text-[16px] font-bold text-muted">With</dt>
+                <dd className="flex flex-wrap gap-x-3 gap-y-1">
                   {artists.map((a) => (
-                    <div key={a.slug} className="flex flex-wrap items-center gap-2">
-                      <Link href={`/a/${a.slug}`} className="font-semibold underline decoration-line underline-offset-4 hover:decoration-ink">
-                        {a.name}
-                      </Link>
-                    </div>
+                    <Link key={a.slug} href={`/a/${a.slug}`} className="font-bold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                      {a.name}
+                    </Link>
                   ))}
                 </dd>
               </div>
             ) : null}
           </dl>
 
-          {isClasses && d.schedule?.sessions.length ? (
-            <Timetable sessions={d.schedule.sessions} todayWd={weekday(today)} fallbackLabel={event.title} />
-          ) : null}
-
-          {event.description ? <p className="text-[15px] leading-relaxed whitespace-pre-line text-ink-2">{event.description}</p> : null}
-
-          {wa || ig || booking ? (
-            <div className="flex flex-wrap gap-2">
-              {wa ? (
-                <a
-                  data-track="whatsapp"
-                  href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi! I saw your flyer for "${event.title}" on ${SITE.name}. `)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-bold text-white"
-                >
-                  <WhatsAppIcon className="h-4 w-4 [&_path]:fill-white" /> Message organiser
-                </a>
-              ) : null}
-              {ig ? (
-                <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-bold">
-                  @{ig}
-                </a>
-              ) : null}
-              {booking ? (
-                <a data-track="booking" href={booking} target="_blank" rel="noreferrer" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-paper">
-                  Book / more info ↗
-                </a>
-              ) : null}
-            </div>
-          ) : null}
-
-          {qrLinks.length ? (
-            <div className="rounded-2xl border border-line bg-card p-4">
-              <p className="flex items-center gap-2 text-sm font-bold">
-                <QrIcon /> From the QR codes on this flyer
-              </p>
-              <p className="mb-3 text-sm text-muted">Can&apos;t scan a code on your own screen — so here they are as links.</p>
-              <div className="flex flex-wrap gap-2">
-                {qrLinks.map((l) => (
-                  <a
-                    key={l.url}
-                    data-track={l.kind === "whatsapp" || l.kind === "whatsapp-group" ? "whatsapp" : l.kind === "map" ? "directions" : "booking"}
-                    href={l.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl border border-line bg-paper px-3 py-2 text-sm font-bold hover:border-ink-2"
-                  >
-                    {LINK_LABELS[l.kind]} ↗
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div>
+          {/* Save stays within thumb reach on a phone: pinned above the tab bar for the whole page. */}
+          <div className="sticky bottom-[calc(76px+env(safe-area-inset-bottom))] z-20 -mx-4 border-t border-line bg-wall/95 px-4 py-2.5 backdrop-blur max-lg:order-last lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0">
             <PlanButton slug={event.slug} eventId={event.id} initial={stats.interested ?? 0} />
           </div>
-
           <ShareBar title={event.title} text={shareText} calendarHref={isClasses ? null : `/e/${event.slug}/calendar`} />
           {!isClasses && next ? (
             <a
@@ -260,41 +238,116 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
               })}
               target="_blank"
               rel="noreferrer"
-              className="-mt-2 self-start text-sm font-semibold text-ink-2 underline hover:text-ink"
+              className="-mt-4 inline-flex min-h-11 items-center gap-1.5 self-start text-[16px] font-bold underline"
             >
-              + Add to Google Calendar ↗
+              <Icon name="calendar" size={18} /> Add to Google Calendar
             </a>
           ) : null}
 
-          {venue.lat == null || venue.lng == null ? (
+          {isClasses && d.schedule?.sessions.length ? (
+            <Timetable sessions={d.schedule.sessions} todayWd={weekday(today)} fallbackLabel={event.title} />
+          ) : null}
+
+          {event.description ? (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-[21px] font-extrabold">About</h2>
+              <p className="text-[17px] leading-relaxed whitespace-pre-line text-ink-2">{event.description}</p>
+            </section>
+          ) : null}
+
+          {wa || ig || booking ? (
+            <div className="flex flex-wrap gap-2">
+              {wa ? (
+                <a
+                  data-track="whatsapp"
+                  href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi! I saw your flyer for "${event.title}" on ${SITE.name}. `)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-12 items-center gap-2 rounded-full border-[1.5px] border-ink px-5 text-[16px] font-bold"
+                >
+                  <Icon name="message" size={18} /> {isClasses ? "Message on WhatsApp to book" : "Message the organiser"}
+                </a>
+              ) : null}
+              {ig ? (
+                <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 rounded-full border-[1.5px] border-ink px-5 text-[16px] font-bold">
+                  <Icon name="camera" size={18} /> @{ig}
+                </a>
+              ) : null}
+              {booking ? (
+                <a data-track="booking" href={booking} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 rounded-full border-[1.5px] border-ink px-5 text-[16px] font-bold">
+                  More info from the organiser <Icon name="external" size={16} />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {qrLinks.length ? (
+            <div className="bg-surface p-4">
+              <p className="flex items-center gap-2 text-[16px] font-bold">
+                <QrIcon /> From the QR codes on this flyer
+              </p>
+              <p className="mb-3 text-[15px] text-ink-2">You can&apos;t scan a code on your own screen, so here they are as links.</p>
+              <div className="flex flex-wrap gap-2">
+                {qrLinks.map((l) => (
+                  <a
+                    key={l.url}
+                    data-track={l.kind === "whatsapp" || l.kind === "whatsapp-group" ? "whatsapp" : l.kind === "map" ? "directions" : "booking"}
+                    href={l.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-[1.5px] border-line-strong px-4 text-[16px] font-bold hover:border-ink"
+                  >
+                    {LINK_LABELS[l.kind]} <Icon name="external" size={16} />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {certainty === "request" ? (
             <AskWhere title={event.title} phone={event.contact_phone} instagram={event.contact_instagram} venue={venue.name} />
           ) : (
-          <div className="flex flex-col gap-3">
-            {venue.lat != null && venue.lng != null ? (
+            <section className="flex flex-col gap-3" aria-label="Getting there">
               <MiniMap
                 today={today}
-                pins={[{ slug: venue.slug, name: venue.name, area: venue.area, lat: venue.lat, lng: venue.lng, events: [pinEvent({ ...event, kind: isClasses ? "classes" : "event", days }, next ?? { date: today, start_time: null, end_time: null })] }]}
+                pins={[
+                  {
+                    slug: venue.slug,
+                    name: venue.name,
+                    area: venue.area,
+                    lat: venue.lat!,
+                    lng: venue.lng!,
+                    coords_verified: venue.coords_verified,
+                    events: [pinEvent({ ...event, kind: isClasses ? "classes" : "event", days }, next ?? { date: today, start_time: null, end_time: null })],
+                  },
+                ]}
               />
-            ) : null}
-            <a
-              data-track="directions"
-              href={!venue.coords_verified && mapLink ? mapLink : directionsLink(venue)}
-              target="_blank"
-              rel="noreferrer"
-              className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga"
-            >
-              Directions (Google Maps) ↗
-            </a>
-            <a href={googleListingLink(venue)} target="_blank" rel="noreferrer" className="self-start text-sm font-semibold text-ink-2 underline hover:text-ink">
-              ★ {venue.name} on Google: reviews & photos ↗
-            </a>
-            {!venue.coords_verified ? <p className="text-xs text-muted">Map pin is approximate — use Directions for the exact spot.</p> : null}
-          </div>
+              {venue.address ? (
+                <p className="text-[16px] text-ink-2">
+                  <b className="text-ink">From the organiser:</b> {venue.address}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <a
+                  data-track="directions"
+                  href={!venue.coords_verified && mapLink ? mapLink : directionsLink(venue)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-12 items-center gap-2 rounded-full bg-act px-5 text-[16px] font-bold text-on-act"
+                >
+                  <Icon name="directions" size={18} /> {certainty === "approx" && !mapLink ? "Directions to the area" : "Directions"}
+                </a>
+                <a href={googleListingLink(venue)} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-1.5 text-[16px] font-bold underline">
+                  {venue.name} on Google: reviews and photos
+                </a>
+              </div>
+              {certainty === "approx" ? <p className="text-[15px] text-ink-2">The pin is approximate. Confirm the exact spot with the organiser.</p> : null}
+            </section>
           )}
 
-          <div className="rounded-2xl border border-line bg-card p-4">
-            <p className="text-sm font-bold">Hear about the next one</p>
-            <p className="mb-3 text-sm text-muted">Follow, then get a notification on your phone (or an email) when their next flyer goes up.</p>
+          <div className="flex flex-col gap-3 bg-surface p-4">
+            <h2 className="text-[19px] font-extrabold">Hear about the next one</h2>
+            <p className="text-[16px] text-ink-2">A notification on this phone when they pin a new flyer. No account.</p>
             <div className="flex flex-wrap gap-2">
               <FollowButton kind="venue" target={venue.slug} label={venue.name} chip />
               <FollowButton kind="category" target={event.category} label={cat.label} chip />
@@ -302,15 +355,16 @@ async function EventDetail({ params }: { params: PageProps<"/e/[slug]">["params"
                 <FollowButton key={a.slug} kind="artist" target={a.slug} label={a.name} chip />
               ))}
             </div>
-            <div className="mt-3">
-              <PushToggle compact />
-            </div>
-            <Link href="/alerts" className="mt-2 inline-block text-sm font-bold text-saffron-ink underline">
-              More alert options →
+            <PushToggle compact />
+            <Link href="/alerts" className="inline-flex min-h-11 items-center text-[16px] font-bold underline">
+              More alert options
             </Link>
           </div>
 
-          <ReportLink eventId={event.id} />
+          <div className="flex flex-col gap-1">
+            <p className="text-[15px] text-ink-2">{SITE.name} checked these details against the flyer. It&apos;s a listing, not a recommendation.</p>
+            <ReportLink eventId={event.id} />
+          </div>
           <EventTracker eventId={event.id} />
         </div>
       </div>
@@ -371,19 +425,20 @@ function AskWhere({ title, phone, instagram, venue }: { title: string; phone: st
   const ig = instagramHandle(instagram);
   const text = `Hi! I saw your flyer for "${title}" on ${SITE.name}. Where exactly is it in Tapovan?`;
   return (
-    <div className="rounded-2xl border border-dashed border-line bg-card p-4">
-      <p className="text-sm font-bold">📍 {venue}, Tapovan</p>
-      <p className="mb-3 text-sm text-muted">The flyer doesn&apos;t give the exact spot. Ask the organiser:</p>
+    <div className="flex flex-col gap-2 border-[1.5px] border-dashed border-line-strong bg-surface p-4">
+      <p className="text-[13px] font-extrabold tracking-[0.08em] text-muted uppercase">Not on the map · spot on request</p>
+      <p className="text-[17px] font-bold">{venue}, Tapovan</p>
+      <p className="text-[16px] text-ink-2">The flyer doesn&apos;t give the exact spot, so there&apos;s no pin. Ask the organiser:</p>
       {wa ? (
-        <a data-track="whatsapp" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="inline-block rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
-          WhatsApp for the exact spot ↗
+        <a data-track="whatsapp" href={`https://wa.me/${wa}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 self-start rounded-full bg-act px-5 text-[16px] font-bold text-on-act">
+          <Icon name="message" size={18} /> Ask on WhatsApp
         </a>
       ) : ig ? (
-        <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="inline-block rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga">
-          Message @{ig} for the exact spot ↗
+        <a data-track="instagram" href={`https://instagram.com/${ig}`} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 self-start rounded-full bg-act px-5 text-[16px] font-bold text-on-act">
+          <Icon name="camera" size={18} /> Ask @{ig} on Instagram
         </a>
       ) : (
-        <p className="text-sm">Ask at any cafe nearby, or check the flyer for a contact.</p>
+        <p className="text-[16px]">Ask at any cafe nearby, or check the flyer for a contact.</p>
       )}
     </div>
   );

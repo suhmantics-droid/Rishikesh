@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { heroPhotoDataUrl, OG, ogFonts, Pin } from "@/lib/og";
 import { SITE } from "@/lib/site";
 
-export const alt = `${SITE.name} ${SITE.place} — every flyer in Tapovan, on one map`;
+export const alt = `${SITE.name}: every flyer in Tapovan, Rishikesh, on one wall`;
 export const size = { width: OG.width, height: OG.height };
 export const contentType = "image/png";
 

@@ -2,9 +2,9 @@
 // Rename the site or change pricing in one place.
 
 export const SITE = {
-  name: "Pinned",
+  name: "WhatsOnTapovan",
   place: "Rishikesh",
-  tagline: "Every flyer in Tapovan, on one map.",
+  tagline: "Every flyer in Tapovan, on one wall.",
   description:
     "What's on tonight in Tapovan, Rishikesh: live music, ecstatic dance, sound healing, kirtan, workshops and more. Every flyer in one place, filterable by date, price and area.",
   // On Vercel without SITE_URL, its production domain (QR posters, emails and calendar links need the real address).
@@ -62,10 +62,25 @@ export function area(key: string) {
 
 export const WHEN_OPTIONS = [
   { key: "today", label: "Today" },
+  { key: "tonight", label: "Tonight" },
   { key: "tomorrow", label: "Tomorrow" },
   { key: "weekend", label: "This weekend" },
   { key: "week", label: "Next 7 days" },
   { key: "all", label: "All upcoming" },
+] as const;
+
+/** "Tonight" starts at 6pm: anything starting then or later, or still running at 6pm. */
+export const TONIGHT_FROM = "18:00";
+
+/** The kinds people come to Tapovan to practise, behind the one-tap "Practice" chip. */
+export const PRACTICE = ["yoga", "talk", "sound", "kirtan", "ceremony"] as const;
+
+/** Day bands for "today" lists, named the way a practising day runs. Devanagari label first. */
+export const DAY_BANDS = [
+  { key: "morning", hi: "सुबह", label: "Morning practice", to: "11:59" },
+  { key: "afternoon", hi: "दोपहर", label: "Afternoon", to: "16:59" },
+  { key: "evening", hi: "शाम", label: "Sunset and aarti", to: "18:14" },
+  { key: "night", hi: "रात", label: "Night", to: "23:59" },
 ] as const;
 
 export const TIME_OPTIONS = [

@@ -7,7 +7,7 @@ import { db } from "./db";
 import { nowTimeIST, todayIST, whenRange } from "./dates";
 import { parseSchedule, type Schedule } from "./listings";
 import type { FlyerLink } from "./links";
-import { TIME_OPTIONS } from "./site";
+import { PRACTICE, TIME_OPTIONS, TONIGHT_FROM } from "./site";
 import { priceShort } from "./util";
 
 export type Venue = {
@@ -69,7 +69,7 @@ export type EventCard = {
   price_note: string | null;
   featured: number;
   is_demo: number;
-  venue: { slug: string; name: string; area: string; lat: number | null; lng: number | null };
+  venue: { slug: string; name: string; area: string; lat: number | null; lng: number | null; coords_verified: number };
   artists: { slug: string; name: string }[];
   next: Occurrence;
   dates_in_range: number;
@@ -83,6 +83,8 @@ export type MapPin = {
   area: string;
   lat: number;
   lng: number;
+  /** 1 when the pin was checked against the place's own listing; 0 means "around here". */
+  coords_verified: number;
   events: {
     slug: string;
     title: string;
@@ -108,6 +110,8 @@ export type Filters = {
   q?: string;
   venue?: string;
   artist?: string;
+  /** "event" (one-offs) or "classes" (timetables). */
+  type?: string;
 };
 
 const LIVE = `e.status = 'live' AND e.live_until >= @today`;
@@ -198,6 +202,7 @@ function toCard(r: Row, artists: Map<number, { slug: string; name: string }[]>, 
       area: r.v_area as string,
       lat: r.v_lat as number | null,
       lng: r.v_lng as number | null,
+      coords_verified: (r.v_verified as number | null) ?? 0,
     },
     artists: artists.get(r.id as number) ?? [],
     next: occ,
@@ -218,10 +223,19 @@ export async function queryWhatsOn(f: Filters, today: string, now: string) {
   const where = [LIVE, "d.date BETWEEN @from AND @to"];
   const params: Record<string, unknown> = { today, from, to };
 
-  const cats = (f.cat ?? []).filter(Boolean);
+  // "practice" is a shortcut for the kinds people come to Tapovan to practise.
+  const cats = [...new Set((f.cat ?? []).flatMap((c) => (c === "practice" ? [...PRACTICE] : [c])).filter(Boolean))];
+  if (f.when === "tonight") {
+    where.push("(d.start_time >= @tonight OR (d.start_time IS NOT NULL AND d.end_time > @tonight))");
+    params.tonight = TONIGHT_FROM;
+  }
   if (cats.length) {
     where.push(`e.category IN (${cats.map((_, i) => `@cat${i}`).join(",")})`);
     cats.forEach((c, i) => (params[`cat${i}`] = c));
+  }
+  if (f.type === "event" || f.type === "classes") {
+    where.push("e.kind = @kind");
+    params.kind = f.type;
   }
   if (f.area) {
     where.push("v.area = @area");
@@ -256,7 +270,7 @@ export async function queryWhatsOn(f: Filters, today: string, now: string) {
   const rows = ((await db()
     .prepare(
       `SELECT e.*, d.date, d.start_time, d.end_time, d.label,
-              v.slug AS v_slug, v.name AS v_name, v.area AS v_area, v.lat AS v_lat, v.lng AS v_lng
+              v.slug AS v_slug, v.name AS v_name, v.area AS v_area, v.lat AS v_lat, v.lng AS v_lng, v.coords_verified AS v_verified
        FROM event_dates d
        JOIN events e ON e.id = d.event_id
        JOIN venues v ON v.id = e.venue_id
@@ -294,6 +308,7 @@ export async function queryWhatsOn(f: Filters, today: string, now: string) {
       area: item.venue.area,
       lat: item.venue.lat,
       lng: item.venue.lng,
+      coords_verified: item.venue.coords_verified,
       events: [],
     };
     if (!pin.events.some((e) => e.slug === item.slug)) pin.events.push(pinEvent(item, item.occ));
