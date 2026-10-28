@@ -39,6 +39,7 @@ export const VENUE_SEED: SeedVenue[] = [
     description: "Traditional hatha yoga, taught with care for alignment. Drop-in classes and teacher training.",
     recommended: 2,
     kind: "Yoga school",
+    instagram: "yogupasana",
     google_url: "https://www.google.com/maps/place/Yog+Upasana/@30.132054,78.3202483,17z",
     google_rating: 4.7,
     google_reviews: 181,
