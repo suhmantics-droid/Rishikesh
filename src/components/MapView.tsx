@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
-import type { MapPin } from "@/lib/data";
+import type { MapPin, Place } from "@/lib/data";
 import { layoutCollage } from "@/lib/collage";
 import { daysLabel, formatDay, formatTime } from "@/lib/dates";
 import { category, SITE } from "@/lib/site";
@@ -77,6 +77,19 @@ function popupHtml(e: Item, venue: MapPin, today: string) {
       </span></a>`;
 }
 
+/** A recommended place or a place to stay: name, what it is, its Google rating, and a link to its page. */
+function placePopupHtml(p: Place) {
+  const what = [p.recommended ? "✦ Recommended" : p.stay ? "Place to stay" : null, p.kind].filter(Boolean).join(" · ");
+  const rating = p.google_rating ? `★ ${p.google_rating.toFixed(1)}${p.google_reviews ? ` · ${p.google_reviews.toLocaleString("en-IN")} Google reviews` : ""}` : "";
+  return `<a href="/v/${p.slug}" class="fc-pop">
+      <span class="fc-pop-body">
+        <span class="fc-pop-cat">${escapeHtml(what)}</span>
+        <b>${escapeHtml(p.name)}</b>
+        ${rating ? `<span>${escapeHtml(rating)}</span>` : ""}
+        <u>See the place →</u>
+      </span></a>`;
+}
+
 /**
  * The map as a collage: every flyer pinned near its venue, spread out so none hide each other,
  * with a thread back to the exact spot. Tap a flyer for a preview.
@@ -91,8 +104,11 @@ export default function MapView({
   fit = true,
   insetBottom = 0,
   here = null,
+  places = [],
 }: {
   pins: MapPin[];
+  /** Recommended places and places to stay, drawn as small markers under the flyers. */
+  places?: Place[];
   today: string;
   className?: string;
   /** Location-picker mode: click the map to choose a point. */
@@ -116,6 +132,8 @@ export default function MapView({
   onPickRef.current = onPick;
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
+  const placesRef = useRef(places);
+  placesRef.current = places;
   const hereProp = useRef(here);
   hereProp.current = here;
 
@@ -219,6 +237,21 @@ export default function MapView({
           .openOn(map);
       });
     }
+    // Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot.
+    for (const p of placesRef.current) {
+      if (venues.some((v) => v.key === p.slug)) continue;
+      const marker = L.marker([p.lat, p.lng], {
+        icon: L.divIcon({
+          className: "fc-marker",
+          html: `<span class="fc-place ${p.recommended ? "fc-place-rec" : "fc-place-stay"}" title="${escapeHtml(p.name)}">${p.recommended ? "✦" : "🛏"}</span>`,
+          iconSize: [0, 0],
+        }),
+        keyboard: false,
+      }).addTo(layer);
+      marker.on("click", () =>
+        L.popup({ offset: L.point(0, -8), maxWidth: 240, minWidth: 180, className: "fc-popup" }).setLatLng([p.lat, p.lng]).setContent(placePopupHtml(p)).openOn(map),
+      );
+    }
     return venues.length ? box : null;
   }
 
@@ -234,6 +267,10 @@ export default function MapView({
         icon: L.divIcon({ className: "fc-marker", html: `<span class="fc-dot fc-dot-picked"></span>`, iconSize: [0, 0] }),
       }).addTo(map);
       if (pick && !map.getBounds().contains([picked.lat, picked.lng])) map.setView([picked.lat, picked.lng], 16);
+    }
+    // A quiet week with no flyers: frame the recommended places and stays instead.
+    if (!pick && initial && !list.length && placesRef.current.length) {
+      map.fitBounds(L.latLngBounds(placesRef.current.map((p) => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 16, animate: false });
     }
     const framing = !pick && (fit || initial) && list.length > 0;
     if (framing) {
@@ -254,7 +291,7 @@ export default function MapView({
     if (!mapRef.current) return;
     frame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, picked]);
+  }, [pins, picked, places]);
 
   /** The blue "you are here" dot. */
   function drawHere() {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { MapView } from "@/components/MiniMap";
-import { getWhatsOn } from "@/lib/data";
+import { getWhatsOn, listPlaces } from "@/lib/data";
 import { isValidDate } from "@/lib/dates";
 import { WHEN_OPTIONS } from "@/lib/site";
 
@@ -25,12 +25,12 @@ async function FlyerMap({ searchParams }: { searchParams: PageProps<"/map">["sea
   const sp = await searchParams;
   const raw = typeof sp.when === "string" ? sp.when : "week";
   const when = ["today", "tomorrow", "weekend", "week", "all"].includes(raw) || isValidDate(raw) ? raw : "week";
-  const { pins, wall, today } = await getWhatsOn({ when });
+  const [{ pins, wall, today }, places] = await Promise.all([getWhatsOn({ when }), listPlaces()]);
   const events = wall.filter((e) => e.kind !== "classes").length;
   const classes = wall.length - events;
   return (
     <>
-      <MapView pins={pins} today={today} insetBottom={150} />
+      <MapView pins={pins} places={places} today={today} insetBottom={150} />
       <div className="pointer-events-none absolute inset-x-3 bottom-6 z-[500] flex justify-center sm:justify-start">
         <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-line bg-card/95 p-3 shadow-card backdrop-blur">
           <div className="flex items-baseline gap-2">
@@ -55,7 +55,7 @@ async function FlyerMap({ searchParams }: { searchParams: PageProps<"/map">["sea
               </Link>
             ))}
           </nav>
-          <p className="mt-2 text-xs text-muted">Tap a flyer to look closer. Dotted lines lead to the venue.</p>
+          <p className="mt-2 text-xs text-muted">Tap a flyer to look closer. <span className="font-bold text-saffron-ink">✦</span> recommended · 🛏 places to stay</p>
         </div>
       </div>
     </>

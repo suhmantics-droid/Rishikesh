@@ -135,6 +135,29 @@ body {
   border: 2px solid #fff;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
 }
+/* Recommended places and places to stay: small round markers under the flyer collage. */
+.fc-place {
+  position: absolute;
+  left: -12px;
+  top: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  background: var(--card);
+  border: 2px solid var(--ganga);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+.fc-place-rec {
+  border-color: var(--saffron);
+  color: var(--saffron-ink);
+  font-weight: 700;
+}
 .fc-dot-picked {
   left: -10px;
   top: -10px;

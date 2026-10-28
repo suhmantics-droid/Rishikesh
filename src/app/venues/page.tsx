@@ -29,6 +29,7 @@ async function List() {
   const showDemo = process.env.NODE_ENV !== "production";
   const venues = (await listVenuesWithCounts()).filter((v) => showDemo || !v.is_demo);
   const recommended = venues.filter((v) => v.recommended);
+  const stays = venues.filter((v) => v.stay && !v.recommended).sort((a, b) => (b.google_rating ?? 0) - (a.google_rating ?? 0));
   const today = todayIST();
   return (
     <div className="grid gap-10">
@@ -54,8 +55,26 @@ async function List() {
           </ul>
         </section>
       ) : null}
+      {stays.length ? (
+        <section>
+          <h2 className="mb-3 border-b border-line pb-2 font-display text-2xl font-semibold">🛏 Places to stay</h2>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {stays.map((v) => (
+              <li key={v.slug} className="rounded-2xl border border-line bg-card p-4">
+                <Link href={`/v/${v.slug}`} className="font-display text-lg font-semibold hover:underline">
+                  {v.name}
+                </Link>
+                <p className="text-sm text-muted">{[v.kind, area(v.area).label].filter(Boolean).join(" · ")}</p>
+                <div className="mt-1">
+                  <GoogleRating venue={v} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {AREAS.map((a) => {
-        const list = venues.filter((v) => v.area === a.key && !v.recommended);
+        const list = venues.filter((v) => v.area === a.key && !v.recommended && !v.stay);
         if (!list.length) return null;
         return (
           <section key={a.key}>

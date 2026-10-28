@@ -243,6 +243,7 @@ const MIGRATIONS: [table: string, column: string, def: string][] = [
   ["venues", "google_rating", "REAL"],
   ["venues", "google_reviews", "INTEGER"],
   ["venues", "google_checked", "TEXT"],
+  ["venues", "stay", "INTEGER NOT NULL DEFAULT 0"], // hostels, guesthouses: shown on the map as places to stay
 ];
 
 // Changes whenever the schema, a migration or the starter venues change, so a cold start only
@@ -368,16 +369,18 @@ async function setUp(client: Client, local: boolean) {
   // Starter venues: added if missing, never overwritten (pins may have been corrected in Admin).
   await client.batch(
     VENUE_SEED.map((v) => ({
-      sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, coords_verified, address, description, recommended, kind, website,
-              google_url, google_rating, google_reviews, google_checked)
-            VALUES (@slug, @name, @area, @lat, @lng, @coords_verified, @address, @description, @recommended, @kind, @website,
-              @google_url, @google_rating, @google_reviews, @google_checked)`,
+      sql: `INSERT OR IGNORE INTO venues (slug, name, area, lat, lng, coords_verified, address, description, instagram, recommended, kind,
+              website, stay, google_url, google_rating, google_reviews, google_checked)
+            VALUES (@slug, @name, @area, @lat, @lng, @coords_verified, @address, @description, @instagram, @recommended, @kind,
+              @website, @stay, @google_url, @google_rating, @google_reviews, @google_checked)`,
       args: toArgs([
         {
           ...v,
           coords_verified: v.coords_verified ? 1 : 0,
           recommended: typeof v.recommended === "number" ? v.recommended : v.recommended ? 1 : 0,
           kind: v.kind ?? null,
+          instagram: v.instagram ?? null,
+          stay: v.stay ? 1 : 0,
           website: v.website ?? null,
           google_url: v.google_url ?? null,
           google_rating: v.google_rating ?? null,
