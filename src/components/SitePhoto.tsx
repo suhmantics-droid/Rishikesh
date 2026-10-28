@@ -26,7 +26,8 @@ export function SitePhoto({
     );
   }
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    // Callers that place the photo themselves (absolute inset-0) must not also get relative: it wins and the box collapses.
+    <div className={`${/(absolute|fixed)/.test(className) ? "" : "relative "}overflow-hidden ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`/f/${photo.id}.webp`}
