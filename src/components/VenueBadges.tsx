@@ -26,7 +26,7 @@ export function GoogleRating({
       className="inline-flex items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink"
     >
       <span className="text-saffron">★</span> {venue.google_rating.toFixed(1)}
-      {venue.google_reviews ? <span className="text-muted">· {venue.google_reviews} Google reviews</span> : null}
+      {venue.google_reviews ? <span className="text-muted">· {venue.google_reviews.toLocaleString("en-IN")} Google reviews</span> : null}
     </a>
   );
 }
