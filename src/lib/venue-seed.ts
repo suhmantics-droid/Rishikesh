@@ -39,7 +39,6 @@ export const VENUE_SEED: SeedVenue[] = [
     description: "Traditional hatha yoga, taught with care for alignment. Drop-in classes and teacher training.",
     recommended: 2,
     kind: "Yoga school",
-    website: "https://yogupasana.com",
     google_url: "https://www.google.com/maps/place/Yog+Upasana/@30.132054,78.3202483,17z",
     google_rating: 4.7,
     google_reviews: 181,
@@ -66,6 +65,8 @@ export const VENUE_SEED: SeedVenue[] = [
   // Places to stay: well-reviewed hostels in Tapovan, from their Google Maps listings (descriptions are Google's summaries).
   {
     slug: "the-hosteller-upper-tapovan",
+    instagram: "thehosteller",
+    website: "https://www.thehosteller.com",
     name: "The Hosteller",
     area: "upper-tapovan",
     lat: 30.1315036,
@@ -82,6 +83,8 @@ export const VENUE_SEED: SeedVenue[] = [
   },
   {
     slug: "live-free-hostel",
+    instagram: "livefreehostels",
+    website: "https://livefreehostels.com",
     name: "Live Free Hostel",
     area: "lower-tapovan",
     lat: 30.127819,
@@ -98,6 +101,8 @@ export const VENUE_SEED: SeedVenue[] = [
   },
   {
     slug: "blue-jay-hostel",
+    instagram: "bluejayhostels",
+    website: "https://www.bluejayhostels.com",
     name: "Blue Jay Hostel",
     area: "lower-tapovan",
     lat: 30.1300893,
@@ -114,6 +119,8 @@ export const VENUE_SEED: SeedVenue[] = [
   },
   {
     slug: "shalom-backpackers",
+    instagram: "shalombackpackers",
+    website: "https://shalombackpackers.com",
     name: "Shalom Backpackers",
     area: "lower-tapovan",
     lat: 30.1271611,
@@ -130,6 +137,8 @@ export const VENUE_SEED: SeedVenue[] = [
   },
   {
     slug: "zostel-tapovan",
+    instagram: "zostel",
+    website: "https://www.zostel.com",
     name: "Zostel Rishikesh (Tapovan)",
     area: "lower-tapovan",
     lat: 30.129844,

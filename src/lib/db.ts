@@ -391,6 +391,31 @@ async function setUp(client: Client, local: boolean) {
     })),
     "write",
   );
+  // Details the starter list has gained since a venue was first added: filled in where blank, never
+  // overwriting what was set in Admin.
+  await client.batch(
+    VENUE_SEED.map((v) => ({
+      sql: `UPDATE venues SET instagram = COALESCE(instagram, @instagram), website = COALESCE(website, @website), kind = COALESCE(kind, @kind),
+              google_url = COALESCE(google_url, @google_url), google_rating = COALESCE(google_rating, @google_rating),
+              google_reviews = COALESCE(google_reviews, @google_reviews), google_checked = COALESCE(google_checked, @google_checked)
+            WHERE slug = @slug`,
+      args: toArgs([
+        {
+          slug: v.slug,
+          instagram: v.instagram ?? null,
+          website: v.website ?? null,
+          kind: v.kind ?? null,
+          google_url: v.google_url ?? null,
+          google_rating: v.google_rating ?? null,
+          google_reviews: v.google_reviews ?? null,
+          google_checked: v.google_checked ?? null,
+        },
+      ]),
+    })),
+    "write",
+  );
+  // One-off corrections. yogupasana.com is an empty placeholder site.
+  await client.execute("UPDATE venues SET website = NULL WHERE slug = 'yog-upasana' AND website = 'https://yogupasana.com'");
   await client.execute({ sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('_SCHEMA_VERSION', ?)", args: [SCHEMA_VERSION] });
 }
 
