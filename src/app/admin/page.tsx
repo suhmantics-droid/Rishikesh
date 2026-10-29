@@ -18,6 +18,7 @@ import { aiEnabled } from "@/lib/extract";
 import { area, rupees, SITE } from "@/lib/site";
 import { flyerUrl, whatsappNumber } from "@/lib/util";
 import {
+  askChanges,
   approve,
   clearDemoData,
   deleteListing,
@@ -153,15 +154,15 @@ async function Queue({ today }: { today: string }) {
   const d = db();
   const submitted = (await d
     .prepare(
-      `SELECT p.id AS pid, p.provider, p.upi_ref, p.purpose, p.amount_paise, p.created_at, e.id, e.title, e.flyer, e.manage_token,
+      `SELECT p.id AS pid, p.provider, p.upi_ref, p.purpose, p.amount_paise, p.created_at, e.id, e.title, e.status AS e_status, e.review_note, e.flyer, e.manage_token,
               e.organiser_name, e.organiser_email, e.organiser_whatsapp, e.contact_phone
        FROM payments p JOIN events e ON e.id = p.event_id WHERE p.status = 'submitted' ORDER BY p.created_at`,
     )
     .all()) as Record<string, string | number | null>[];
   const unpaid = (await d
     .prepare(
-      `SELECT e.id, e.title, e.flyer, e.manage_token, e.organiser_email, e.organiser_whatsapp, e.contact_phone, e.created_at FROM events e
-       WHERE e.status = 'pending_payment' AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.event_id = e.id AND p.status = 'submitted')
+      `SELECT e.id, e.title, e.status AS e_status, e.review_note, e.flyer, e.manage_token, e.organiser_email, e.organiser_whatsapp, e.contact_phone, e.created_at FROM events e
+       WHERE e.status IN ('pending_payment', 'pending_review', 'changes_needed') AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.event_id = e.id AND p.status = 'submitted')
        ORDER BY e.created_at DESC LIMIT 30`,
     )
     .all()) as Record<string, string | number | null>[];
@@ -282,6 +283,8 @@ async function Queue({ today }: { today: string }) {
                   {r.provider === "cash" ? "Cash" : `UPI ref ${r.upi_ref}`} · {rupees(Number(r.amount_paise))} · {r.purpose} · {String(r.organiser_name ?? "")} {String(r.organiser_email ?? "")} {String(r.contact_phone ?? "")}
                 </div>
                 <OrganiserWhatsApp n={r.organiser_whatsapp ?? r.contact_phone} title={String(r.title)} token={String(r.manage_token)} />
+              <AskChanges id={Number(r.id)} status={r.e_status} note={r.review_note} />
+                <AskChanges id={Number(r.id)} status={r.e_status} note={r.review_note} />
               </div>
               <form action={approve}>
                 <input type="hidden" name="id" value={Number(r.pid)} />
@@ -320,8 +323,8 @@ async function Queue({ today }: { today: string }) {
       </section>
 
       <section>
-        <h2 className="mb-1 font-display text-xl font-semibold">Started but not submitted ({unpaid.length})</h2>
-        <p className="mb-2 text-sm text-muted">Organisers who filled in a flyer but didn&apos;t finish. If they pay you in person, publish here.</p>
+        <h2 className="mb-1 font-display text-xl font-semibold">Other flyers waiting ({unpaid.length})</h2>
+        <p className="mb-2 text-sm text-muted">Sent without the review step, or not finished yet. Check it, then publish once they&apos;ve paid.</p>
         <ul className="grid gap-2">
           {unpaid.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card p-3 text-sm">
@@ -332,6 +335,7 @@ async function Queue({ today }: { today: string }) {
                 {String(r.organiser_email ?? "")} · {formatDayLong(String(r.created_at).slice(0, 10), today)}
               </span>
               <OrganiserWhatsApp n={r.organiser_whatsapp ?? r.contact_phone} title={String(r.title)} token={String(r.manage_token)} />
+              <AskChanges id={Number(r.id)} status={r.e_status} note={r.review_note} />
               <form action={publishCash} className="ml-auto flex gap-2">
                 <input type="hidden" name="id" value={Number(r.id)} />
                 <button className={btnDark}>Cash received — publish</button>
@@ -602,5 +606,18 @@ function OrganiserWhatsApp({ n, title, token }: { n: string | number | null | un
     <a href={`https://wa.me/${num}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="block text-sm font-bold text-act-ink underline">
       WhatsApp the organiser
     </a>
+  );
+}
+
+/** Ask the organiser a question: the flyer shows "Changes needed" with this note until they edit it. */
+function AskChanges({ id, status, note }: { id: number; status: unknown; note: unknown }) {
+  if (status === "changes_needed")
+    return <p className="w-full text-sm text-warn">Waiting for the organiser: &ldquo;{String(note ?? "")}&rdquo;</p>;
+  return (
+    <form action={askChanges} className="flex w-full gap-2">
+      <input type="hidden" name="id" value={id} />
+      <input name="note" required maxLength={300} placeholder="Question for the organiser, e.g. the flyer says 6:15pm, the form says 6pm" className="min-w-0 flex-1 border border-line bg-surface px-2 py-1.5 text-sm" />
+      <button className="shrink-0 border border-ink px-3 text-sm font-bold">Ask for changes</button>
+    </form>
   );
 }

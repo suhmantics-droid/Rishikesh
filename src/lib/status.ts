@@ -1,9 +1,11 @@
 import { addDays, formatDay } from "./dates";
 
-export type ListingStatus = { key: "draft" | "review" | "live" | "ending" | "ended" | "down"; word: string; detail: string };
+export type ListingStatus = { key: "draft" | "review" | "changes" | "live" | "ending" | "ended" | "down"; word: string; detail: string };
 
 /** The organiser's view of a listing, in the same words everywhere (Mine, the manage page, WhatsApp). */
-export function listingStatus(e: { status: string; live_until: string | null }, isLive: boolean, today: string): ListingStatus {
+export function listingStatus(e: { status: string; live_until: string | null; review_note?: string | null }, isLive: boolean, today: string): ListingStatus {
+  if (e.status === "changes_needed")
+    return { key: "changes", word: "Changes needed", detail: e.review_note ? `\u201c${e.review_note}\u201d` : "We have a question about it. Check WhatsApp, then fix it here." };
   if (e.status === "pending_payment") return { key: "draft", word: "Not sent yet", detail: "Send it for review to put it on the wall." };
   if (e.status === "pending_review")
     return { key: "review", word: "In review", detail: "We check it the same day and message you on WhatsApp." };
@@ -16,6 +18,7 @@ export function listingStatus(e: { status: string; live_until: string | null }, 
 
 export const STATUS_TONE: Record<ListingStatus["key"], string> = {
   draft: "bg-surface text-ink border-ink border-dashed",
+  changes: "bg-warn-soft text-warn-soft-ink border-warn",
   review: "bg-now-soft text-ink border-now",
   live: "bg-act text-on-act border-act",
   ending: "bg-now text-on-now border-now",

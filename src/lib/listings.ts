@@ -266,3 +266,15 @@ export async function publishOrRenew(eventId: number): Promise<{ liveUntil: stri
 export async function setStatus(eventId: number, status: "live" | "hidden" | "rejected" | "pending_review") {
   await db().prepare("UPDATE events SET status=?, updated_at=datetime('now') WHERE id=?").run(status, eventId);
 }
+
+/** Review found something to fix: the flyer waits with our question until the organiser edits it. */
+export async function requestChanges(eventId: number, note: string) {
+  await db()
+    .prepare("UPDATE events SET status='changes_needed', review_note=?, updated_at=datetime('now') WHERE id=? AND status IN ('pending_payment','pending_review','changes_needed')")
+    .run(note.trim().slice(0, 300), eventId);
+}
+
+/** The organiser edited a flyer we'd asked about: it goes back into review. */
+export async function backToReview(eventId: number) {
+  await db().prepare("UPDATE events SET status='pending_review', updated_at=datetime('now') WHERE id=? AND status='changes_needed'").run(eventId);
+}

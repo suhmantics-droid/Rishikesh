@@ -7,7 +7,7 @@ import { configSource, setConfig, SETTINGS } from "@/lib/config";
 import { runJobs } from "@/lib/cron";
 import { db, deleteOrphans } from "@/lib/db";
 import { addDays, todayIST } from "@/lib/dates";
-import { setStatus } from "@/lib/listings";
+import { requestChanges, setStatus } from "@/lib/listings";
 import { adminPublish, approvePayment, rejectPayment } from "@/lib/payments";
 import { AREAS, LISTING } from "@/lib/site";
 import { importStarter } from "@/lib/starter";
@@ -39,6 +39,13 @@ export async function reject(form: FormData) {
   await guard();
   await rejectPayment(id(form));
   await setStatus(id(form, "event"), "rejected");
+  refresh();
+}
+
+export async function askChanges(form: FormData) {
+  await guard();
+  const note = String(form.get("note") ?? "").trim();
+  if (note) await requestChanges(id(form), note);
   refresh();
 }
 

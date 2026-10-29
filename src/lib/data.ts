@@ -346,6 +346,7 @@ export type EventDetail = {
     organiser_name: string | null;
     organiser_email: string | null;
     organiser_whatsapp: string | null;
+    review_note: string | null;
     manage_token: string;
     published_at: string | null;
     featured: number;

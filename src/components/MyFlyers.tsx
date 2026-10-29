@@ -51,7 +51,7 @@ export function RememberListing({ token, title }: { token: string; title: string
   return null;
 }
 
-type Info = { title: string; slug: string; status: string; live_until: string | null; is_live: boolean; views: number; thumb: string | null };
+type Info = { title: string; slug: string; status: string; review_note: string | null; live_until: string | null; is_live: boolean; views: number; thumb: string | null };
 
 export function MyFlyers() {
   const saved = useSyncExternalStore(subscribe, snapshot, () => EMPTY);

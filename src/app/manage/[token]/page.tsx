@@ -71,6 +71,17 @@ async function Manage({ params, searchParams }: Pick<PageProps<"/manage/[token]"
         <p className="text-[16px] text-ink-2">{st.detail}</p>
       </div>
 
+      {st.key === "changes" ? (
+        <div className="flex flex-col items-start gap-2 border-l-4 border-warn bg-surface p-4 shadow-e1">
+          <span className="text-[17px] font-bold">One thing to fix before it goes up</span>
+          {event.review_note ? <p className="text-[17px] text-ink-2">&ldquo;{event.review_note}&rdquo;</p> : null}
+          <Link href={`/post?edit=${token}`} className="mt-1 inline-flex min-h-12 items-center bg-ink px-5 text-[16px] font-bold text-wall">
+            Fix it
+          </Link>
+          <span className="text-[15px] text-muted">Saving your changes sends it straight back for review.</span>
+        </div>
+      ) : null}
+
       {st.key === "review" || st.key === "draft" ? (
         <ol className="flex flex-col gap-3 border-l-2 border-line-strong pl-4">
           <Step on={st.key === "review"} label="Now">

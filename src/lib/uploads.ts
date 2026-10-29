@@ -76,7 +76,7 @@ export async function findDuplicates(uploadId: string): Promise<Duplicate[]> {
     .prepare(
       `SELECT e.slug, e.title, e.status, e.links, u.phash, p.phash AS parent_phash
        FROM events e LEFT JOIN uploads u ON u.id = e.flyer LEFT JOIN uploads p ON p.id = u.parent
-       WHERE e.status IN ('live', 'pending_payment', 'pending_review') AND (e.live_until IS NULL OR e.live_until >= ?)
+       WHERE e.status IN ('live', 'pending_payment', 'pending_review', 'changes_needed') AND (e.live_until IS NULL OR e.live_until >= ?)
          AND e.flyer IS NOT ? AND (u.parent IS NULL OR u.parent != ?)`,
     )
     .all(todayIST(), uploadId, uploadId)) as { slug: string; title: string; status: string; links: string | null; phash: string | null; parent_phash: string | null }[];

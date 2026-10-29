@@ -1,6 +1,6 @@
 import { getEventByToken } from "@/lib/data";
 import { flyerUrl } from "@/lib/util";
-import { ListingError, ListingInput, updateListing } from "@/lib/listings";
+import { backToReview, ListingError, ListingInput, updateListing } from "@/lib/listings";
 
 // The manage token is the organiser's key: whoever has the link can edit the listing.
 
@@ -32,6 +32,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/listings/[token
     // For "My flyers" on the organiser's phone.
     slug: event.slug,
     status: event.status,
+    review_note: event.review_note ?? null,
     live_until: event.live_until,
     is_live: d.isLive,
     views: event.views,
@@ -49,6 +50,8 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/listings/[token]
   }
   try {
     await updateListing(d.event.id, parsed.data);
+    // Fixed after we asked a question: back into review.
+    await backToReview(d.event.id);
     return Response.json({ slug: d.event.slug, manageToken: d.event.manage_token });
   } catch (e) {
     if (e instanceof ListingError) return Response.json({ error: e.message }, { status: 400 });
