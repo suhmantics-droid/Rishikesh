@@ -9,7 +9,7 @@ import { area, AREAS } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Places",
-  description: "Recommended places, hostels, cafes, yoga and sound healing studios, and the venues where things happen in Tapovan, with their Google ratings.",
+  description: "Recommended places, places to stay, cafes, yoga, sound healing and Ayurveda, and the venues where things happen in Tapovan, with their Google ratings.",
 };
 
 const SHOWS = [
@@ -17,7 +17,7 @@ const SHOWS = [
   { key: "recommended", label: "Recommended" },
   { key: "stays", label: "Stays" },
   { key: "eat", label: "Cafes" },
-  { key: "wellness", label: "Studios" },
+  { key: "wellness", label: "Wellness" },
   { key: "venues", label: "Venues" },
 ] as const;
 type Show = (typeof SHOWS)[number]["key"];
@@ -36,9 +36,12 @@ export default function PlacesPage({ searchParams }: PageProps<"/venues">) {
   );
 }
 
-/** Google rating, pulled towards 4.5 when there are few reviews: a 5.0 from 4 reviews shouldn't beat a 4.8 from 800. */
+/**
+ * Google rating, pulled towards 4.5 until a place has a few hundred reviews: the best-rated AND most-reviewed
+ * come first, so a 5.0 from 100 reviews doesn't sit above a 4.7 from 8,000.
+ */
 const trusted = (v: { google_rating: number | null; google_reviews: number | null }) =>
-  v.google_rating == null ? 0 : (v.google_rating * (v.google_reviews ?? 0) + 4.5 * 50) / ((v.google_reviews ?? 0) + 50);
+  v.google_rating == null ? 0 : (v.google_rating * (v.google_reviews ?? 0) + 4.5 * 200) / ((v.google_reviews ?? 0) + 200);
 
 type V = Awaited<ReturnType<typeof listVenuesWithCounts>>[number];
 
@@ -55,8 +58,8 @@ async function List({ searchParams }: { searchParams: PageProps<"/venues">["sear
 
   const sections: { key: Show; title: string; note?: string; list: V[]; limit: number }[] = [
     { key: "recommended", title: "Recommended", note: "Our own picks. Never paid for.", list: recommended, limit: 99 },
-    { key: "stays", title: "Places to stay", list: stays, limit: 3 },
-    { key: "wellness", title: "Yoga and sound healing studios", list: guide("wellness"), limit: 4 },
+    { key: "stays", title: "Places to stay", list: stays, limit: 4 },
+    { key: "wellness", title: "Yoga, sound healing and Ayurveda", list: guide("wellness"), limit: 4 },
     { key: "eat", title: "Cafes and food", list: guide("eat"), limit: 4 },
   ];
 
@@ -78,7 +81,7 @@ async function List({ searchParams }: { searchParams: PageProps<"/venues">["sear
           </Link>
         ))}
         <Link href="/artists" className="flex min-h-11 shrink-0 items-center rounded-full border-[1.5px] border-ink px-4 text-[16px] font-semibold whitespace-nowrap hover:bg-wall-2">
-          Artists
+          Musicians
         </Link>
       </nav>
 

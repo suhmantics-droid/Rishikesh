@@ -99,7 +99,7 @@ export function AlertsForm({
   const tabs = [
     { key: "vibes", label: "Vibes" },
     { key: "venues", label: "Venues" },
-    { key: "artists", label: "Artists" },
+    { key: "artists", label: "Musicians" },
   ] as const;
   const vibes = CATEGORIES.filter((c) => c.key !== "other" && (!q || c.label.toLowerCase().includes(q.toLowerCase())));
 
@@ -151,7 +151,7 @@ export function AlertsForm({
                   {a.name}
                 </button>
               ))}
-        {tab === "artists" && artists.length === 0 ? <p className="text-[16px] text-ink-2">Artists appear here as their flyers go up.</p> : null}
+        {tab === "artists" && artists.length === 0 ? <p className="text-[16px] text-ink-2">Musicians appear here as their gig flyers go up.</p> : null}
       </div>
 
       <p className="text-[17px] font-bold">

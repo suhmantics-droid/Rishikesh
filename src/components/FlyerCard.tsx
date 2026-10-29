@@ -79,7 +79,11 @@ export function Slip({ e, today, className = "", style }: { e: EventCard; today:
         <>
           <WeekStrip days={e.days} todayWd={weekday(today)} />
           <span className="slip-time mt-1">
-            {noTime ? `${formatDay(e.next.date, today)} · time not listed` : `Next ${day} ${formatTime(e.next.start_time)}`}
+            {noTime
+              ? `${formatDay(e.next.date, today)} · time not listed`
+              : e.next.date === today
+                ? `Today ${formatTimeRange(e.next.start_time, e.next.end_time)}`
+                : `Next ${day} ${formatTime(e.next.start_time)}`}
           </span>
           {e.next.label ? <span className="slip-name">{e.next.label}</span> : null}
           <span className="slip-meta">{e.title}</span>

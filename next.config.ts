@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     "/admin": ["./seed/starter/**"],
     "/api/admin/starter/[file]": ["./seed/starter/**"],
   },
+  // A short link for snapping flyers on a walk: the admin's photo queue (it asks for the password once).
+  async redirects() {
+    return [{ source: "/drop", destination: "/admin?tab=queue#photos", permanent: false }];
+  },
   cacheComponents: true,
   experimental: {
     // Tapovan's internet drops a lot: keep taps pending and retry them when the connection returns.

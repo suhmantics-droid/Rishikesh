@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { nowTimeIST, todayIST } from "@/lib/dates";
+import { ASSUMED_MINUTES } from "@/lib/now";
 
 // Client-only "now" and "where am I", shared by every card on the page. Both render nothing on the
 // server, so cached pages never show a stale "on now" or someone else's walking time.
@@ -38,7 +39,7 @@ export function liveState(date: string, start: string | null, end: string | null
   if (date !== now.date || !start) return null;
   const n = mins(now.time);
   const s = mins(start);
-  const e = end && end > start ? mins(end) : s + 120;
+  const e = end && end > start ? mins(end) : s + ASSUMED_MINUTES;
   if (n >= s && n < e) return { on: true, label: "On now" };
   if (s > n && s - n <= 90) return { on: false, label: s - n < 60 ? `in ${s - n} min` : `in ${Math.floor((s - n) / 60)}h ${(s - n) % 60}m` };
   return null;

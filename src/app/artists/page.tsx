@@ -6,8 +6,8 @@ import { Icon } from "@/components/Icon";
 import { listArtists } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "Artists",
-  description: "Musicians, DJs, facilitators and teachers playing and leading in Tapovan. Follow the ones you love.",
+  title: "Musicians",
+  description: "Musicians, kirtan singers and DJs playing in Tapovan. Follow the ones you love to hear when they play next.",
 };
 
 export default function ArtistsPage() {
@@ -16,9 +16,9 @@ export default function ArtistsPage() {
       <Link href="/venues" className="inline-flex min-h-11 items-center gap-1 text-[16px] font-bold text-ink-2 hover:text-ink">
         <Icon name="back" size={18} /> Places
       </Link>
-      <h1 className="mt-1 text-[30px] leading-tight font-extrabold [font-stretch:88%] lg:text-[40px]">Artists</h1>
+      <h1 className="mt-1 text-[30px] leading-tight font-extrabold [font-stretch:88%] lg:text-[40px]">Musicians</h1>
       <p className="mt-1 mb-6 max-w-xl text-[16px] text-ink-2">
-        Musicians, DJs, facilitators and teachers from the flyers. Follow someone to hear when their next flyer goes up.
+        Musicians, kirtan singers and DJs from the flyers. Follow someone to hear when they play next.
       </p>
       <Suspense fallback={<div className="h-96 animate-pulse bg-wall-2" />}>
         <List />
@@ -31,7 +31,7 @@ async function List() {
   const showDemo = process.env.NODE_ENV !== "production";
   const artists = (await listArtists()).filter((a) => showDemo || !a.is_demo);
   if (!artists.length)
-    return <p className="border-[1.5px] border-dashed border-line-strong px-4 py-4 text-[16px] text-ink-2">Artists appear here as their flyers go up.</p>;
+    return <p className="border-[1.5px] border-dashed border-line-strong px-4 py-4 text-[16px] text-ink-2">Musicians appear here as their gig flyers go up.</p>;
   const on = artists.filter((a) => a.live_count > 0);
   const rest = artists.filter((a) => a.live_count === 0);
   const Row = ({ a }: { a: (typeof artists)[number] }) => (

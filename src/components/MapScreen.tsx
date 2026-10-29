@@ -42,10 +42,12 @@ function when(o: AgendaItem, today: string) {
   return o.occ.date === today ? t : `${formatDay(o.occ.date, today)} ${t}`;
 }
 
-/** "Next today 4:00pm", "Tomorrow 7:00pm": the line people read first. */
+/** "Today 4pm–5:30pm", "Next fri 7am", "Tomorrow 7pm": the line people read first. */
 function nextLine(o: AgendaItem, today: string) {
   const day = formatDay(o.occ.date, today);
   const t = formatTime(o.occ.start_time);
+  // Today's session may already be under way, so give its hours rather than calling it "next".
+  if (o.kind === "classes" && o.occ.date === today) return `Today ${formatTimeRange(o.occ.start_time, o.occ.end_time)}`.trim();
   if (o.kind === "classes") return `Next ${day.toLowerCase()} ${t}`.trim();
   return `${day} ${t}`.trim();
 }

@@ -29,7 +29,7 @@ async function ArtistView({ params }: { params: PageProps<"/a/[slug]">["params"]
   return (
     <div className="mx-auto max-w-6xl px-4 pt-3 pb-8 lg:px-12 lg:pt-6">
       <Link href="/artists" className="inline-flex min-h-11 items-center gap-1 text-[16px] font-bold text-ink-2 hover:text-ink">
-        <Icon name="back" size={18} /> Artists
+        <Icon name="back" size={18} /> Musicians
       </Link>
       <span className="mt-2 block text-[13px] font-extrabold tracking-[0.08em] text-muted uppercase">Artist or facilitator</span>
       <h1 className="text-[30px] leading-tight font-extrabold [font-stretch:88%] lg:text-[40px]">{a.name}</h1>

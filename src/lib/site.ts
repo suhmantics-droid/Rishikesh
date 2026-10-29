@@ -75,6 +75,9 @@ export const TONIGHT_FROM = "18:00";
 /** The kinds people come to Tapovan to practise, behind the one-tap "Practice" chip. */
 export const PRACTICE = ["yoga", "talk", "sound", "kirtan", "ceremony"] as const;
 
+/** Kinds of flyer whose named people are musicians: the Musicians page lists only them, not class teachers. */
+export const MUSIC = ["music", "kirtan", "party"] as const;
+
 /** Day bands for "today" lists, named the way a practising day runs. Devanagari label first. */
 export const DAY_BANDS = [
   { key: "morning", hi: "सुबह", label: "Morning practice", to: "11:59" },

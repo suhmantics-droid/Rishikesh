@@ -7,7 +7,8 @@ import { db } from "./db";
 import { nowTimeIST, todayIST, whenRange } from "./dates";
 import { parseSchedule, type Schedule } from "./listings";
 import type { FlyerLink } from "./links";
-import { PRACTICE, TIME_OPTIONS, TONIGHT_FROM } from "./site";
+import { ASSUMED_MINUTES } from "./now";
+import { MUSIC, PRACTICE, TIME_OPTIONS, TONIGHT_FROM } from "./site";
 import { priceShort } from "./util";
 
 export type Venue = {
@@ -122,7 +123,8 @@ export function isOver(occ: Occurrence, today: string, now: string) {
   let end = occ.end_time && occ.end_time > occ.start_time ? occ.end_time : null;
   if (!end) {
     const [h, m] = occ.start_time.split(":").map(Number);
-    end = h + 3 > 23 ? "23:59" : `${String(h + 3).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const mins = Math.min(h * 60 + m + ASSUMED_MINUTES, 23 * 60 + 59);
+    end = `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
   }
   return end < now;
 }
@@ -417,15 +419,19 @@ export async function listVenues() {
   return (await db().prepare("SELECT * FROM venues ORDER BY name").all()) as Venue[];
 }
 
+/** Musicians: people named on a music, kirtan or party flyer. Teachers from class timetables aren't listed. */
 export async function listArtists() {
   await connection();
   return (await db()
     .prepare(
       `SELECT a.*, (SELECT COUNT(*) FROM event_artists ea JOIN events e ON e.id = ea.event_id
                     WHERE ea.artist_id = a.id AND e.status = 'live' AND e.live_until >= ?) AS live_count
-       FROM artists a ORDER BY live_count DESC, a.name`,
+       FROM artists a
+       WHERE EXISTS (SELECT 1 FROM event_artists ea JOIN events e ON e.id = ea.event_id
+                     WHERE ea.artist_id = a.id AND e.category IN (${MUSIC.map(() => "?").join(",")}))
+       ORDER BY live_count DESC, a.name`,
     )
-    .all(todayIST())) as (Artist & { live_count: number })[];
+    .all(todayIST(), ...MUSIC)) as (Artist & { live_count: number })[];
 }
 
 export async function countLive() {

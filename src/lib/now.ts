@@ -4,6 +4,9 @@ import { TONIGHT_FROM } from "./site";
 /** "Now" means on now, or starting in the next two hours. */
 export const SOON_MINUTES = 120;
 
+/** How long a session with no end time is taken to run: used both to drop finished sessions and for "On now". */
+export const ASSUMED_MINUTES = 120;
+
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 /** On now, or starting within the next two hours. Finished sessions are already left out of the agenda. */

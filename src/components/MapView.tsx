@@ -37,6 +37,8 @@ function sortItems(events: Item[]) {
 
 /** Zoom at which the cafes and studios in the guide appear (street level). */
 const GUIDE_ZOOM = 17;
+/** Zoom at which places to stay appear: one step in from the opening view, so thirty-odd beds don't bury it. */
+const STAY_ZOOM = 16;
 
 /** Card width by zoom: thumbnails grow as you zoom into a lane. */
 const cardWidth = (zoom: number) => (zoom >= 18 ? 120 : zoom >= 17 ? 96 : zoom >= 16 ? 74 : zoom >= 15 ? 58 : 44);
@@ -408,20 +410,21 @@ export default function MapView({
   }
 
   /**
-   * Places (recommended, stays), unless a flyer there already marks the spot. Guide places (cafes,
-   * studios) are many and small: they only appear once the map is zoomed in to street level.
+   * Places (recommended, stays), unless a flyer there already marks the spot. Recommended places always
+   * show; stays appear one zoom step in; guide places (cafes, studios) are many and small, so they only
+   * appear once the map is zoomed in to street level.
    */
   function drawPlaces(taken: string[]) {
     const L = LRef.current;
     const map = mapRef.current;
     const layer = layerRef.current;
     if (!L || !map || !layer) return;
-    const close = map.getZoom() >= GUIDE_ZOOM;
+    const zoom = map.getZoom();
     const busy = [...taken, ...fadedRef.current.map((f) => f.slug)];
     for (const p of placesRef.current) {
       if (busy.includes(p.slug)) continue;
       const featured = p.recommended || p.stay;
-      if (!featured && !close) continue;
+      if (!p.recommended && zoom < (p.stay ? STAY_ZOOM : GUIDE_ZOOM)) continue;
       const [cls, mark] = p.recommended
         ? ["fc-place-rec", iconSvg("recommended", 14)]
         : p.stay
