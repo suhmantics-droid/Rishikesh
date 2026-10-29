@@ -15,8 +15,8 @@ import { payMode } from "@/lib/payments";
 import { starterStatus } from "@/lib/starter";
 import { batchQueue } from "@/lib/uploads";
 import { aiEnabled } from "@/lib/extract";
-import { area, rupees } from "@/lib/site";
-import { flyerUrl } from "@/lib/util";
+import { area, rupees, SITE } from "@/lib/site";
+import { flyerUrl, whatsappNumber } from "@/lib/util";
 import {
   approve,
   clearDemoData,
@@ -154,13 +154,13 @@ async function Queue({ today }: { today: string }) {
   const submitted = (await d
     .prepare(
       `SELECT p.id AS pid, p.provider, p.upi_ref, p.purpose, p.amount_paise, p.created_at, e.id, e.title, e.flyer, e.manage_token,
-              e.organiser_name, e.organiser_email, e.contact_phone
+              e.organiser_name, e.organiser_email, e.organiser_whatsapp, e.contact_phone
        FROM payments p JOIN events e ON e.id = p.event_id WHERE p.status = 'submitted' ORDER BY p.created_at`,
     )
     .all()) as Record<string, string | number | null>[];
   const unpaid = (await d
     .prepare(
-      `SELECT e.id, e.title, e.flyer, e.manage_token, e.organiser_email, e.created_at FROM events e
+      `SELECT e.id, e.title, e.flyer, e.manage_token, e.organiser_email, e.organiser_whatsapp, e.contact_phone, e.created_at FROM events e
        WHERE e.status = 'pending_payment' AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.event_id = e.id AND p.status = 'submitted')
        ORDER BY e.created_at DESC LIMIT 30`,
     )
@@ -265,8 +265,8 @@ async function Queue({ today }: { today: string }) {
         </section>
       ) : null}
       <section>
-        <h2 className="mb-2 font-display text-xl font-semibold">Waiting for payment confirmation ({submitted.length})</h2>
-        {submitted.length === 0 ? <p className="text-sm text-muted">Nothing waiting. 🎉</p> : null}
+        <h2 className="mb-2 font-display text-xl font-semibold">To review: sent by organisers ({submitted.length})</h2>
+        {submitted.length === 0 ? <p className="text-sm text-muted">Nothing waiting.</p> : null}
         <ul className="grid gap-2">
           {submitted.map((r) => (
             <li key={r.pid} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-card p-3">
@@ -279,12 +279,13 @@ async function Queue({ today }: { today: string }) {
                   {r.title}
                 </Link>
                 <div className="text-muted">
-                  {r.provider === "cash" ? "💵 Cash" : `UPI ref ${r.upi_ref}`} · {rupees(Number(r.amount_paise))} · {r.purpose} · {String(r.organiser_name ?? "")} {String(r.organiser_email ?? "")} {String(r.contact_phone ?? "")}
+                  {r.provider === "cash" ? "Cash" : `UPI ref ${r.upi_ref}`} · {rupees(Number(r.amount_paise))} · {r.purpose} · {String(r.organiser_name ?? "")} {String(r.organiser_email ?? "")} {String(r.contact_phone ?? "")}
                 </div>
+                <OrganiserWhatsApp n={r.organiser_whatsapp ?? r.contact_phone} title={String(r.title)} token={String(r.manage_token)} />
               </div>
               <form action={approve}>
                 <input type="hidden" name="id" value={Number(r.pid)} />
-                <button className={btnDark}>✓ Received — publish</button>
+                <button className={btnDark}>Checked and paid: publish</button>
               </form>
               <form action={reject}>
                 <input type="hidden" name="id" value={Number(r.pid)} />
@@ -330,6 +331,7 @@ async function Queue({ today }: { today: string }) {
               <span className="text-muted">
                 {String(r.organiser_email ?? "")} · {formatDayLong(String(r.created_at).slice(0, 10), today)}
               </span>
+              <OrganiserWhatsApp n={r.organiser_whatsapp ?? r.contact_phone} title={String(r.title)} token={String(r.manage_token)} />
               <form action={publishCash} className="ml-auto flex gap-2">
                 <input type="hidden" name="id" value={Number(r.id)} />
                 <button className={btnDark}>Cash received — publish</button>
@@ -588,5 +590,17 @@ async function TopFlyers({ today }: { today: string }) {
       </table>
       <p className="mt-2 text-xs text-muted">Taps = WhatsApp, directions, booking, Instagram, calendar and share buttons.</p>
     </section>
+  );
+}
+
+/** Message the organiser about their flyer (checked, or a question), with their private link. */
+function OrganiserWhatsApp({ n, title, token }: { n: string | number | null | undefined; title: string; token: string }) {
+  const num = whatsappNumber(n == null ? null : String(n));
+  if (!num) return null;
+  const text = `Hi! This is WhatsOnTapovan about your flyer "${title}". Your private link: ${SITE.url}/manage/${token}`;
+  return (
+    <a href={`https://wa.me/${num}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="block text-sm font-bold text-act-ink underline">
+      WhatsApp the organiser
+    </a>
   );
 }

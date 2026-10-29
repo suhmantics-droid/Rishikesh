@@ -6,7 +6,7 @@ const Body = z.object({ email: z.string().trim().email().max(120), follows: Foll
 
 export async function POST(req: Request) {
   if (!rateLimit(`alerts:${clientIp(req)}`, 10, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many requests — try again later." }, { status: 429 });
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Check your email address." }, { status: 400 });

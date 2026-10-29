@@ -65,7 +65,7 @@ export async function subscribe(email: string, follows: Follow[], daily: boolean
       "One tap to confirm",
       `<p>Confirm your email and we'll tell you when new flyers go up for the things you follow in Tapovan.</p>
        ${button(abs(`/api/alerts/confirm?t=${s.token}`), "Confirm alerts")}
-       <p style="font-size:13px;color:#6b655a">Didn't ask for this? Ignore it and you won't hear from us.</p>`,
+       <p style="font-size:13px;color:#4e4b44">Didn't ask for this? Ignore it and you won't hear from us.</p>`,
     ),
   );
   return { status: "confirmation-sent" as const };
@@ -144,7 +144,7 @@ export async function notifyFollowers(eventId: number) {
     await sendEmail(
       s.email,
       `New in Tapovan: ${event.title}`,
-      emailLayout(`${why} — new flyer just went up`, eventEmailBlock(detail), `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these alerts</a>`),
+      emailLayout(`${why}: a new flyer just went up`, eventEmailBlock(detail), `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these alerts</a>`),
     );
     sent++;
   }
@@ -212,9 +212,9 @@ export async function sendDailyDigests() {
     .all(today)) as Subscriber[];
   const list = events
     .map(
-      (i) => `<tr><td style="padding:6px 8px 6px 0;white-space:nowrap;vertical-align:top;color:#6b655a">${formatTimeRange(i.start_time, i.end_time) || "All day"}</td>
-        <td style="padding:6px 0"><a href="${abs(`/e/${i.slug}`)}" style="color:#1d1b16;font-weight:700">${escapeHtml(i.title)}</a><br>
-        <span style="color:#6b655a;font-size:13px">${escapeHtml(i.venue)} · ${escapeHtml(priceLabel(i))}</span></td></tr>`,
+      (i) => `<tr><td style="padding:6px 8px 6px 0;white-space:nowrap;vertical-align:top;color:#4e4b44">${formatTimeRange(i.start_time, i.end_time) || "All day"}</td>
+        <td style="padding:6px 0"><a href="${abs(`/e/${i.slug}`)}" style="color:#1b1a17;font-weight:700">${escapeHtml(i.title)}</a><br>
+        <span style="color:#4e4b44;font-size:13px">${escapeHtml(i.venue)} · ${escapeHtml(priceLabel(i))}</span></td></tr>`,
     )
     .join("");
   for (const s of subs) {
@@ -223,7 +223,7 @@ export async function sendDailyDigests() {
       `Today in Tapovan: ${events.length} thing${events.length === 1 ? "" : "s"} on`,
       emailLayout(
         `What's on today · ${formatDayLong(today)}`,
-        `<table style="width:100%;border-collapse:collapse">${list}</table>${classes ? `<p style="color:#6b655a">Plus ${classes} drop-in class${classes === 1 ? "" : "es"} — <a href="${abs("/today")}">see today's timetables</a>.</p>` : ""}${button(abs("/?when=today"), "Open the map")}`,
+        `<table style="width:100%;border-collapse:collapse">${list}</table>${classes ? `<p style="color:#4e4b44">Plus ${classes} drop-in class${classes === 1 ? "" : "es"}. <a href="${abs("/today")}">See today's timetables</a>.</p>` : ""}${button(abs("/today"), "See what's on")}`,
         `<a href="${abs(`/alerts/${s.token}`)}">Change or stop these emails</a>`,
       ),
     );

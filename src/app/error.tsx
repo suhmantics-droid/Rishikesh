@@ -8,13 +8,13 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
   useEffect(() => console.error(error), [error]);
   return (
     <div className="mx-auto max-w-md px-4 py-20 text-center">
-      <h1 className="font-display text-3xl font-semibold">Something went wrong</h1>
-      <p className="mt-2 text-ink-2">That page didn&apos;t load. It&apos;s usually a blip — try again.</p>
+      <h1 className="text-[30px] leading-tight font-extrabold [font-stretch:88%]">Something went wrong</h1>
+      <p className="mt-2 text-[17px] text-ink-2">That page didn&apos;t load. It&apos;s usually a blip, so try again.</p>
       <div className="mt-6 flex justify-center gap-2">
-        <button onClick={() => retry()} className="rounded-full bg-ganga px-5 py-2.5 font-bold text-on-ganga">
+        <button onClick={() => retry()} className="inline-flex min-h-12 items-center rounded-full bg-ink px-5 text-[16px] font-bold text-wall">
           Try again
         </button>
-        <Link href="/" className="rounded-full border border-line px-5 py-2.5 font-bold">
+        <Link href="/" className="inline-flex min-h-12 items-center rounded-full border-[1.5px] border-ink px-5 text-[16px] font-bold">
           See what&apos;s on
         </Link>
       </div>

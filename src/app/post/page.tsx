@@ -11,13 +11,13 @@ import { LISTING, rupees } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Post a flyer",
-  description: `Put your event on the Tapovan map for ${rupees(LISTING.pricePaise)}. Snap your flyer, add the details, and it's on the map.`,
+  description: `Put your flyer on the Tapovan wall: ${rupees(LISTING.pricePaise)} for ${LISTING.days / 7} weeks, checked the same day.`,
 };
 
 export default function PostPage({ searchParams }: PageProps<"/post">) {
   return (
-    <div className="px-4 py-6 sm:py-10">
-      <Suspense fallback={<div className="mx-auto h-96 max-w-xl animate-pulse rounded-3xl bg-paper-2" />}>
+    <div className="px-4 pt-5 pb-8 lg:pt-8">
+      <Suspense fallback={<div className="mx-auto h-96 max-w-xl animate-pulse bg-wall-2" />}>
         <Flow searchParams={searchParams} />
       </Suspense>
     </div>

@@ -103,7 +103,7 @@ export function locateMe(): Promise<string | null> {
         setHere({ lat: p.coords.latitude, lng: p.coords.longitude });
         resolve(null);
       },
-      (e) => resolve(e.code === e.PERMISSION_DENIED ? "Location is blocked for this site — allow it in your browser settings." : "Couldn't find you — try again outside."),
+      (e) => resolve(e.code === e.PERMISSION_DENIED ? "Location is blocked for this site. Allow it in your browser settings." : "Couldn't find you. Try again outside."),
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
     );
   });

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import type { MapPin, Place } from "@/lib/data";
 import { layoutCollage } from "@/lib/collage";
-import { daysLabel, formatDay, formatTime } from "@/lib/dates";
+import { daysLabel, formatDay, formatTime, WEEKDAY_SHORT, weekday } from "@/lib/dates";
 import { category, SITE } from "@/lib/site";
 import { escapeHtml, flyerUrl } from "@/lib/util";
+import { iconSvg } from "./Icon";
 
 const TILES = process.env.NEXT_PUBLIC_MAP_TILES || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const ATTRIBUTION =
@@ -14,8 +15,28 @@ const ATTRIBUTION =
 
 type Item = MapPin["events"][number];
 
+/** Controls a page can call on the map (zoom buttons, "show me this place"). */
+export type MapApi = { zoomIn: () => void; zoomOut: () => void; focus: (slug: string) => void; zoomTo: (zoom: number) => void };
+
+/** The first session at a venue as a short label: "4:00pm", "Sat 7:00pm", "+1" when there are more. */
+function pinLabel(items: Item[], today: string) {
+  const first = items[0];
+  if (!first) return "";
+  const t = formatTime(first.start_time) || "time n/a";
+  const day = first.date === today ? "" : formatDay(first.date, today) === "Tomorrow" ? "Tomorrow " : `${WEEKDAY_SHORT[weekday(first.date)]} `;
+  return `${day}${t}${items.length > 1 ? ` +${items.length - 1}` : ""}`;
+}
+
+type Rect = { x: number; y: number; w: number; h: number };
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w + 4 && b.x < a.x + a.w + 4 && a.y < b.y + b.h + 4 && b.y < a.y + a.h + 4;
+
+/** Sessions at one venue, most time-sensitive first. */
+function sortItems(events: Item[]) {
+  return [...events].sort((a, b) => a.date.localeCompare(b.date) || (a.start_time ?? "99").localeCompare(b.start_time ?? "99") || Number(a.kind === "classes") - Number(b.kind === "classes"));
+}
+
 /** Zoom at which the cafes and studios in the guide appear (street level). */
-const GUIDE_ZOOM = 16;
+const GUIDE_ZOOM = 17;
 
 /** Card width by zoom: thumbnails grow as you zoom into a lane. */
 const cardWidth = (zoom: number) => (zoom >= 18 ? 120 : zoom >= 17 ? 96 : zoom >= 16 ? 74 : zoom >= 15 ? 58 : 44);
@@ -38,21 +59,14 @@ function when(e: Item, today: string) {
   return `${formatDay(e.date, today)} ${formatTime(e.start_time)}`.trim();
 }
 
-function cardHtml(e: Item, i: number, w: number, h: number, dx: number, dy: number, today: string, extra: number) {
+function cardHtml(e: Item, i: number, w: number, h: number, dx: number, dy: number, today: string, extra: number, slip: string, sel: boolean) {
   const src = flyerUrl(e.flyer, "sm");
-  const isToday = e.date === today;
-  const tag =
-    e.kind === "classes"
-      ? `<span class="fc-tag fc-classes">${escapeHtml(daysLabel(e.days) || "Weekly")}</span>`
-      : isToday
-        ? `<span class="fc-tag fc-today">Today</span>`
-        : "";
   const body = src
     ? `<img src="${src}" alt="" loading="lazy" draggable="false">`
     : `<span class="fc-text" style="border-top:4px solid ${category(e.category).color}">${escapeHtml(e.title)}</span>`;
-  return `<div class="fc-card" role="button" tabindex="0" data-i="${i}" aria-label="${escapeHtml(e.title)}, ${escapeHtml(when(e, today))}"
+  return `<div class="fc-card${sel ? " is-sel" : ""}" role="button" tabindex="0" data-i="${i}" aria-label="${escapeHtml(e.title)}, ${escapeHtml(when(e, today))}"
       style="left:${dx - w / 2}px;top:${dy - h / 2}px;width:${w}px;height:${h}px;transform:rotate(${tilt(e.slug)}deg)">
-      ${body}${tag}<span class="fc-pin"></span>${extra ? `<span class="fc-more">+${extra}</span>` : ""}</div>`;
+      ${body}${slip ? `<span class="fc-slip">${escapeHtml(slip)}</span>` : ""}${extra ? `<span class="fc-more">+${extra}</span>` : ""}</div>`;
 }
 
 /** Thin line from the venue's dot to the card's edge. */
@@ -76,7 +90,7 @@ function popupHtml(e: Item, venue: MapPin, today: string) {
         <b>${escapeHtml(e.title)}</b>
         <span>${escapeHtml(when(e, today))}${e.label ? ` · ${escapeHtml(e.label)}` : ""}</span>
         <span>${escapeHtml(venue.name)} · ${escapeHtml(e.price)}</span>
-        <u>See the flyer →</u>
+        <u>See the flyer</u>
       </span></a>`;
 }
 
@@ -92,20 +106,21 @@ function listPopupHtml(items: Item[], venue: MapPin, today: string) {
 
 /** A recommended place or a place to stay: name, what it is, its Google rating, and a link to its page. */
 function placePopupHtml(p: Place) {
-  const what = [p.recommended ? "✦ Recommended" : p.stay ? "Place to stay" : null, p.kind].filter(Boolean).join(" · ");
-  const rating = p.google_rating ? `★ ${p.google_rating.toFixed(1)}${p.google_reviews ? ` · ${p.google_reviews.toLocaleString("en-IN")} Google reviews` : ""}` : "";
+  const what = [p.recommended ? "Recommended" : p.stay ? "Place to stay" : null, p.kind].filter(Boolean).join(" · ");
+  const rating = p.google_rating ? `Google ${p.google_rating.toFixed(1)} of 5${p.google_reviews ? ` · ${p.google_reviews.toLocaleString("en-IN")} reviews` : ""}` : "";
   return `<a href="/v/${p.slug}" class="fc-pop">
       <span class="fc-pop-body">
         <span class="fc-pop-cat">${escapeHtml(what)}</span>
         <b>${escapeHtml(p.name)}</b>
         ${rating ? `<span>${escapeHtml(rating)}</span>` : ""}
-        <u>See the place →</u>
+        <u>See the place</u>
       </span></a>`;
 }
 
 /**
- * The map as a collage: every flyer pinned near its venue, spread out so none hide each other,
- * with a thread back to the exact spot. Tap a flyer for a preview.
+ * The map. Zoomed out, each place with something on is a dot with its first time on a paper label.
+ * Zoomed in, the flyers themselves are pinned near their venue, spread out so none hide each other,
+ * with a thread back to the spot. Approximate spots get a dashed ring and say so.
  */
 export default function MapView({
   pins,
@@ -116,9 +131,16 @@ export default function MapView({
   picked,
   fit = true,
   insetBottom = 0,
+  insetTop = 0,
   here = null,
   places = [],
   dots = false,
+  faded = [],
+  labelsBelow = 0,
+  onSelect,
+  selected = null,
+  apiRef,
+  onZoom,
 }: {
   pins: MapPin[];
   /** Recommended places and places to stay, drawn as small markers under the flyers. */
@@ -131,12 +153,22 @@ export default function MapView({
   picked?: { lat: number; lng: number } | null;
   /** Zoom to fit the pins (off for a map the visitor has already panned). */
   fit?: boolean;
-  /** Height of a panel covering the bottom of the map, kept clear when framing. */
+  /** Height of a panel covering the bottom (or top) of the map, kept clear when framing. */
   insetBottom?: number;
-  /** The visitor's location, shown as a blue dot. */
+  insetTop?: number;
+  /** The visitor's location, shown as a dot. */
   here?: { lat: number; lng: number } | null;
   /** Calm mode: a dot per venue (with a count) instead of the flyer collage; tap a dot for what's on. */
   dots?: boolean;
+  /** Places with flyers outside the chosen time: hollow dots, so the map isn't misleadingly empty. */
+  faded?: MapPin[];
+  /** Below this zoom, show time labels instead of flyers (0: always flyers). */
+  labelsBelow?: number;
+  /** Tapping a place selects it (the page shows it in a sheet) instead of opening a popup. */
+  onSelect?: (slug: string) => void;
+  selected?: string | null;
+  apiRef?: MutableRefObject<MapApi | null>;
+  onZoom?: (zoom: number, labels: boolean) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
@@ -146,12 +178,20 @@ export default function MapView({
   const LRef = useRef<typeof import("leaflet") | null>(null);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const onZoomRef = useRef(onZoom);
+  onZoomRef.current = onZoom;
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
+  const fadedRef = useRef(faded);
+  fadedRef.current = faded;
   const placesRef = useRef(places);
   placesRef.current = places;
   const dotsRef = useRef(dots);
   dotsRef.current = dots;
+  const selRef = useRef(selected);
+  selRef.current = selected;
   const hereProp = useRef(here);
   hereProp.current = here;
 
@@ -161,15 +201,33 @@ export default function MapView({
       const L = (await import("leaflet")).default;
       if (cancelled || !el.current || mapRef.current) return;
       LRef.current = L;
-      const map = L.map(el.current, { zoomControl: true, scrollWheelZoom: !!pick }).setView(SITE.mapCenter, SITE.mapZoom);
+      const map = L.map(el.current, { zoomControl: !apiRef, scrollWheelZoom: !!pick || !!apiRef }).setView(SITE.mapCenter, SITE.mapZoom);
       L.tileLayer(TILES, { maxZoom: 19, attribution: ATTRIBUTION }).addTo(map);
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
       map.on("click", (ev: import("leaflet").LeafletMouseEvent) => onPickRef.current?.(ev.latlng.lat, ev.latlng.lng));
-      map.on("zoomend", () => drawCollage());
-      // Keyboard: Enter on a focused flyer card opens its preview.
+      map.on("zoomend", () => {
+        drawCollage();
+        reportZoom();
+      });
+      if (apiRef) {
+        apiRef.current = {
+          zoomIn: () => map.zoomIn(),
+          zoomOut: () => map.zoomOut(),
+          zoomTo: (z) => map.setZoom(z),
+          focus: (slug) => {
+            const p = [...pinsRef.current, ...fadedRef.current].find((x) => x.slug === slug);
+            if (!p) return;
+            const z = Math.max(map.getZoom(), labelsBelow || 16);
+            // Keep the place clear of the sheet over the bottom of the map.
+            const pt = map.project([p.lat, p.lng], z).add([0, insetBottom / 2 - insetTop / 2]);
+            map.setView(map.unproject(pt, z), z);
+          },
+        };
+      }
+      // Keyboard: Enter on a focused flyer card or label opens it.
       el.current.addEventListener("keydown", (ev) => {
-        const card = (ev.target as HTMLElement).closest?.(".fc-card") as HTMLElement | null;
+        const card = (ev.target as HTMLElement).closest?.(".fc-card, .fc-lab") as HTMLElement | null;
         if (card && (ev.key === "Enter" || ev.key === " ")) {
           ev.preventDefault();
           card.click();
@@ -182,6 +240,7 @@ export default function MapView({
           map.invalidateSize();
           frame(true);
           drawHere();
+          reportZoom();
         }, 60),
       );
     })();
@@ -189,11 +248,32 @@ export default function MapView({
       cancelled = true;
       mapRef.current?.remove();
       mapRef.current = null;
+      if (apiRef) apiRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Places a card for every flyer, clear of the others, at the current zoom. Returns the collage's pixel extent. */
+  function labelsNow() {
+    const map = mapRef.current;
+    return !!map && !!labelsBelow && map.getZoom() < labelsBelow;
+  }
+  function reportZoom() {
+    const map = mapRef.current;
+    if (map) onZoomRef.current?.(map.getZoom(), labelsNow());
+  }
+
+  /** The dot for a venue: dashed ring when the spot is approximate. */
+  function dotHtml(p: MapPin, hollow = false) {
+    const ring = p.coords_verified ? "" : `<span class="fc-ring" title="Approximate spot"></span>`;
+    return `${ring}<span class="fc-dot${hollow ? " fc-dot-hollow" : ""}"></span>`;
+  }
+
+  function select(slug: string, open: () => void) {
+    if (onSelectRef.current) onSelectRef.current(slug);
+    else open();
+  }
+
+  /** Places a label or card for every venue at the current zoom. Returns the collage's pixel extent. */
   function drawCollage() {
     const L = LRef.current;
     const map = mapRef.current;
@@ -201,25 +281,73 @@ export default function MapView({
     if (!L || !map || !layer) return null;
     layer.clearLayers();
     const zoom = map.getZoom();
+    const sel = selRef.current;
     const list = pinsRef.current;
     const venues = list.map((p) => {
       const pt = map.latLngToLayerPoint([p.lat, p.lng]);
-      // Events first, then today's, then by date: the most time-sensitive get the best spots.
-      const items = [...p.events].sort(
-        (a, b) => Number(a.kind === "classes") - Number(b.kind === "classes") || a.date.localeCompare(b.date) || (a.start_time ?? "").localeCompare(b.start_time ?? ""),
-      );
+      const items = sortItems(p.events);
       return { pin: p, items, key: p.slug, x: pt.x, y: pt.y, cards: items.map((e) => cardSize(e, zoom)) };
     });
-    if (dotsRef.current) {
+
+    // Places with flyers at other times: hollow dots, with a quiet label when zoomed out.
+    for (const p of fadedRef.current) {
+      if (list.some((x) => x.slug === p.slug)) continue;
+      const items = sortItems(p.events);
+      const first = items[0];
+      const note = labelsNow() && first && !list.length ? `<span class="fc-lab fc-lab-faded" role="button" tabindex="0">${escapeHtml(pinLabel(items, today))}<small>${escapeHtml(p.name)} · ${escapeHtml(category(first.category).short.toLowerCase())}</small></span>` : "";
+      const marker = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: "fc-marker", html: dotHtml(p, true) + note, iconSize: [0, 0] }), keyboard: false, zIndexOffset: -200 }).addTo(layer);
+      marker.on("click", () =>
+        select(p.slug, () =>
+          L.popup({ offset: L.point(0, -8), maxWidth: 280, minWidth: 220, className: "fc-popup" }).setLatLng([p.lat, p.lng]).setContent(listPopupHtml(items, p, today)).openOn(map),
+        ),
+      );
+    }
+
+    if (dotsRef.current || labelsNow()) {
+      // Labels go right of the dot, else left, above or below; one that fits nowhere is left off
+      // (the dot stays, and tapping it still opens the place).
+      const taken: Rect[] = venues.map((v) => ({ x: v.x - 9, y: v.y - 9, w: 18, h: 18 }));
+      const origin = map.containerPointToLayerPoint([0, 0]);
+      const view = { x: origin.x, y: origin.y, w: map.getSize().x, h: map.getSize().y };
+      const inView = (r: Rect) => r.x >= view.x + 4 && r.y >= view.y + 4 && r.x + r.w <= view.x + view.w - 64 && r.y + r.h <= view.y + view.h - 4;
+      const order = [...venues].sort((a, b) => Number(b.key === sel) - Number(a.key === sel) || (a.items[0]?.start_time ?? "99").localeCompare(b.items[0]?.start_time ?? "99"));
+      const spots = new Map<string, { x: number; y: number } | null>();
+      for (const v of order) {
+        if (dotsRef.current) break;
+        const name = `${v.pin.name}${v.pin.coords_verified ? "" : " · approx."}`;
+        const w = Math.round(Math.max(pinLabel(v.items, today).length * 7.4, Math.min(name.length, 30) * 6.9) + 18);
+        const h = 40;
+        const options = [
+          { x: 12, y: -14 },
+          { x: -12 - w, y: -14 },
+          { x: -w / 2, y: -h - 12 },
+          { x: -w / 2, y: 12 },
+        ];
+        const own = { x: v.x - 9, y: v.y - 9, w: 18, h: 18 };
+        const free = (o: { x: number; y: number }) => {
+          const r = { x: v.x + o.x, y: v.y + o.y, w, h };
+          return !taken.some((t) => t !== taken.find((q) => q.x === own.x && q.y === own.y) && overlaps(t, r));
+        };
+        const fit = options.find((o) => free(o) && inView({ x: v.x + o.x, y: v.y + o.y, w, h })) ?? options.find(free);
+        spots.set(v.key, fit ?? null);
+        if (fit) taken.push({ x: v.x + fit.x, y: v.y + fit.y, w, h });
+      }
       for (const v of venues) {
         const n = v.items.length;
-        const html = `<span class="fc-dot fc-dot-lg" style="background:${category(v.items[0]?.category ?? "other").color}"></span>${n > 1 ? `<span class="fc-count">${n}</span>` : ""}`;
-        const marker = L.marker([v.pin.lat, v.pin.lng], { icon: L.divIcon({ className: "fc-marker", html, iconSize: [0, 0] }), keyboard: false, riseOnHover: true }).addTo(layer);
+        const approx = v.pin.coords_verified ? "" : " · approx.";
+        const spot = spots.get(v.key);
+        const label = spot
+          ? `<span class="fc-lab${sel === v.key ? " is-sel" : ""}" style="left:${spot.x}px;top:${spot.y}px;max-width:230px" role="button" tabindex="0" aria-label="${escapeHtml(v.pin.name)}: ${escapeHtml(pinLabel(v.items, today))}">${escapeHtml(pinLabel(v.items, today))}<small>${escapeHtml(v.pin.name)}${approx}</small></span>`
+          : "";
+        const html = dotsRef.current ? `${dotHtml(v.pin)}${n > 1 ? `<span class="fc-count">${n}</span>` : ""}` : `${dotHtml(v.pin)}${label}`;
+        const marker = L.marker([v.pin.lat, v.pin.lng], { icon: L.divIcon({ className: "fc-marker", html, iconSize: [0, 0] }), keyboard: false, riseOnHover: true, zIndexOffset: sel === v.key ? 1000 : 0 }).addTo(layer);
         marker.on("click", () =>
-          L.popup({ offset: L.point(0, -8), maxWidth: 280, minWidth: 220, className: "fc-popup" })
-            .setLatLng([v.pin.lat, v.pin.lng])
-            .setContent(n === 1 ? popupHtml(v.items[0], v.pin, today) : listPopupHtml(v.items, v.pin, today))
-            .openOn(map),
+          select(v.key, () =>
+            L.popup({ offset: L.point(0, -8), maxWidth: 280, minWidth: 220, className: "fc-popup" })
+              .setLatLng([v.pin.lat, v.pin.lng])
+              .setContent(n === 1 ? popupHtml(v.items[0], v.pin, today) : listPopupHtml(v.items, v.pin, today))
+              .openOn(map),
+          ),
         );
       }
       drawPlaces(venues.map((v) => v.key));
@@ -239,23 +367,26 @@ export default function MapView({
       box.x0 = Math.min(box.x0, v.x + pl.dx - w / 2);
       box.x1 = Math.max(box.x1, v.x + pl.dx + w / 2);
       box.y0 = Math.min(box.y0, v.y + pl.dy - h / 2 - 6);
-      box.y1 = Math.max(box.y1, v.y + pl.dy + h / 2);
+      box.y1 = Math.max(box.y1, v.y + pl.dy + h / 2 + 14);
     }
     for (const v of venues) {
       const mine = placed.filter((pl) => pl.venue === v.key);
       const extra = hidden[v.key] ?? 0;
       let html = "";
       for (const pl of mine) html += leaderHtml(pl.dx, pl.dy, v.cards[pl.card].h);
-      html += `<span class="fc-dot" style="background:${category(v.items[0]?.category ?? "other").color}"></span>`;
+      html += dotHtml(v.pin);
       for (const [n, pl] of mine.entries()) {
         const { w, h } = v.cards[pl.card];
-        html += cardHtml(v.items[pl.card], pl.card, w, h, pl.dx, pl.dy, today, n === 0 ? extra : 0);
+        const e = v.items[pl.card];
+        const slip = w >= 58 ? `${formatTime(e.start_time) || formatDay(e.date, today)}${n === 0 && !v.pin.coords_verified ? " · approx." : ""}` : "";
+        html += cardHtml(e, pl.card, w, h, pl.dx, pl.dy, today, n === 0 ? extra : 0, slip, sel === v.key);
       }
       if (!mine.length && extra) html += `<span class="fc-more fc-more-dot">+${extra}</span>`;
       const marker = L.marker([v.pin.lat, v.pin.lng], {
         icon: L.divIcon({ className: "fc-marker", html, iconSize: [0, 0] }),
         keyboard: false,
         riseOnHover: true,
+        zIndexOffset: sel === v.key ? 1000 : 0,
       }).addTo(layer);
       marker.on("click", (ev: import("leaflet").LeafletMouseEvent) => {
         const card = (ev.originalEvent.target as HTMLElement).closest?.(".fc-card") as HTMLElement | null;
@@ -264,10 +395,12 @@ export default function MapView({
         const item = v.items[index] ?? v.items[0];
         if (!item) return;
         const h = pl ? v.cards[pl.card].h : 0;
-        L.popup({ offset: L.point(pl?.dx ?? 0, (pl?.dy ?? 0) - h / 2 + 4), maxWidth: 280, minWidth: 220, className: "fc-popup" })
-          .setLatLng([v.pin.lat, v.pin.lng])
-          .setContent(popupHtml(item, v.pin, today))
-          .openOn(map);
+        select(v.key, () =>
+          L.popup({ offset: L.point(pl?.dx ?? 0, (pl?.dy ?? 0) - h / 2 + 4), maxWidth: 280, minWidth: 220, className: "fc-popup" })
+            .setLatLng([v.pin.lat, v.pin.lng])
+            .setContent(popupHtml(item, v.pin, today))
+            .openOn(map),
+        );
       });
     }
     drawPlaces(venues.map((v) => v.key));
@@ -275,8 +408,8 @@ export default function MapView({
   }
 
   /**
-   * Places (✦ recommended, 🛏 stays), unless a flyer there already marks the spot. Guide places (☕ food,
-   * 🧘 studios) are many and small: they only appear once the map is zoomed in to street level.
+   * Places (recommended, stays), unless a flyer there already marks the spot. Guide places (cafes,
+   * studios) are many and small: they only appear once the map is zoomed in to street level.
    */
   function drawPlaces(taken: string[]) {
     const L = LRef.current;
@@ -284,18 +417,23 @@ export default function MapView({
     const layer = layerRef.current;
     if (!L || !map || !layer) return;
     const close = map.getZoom() >= GUIDE_ZOOM;
+    const busy = [...taken, ...fadedRef.current.map((f) => f.slug)];
     for (const p of placesRef.current) {
-      if (taken.includes(p.slug)) continue;
+      if (busy.includes(p.slug)) continue;
       const featured = p.recommended || p.stay;
       if (!featured && !close) continue;
-      const [cls, mark] = p.recommended ? ["fc-place-rec", "✦"] : p.stay ? ["fc-place-stay", "🛏"] : ["fc-place-guide", p.guide === "eat" ? "☕" : "🧘"];
+      const [cls, mark] = p.recommended
+        ? ["fc-place-rec", iconSvg("recommended", 14)]
+        : p.stay
+          ? ["fc-place-stay", iconSvg("stay", 14)]
+          : ["fc-place-guide", iconSvg(p.guide === "eat" ? "cup" : "lotus", 12)];
       const marker = L.marker([p.lat, p.lng], {
         icon: L.divIcon({
           className: "fc-marker",
           html: `<span class="fc-place ${cls}" title="${escapeHtml(p.name)}">${mark}</span>`,
           iconSize: [0, 0],
         }),
-        zIndexOffset: featured ? 0 : -500,
+        zIndexOffset: featured ? -100 : -500,
         keyboard: false,
       }).addTo(layer);
       marker.on("click", () =>
@@ -317,21 +455,24 @@ export default function MapView({
       }).addTo(map);
       if (pick && !map.getBounds().contains([picked.lat, picked.lng])) map.setView([picked.lat, picked.lng], 16);
     }
-    // A quiet week with no flyers: frame the recommended places and stays instead.
-    if (!pick && initial && !list.length && placesRef.current.length) {
-      map.fitBounds(L.latLngBounds(placesRef.current.map((p) => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 16, animate: false });
+    const pad = { paddingTopLeft: [50, 50 + insetTop] as [number, number], paddingBottomRight: [50, 50 + insetBottom] as [number, number], animate: false };
+    // Nothing on in this window: frame the places with flyers at other times, or the recommended places.
+    const fallback = fadedRef.current.length ? fadedRef.current : placesRef.current;
+    if (!pick && initial && !list.length && fallback.length) {
+      map.fitBounds(L.latLngBounds(fallback.map((p) => [p.lat, p.lng])), { ...pad, maxZoom: 16 });
     }
     const framing = !pick && (fit || initial) && list.length > 0;
+    const maxZoom = labelsBelow ? labelsBelow - 1 : 16;
     if (framing) {
-      if (list.length > 1) map.fitBounds(L.latLngBounds(list.map((p) => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 16, animate: false });
-      else map.setView([list[0].lat, list[0].lng], 16, { animate: false });
+      if (list.length > 1) map.fitBounds(L.latLngBounds(list.map((p) => [p.lat, p.lng])), { ...pad, maxZoom });
+      else map.setView([list[0].lat, list[0].lng], maxZoom, { animate: false });
     }
     const box = drawCollage();
     if (framing && box) {
       // Then frame the cards themselves, not just the venue dots, zooming out a step if they don't fit.
       const size = map.getSize();
-      const tooBig = box.x1 - box.x0 > size.x - 24 || box.y1 - box.y0 > size.y - insetBottom - 24;
-      const centre = map.layerPointToLatLng(L.point((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2 + insetBottom / 2));
+      const tooBig = box.x1 - box.x0 > size.x - 24 || box.y1 - box.y0 > size.y - insetBottom - insetTop - 24;
+      const centre = map.layerPointToLatLng(L.point((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2 + insetBottom / 2 - insetTop / 2));
       map.setView(centre, tooBig && map.getZoom() > 14 ? map.getZoom() - 1 : map.getZoom(), { animate: false });
     }
   }
@@ -340,9 +481,14 @@ export default function MapView({
     if (!mapRef.current) return;
     frame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, picked, places]);
+  }, [pins, picked, places, faded]);
 
-  /** The blue "you are here" dot. */
+  useEffect(() => {
+    if (mapRef.current) drawCollage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  /** The "you are here" dot. */
   function drawHere() {
     const L = LRef.current;
     const map = mapRef.current;

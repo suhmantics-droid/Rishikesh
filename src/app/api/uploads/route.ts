@@ -9,7 +9,7 @@ import { clientIp, flyerUrl, rateLimit } from "@/lib/util";
 export async function POST(req: Request) {
   const admin = await isAdmin();
   if (!admin && !rateLimit(`upload:${clientIp(req)}`, 30, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many uploads — try again in a bit." }, { status: 429 });
+    return Response.json({ error: "Too many uploads. Try again in a bit." }, { status: 429 });
   }
   const form = await req.formData();
   const file = form.get("flyer");

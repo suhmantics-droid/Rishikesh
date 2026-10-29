@@ -242,41 +242,90 @@ body {
   border: none;
 }
 
-/* The flyer collage map: each flyer pinned near its venue, threaded back to the spot. */
+/* The flyer map. A place is an ink dot; an approximate spot adds a dashed ring and says so. */
 .fc-marker:hover,
 .fc-marker:focus-within {
   z-index: 100000 !important;
 }
 .fc-dot {
   position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: #1b1a17;
+  border: 2px solid #fffdf7;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+}
+.fc-dot-hollow {
   left: -6px;
   top: -6px;
   width: 12px;
   height: 12px;
-  border-radius: 6px;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  background: #fffdf7;
+  border: 1.5px solid #6a665e;
+  box-shadow: none;
 }
-/* The calm dots map (home sidebar): one dot per venue, a count when several flyers share it. */
-.fc-dot-lg {
-  left: -8px;
-  top: -8px;
-  width: 16px;
-  height: 16px;
-  border-radius: 8px;
+.fc-ring {
+  position: absolute;
+  left: -18px;
+  top: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: rgb(11 107 94 / 0.12);
+  border: 2px dashed #1b1a17;
+}
+/* Zoomed out: a paper label beside the dot with the first time, and the place underneath. */
+.fc-lab {
+  position: absolute;
+  left: 12px;
+  top: -14px;
+  display: block;
+  padding: 4px 8px;
+  background: #fffdf7;
+  color: #1b1a17;
+  font: 800 14px/1.15 var(--font-anek), system-ui, sans-serif;
+  font-stretch: 85%;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px -3px rgb(0 0 0 / 0.45);
   cursor: pointer;
+}
+.fc-lab small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  font-stretch: 100%;
+  letter-spacing: 0;
+  color: #3b3934;
+}
+.fc-lab.is-sel {
+  background: #f2a33a;
+  outline: 2px solid #1b1a17;
+}
+.fc-lab-faded {
+  background: #eae8e3;
+  border: 1.5px solid #8e897f;
+  box-shadow: none;
+  font-size: 13px;
+}
+.fc-lab-faded small {
+  font-size: 12px;
 }
 .fc-count {
   position: absolute;
   left: 4px;
-  top: -18px;
-  min-width: 18px;
-  height: 18px;
+  top: -20px;
+  min-width: 20px;
+  height: 20px;
   padding: 0 5px;
-  border-radius: 9px;
-  background: var(--ink);
-  color: var(--paper);
-  font: 700 11px/18px Inter, system-ui, sans-serif;
+  background: #1b1a17;
+  color: #fffdf7;
+  font: 800 12px/20px var(--font-anek), system-ui, sans-serif;
   text-align: center;
   cursor: pointer;
 }
@@ -288,68 +337,66 @@ body {
   display: flex;
   flex-direction: column;
   padding: 6px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid #cfcbc2;
   color: inherit;
   text-decoration: none;
 }
 .fc-pop-row span,
 .fc-pop-more {
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 13px;
+  color: #4e4b44;
 }
 
-/* Recommended places and places to stay: small round markers under the flyer collage. */
+/* Recommended places, stays, and (zoomed in) cafes and studios: small round markers under the flyers. */
 .fc-place {
   position: absolute;
-  left: -12px;
-  top: -12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
+  left: -13px;
+  top: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  line-height: 1;
-  background: var(--card);
-  border: 2px solid var(--ganga);
+  background: #fffdf7;
+  color: #0b5f54;
+  border: 1.5px solid #0b5f54;
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
   cursor: pointer;
 }
 .fc-place-rec {
-  border-color: var(--saffron);
-  color: var(--saffron-ink);
-  font-weight: 700;
+  color: #7a4e12;
+  border-color: #7a4e12;
 }
-/* Cafes and studios from the guide: smaller and quieter, under everything else. */
 .fc-place-guide {
-  left: -10px;
-  top: -10px;
-  width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  font-size: 10px;
-  border: 1px solid var(--line);
+  left: -11px;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  color: #4e4b44;
+  border: 1px solid #77726a;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
 }
 .fc-dot-picked {
-  left: -10px;
-  top: -10px;
-  width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--saffron);
+  left: -11px;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: #f2a33a;
+  border: 3px solid #1b1a17;
 }
 .fc-here {
   position: absolute;
-  left: -8px;
-  top: -8px;
-  width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
   border: 3px solid #fff;
   background: #1a73e8;
-  box-shadow: 0 0 0 6px rgb(26 115 232 / 0.25), 0 1px 3px rgb(0 0 0 / 0.4);
+  box-shadow: 0 0 0 7px rgb(26 115 232 / 0.22), 0 1px 3px rgb(0 0 0 / 0.4);
 }
 .fc-line {
   position: absolute;
@@ -357,19 +404,18 @@ body {
   pointer-events: none;
 }
 .fc-line line {
-  stroke: var(--ink);
+  stroke: #1b1a17;
   stroke-width: 1.5;
   stroke-opacity: 0.6;
   stroke-dasharray: 3 2;
 }
+/* Zoomed in: the flyer itself, never cropped beyond its thumbnail, with a slip giving the time. */
 .fc-card {
   position: absolute;
-  padding: 2px;
-  border-radius: 3px;
-  background: #fff;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(0 0 0 / 0.06);
+  background: #fffdf7;
+  box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(0 0 0 / 0.06);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--pin-in), box-shadow var(--pin-in);
 }
 .fc-card img {
   display: block;
@@ -382,55 +428,46 @@ body {
 .fc-card:hover,
 .fc-card:focus-visible {
   z-index: 2;
-  transform: scale(1.9) rotate(0deg) !important;
+  transform: scale(1.6) rotate(0deg) !important;
   box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
   outline: none;
 }
-.fc-pin {
+.fc-card.is-sel {
+  outline: 3px solid #1b1a17;
+  outline-offset: 3px;
+}
+.fc-card.is-sel .fc-slip {
+  background: #f2a33a;
+}
+.fc-slip {
   position: absolute;
-  top: -4px;
   left: 50%;
-  width: 9px;
-  height: 9px;
-  margin-left: -4.5px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #ffa36b, #e8672a 60%, #a8471a);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
-}
-.fc-tag {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  left: 2px;
-  color: #fff;
-  font: 700 8px/1.7 var(--font-inter), system-ui, sans-serif;
-  letter-spacing: 0.04em;
-  text-align: center;
-  text-transform: uppercase;
-}
-.fc-today {
-  background: #e8672a;
-}
-.fc-classes {
-  background: #0c7268;
+  bottom: -12px;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  background: #fffdf7;
+  color: #1b1a17;
+  font: 800 12px/1.2 var(--font-anek), system-ui, sans-serif;
+  font-stretch: 85%;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px -3px rgb(0 0 0 / 0.5);
 }
 .fc-more {
   position: absolute;
-  top: -9px;
-  right: -9px;
-  min-width: 20px;
-  height: 20px;
+  top: -10px;
+  right: -10px;
+  min-width: 22px;
+  height: 22px;
   padding: 0 5px;
-  border-radius: 10px;
-  background: var(--ink);
-  color: var(--paper);
-  font: 800 11px/20px system-ui, sans-serif;
+  background: #1b1a17;
+  color: #fffdf7;
+  font: 800 12px/22px var(--font-anek), system-ui, sans-serif;
   text-align: center;
 }
 .fc-more-dot {
-  top: -26px;
+  top: -28px;
   right: auto;
-  left: -10px;
+  left: -11px;
 }
 .fc-text {
   display: flex;
@@ -439,12 +476,21 @@ body {
   height: 100%;
   overflow: hidden;
   padding: 3px;
-  color: #1d1b16;
-  font: 700 8px/1.2 system-ui, sans-serif;
+  color: #1b1a17;
+  font: 700 9px/1.2 var(--font-anek), system-ui, sans-serif;
   text-align: center;
+}
+.fc-popup .leaflet-popup-content-wrapper {
+  border-radius: 0;
+  background: #fffdf7;
+  color: #1b1a17;
+}
+.fc-popup .leaflet-popup-tip {
+  background: #fffdf7;
 }
 .fc-popup .leaflet-popup-content {
   margin: 10px;
+  font-family: var(--font-anek), system-ui, sans-serif;
 }
 .fc-pop {
   display: flex;
@@ -456,7 +502,6 @@ body {
   flex-shrink: 0;
   width: 84px;
   max-height: 124px;
-  border-radius: 6px;
   object-fit: cover;
   object-position: top;
 }
@@ -464,33 +509,38 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: var(--ink-2);
-  font-size: 12px;
+  color: #3b3934;
+  font-size: 14px;
   line-height: 1.35;
 }
 .fc-pop-body b {
-  color: var(--ink);
-  font-size: 14px;
-  line-height: 1.25;
+  color: #1b1a17;
+  font-size: 16px;
+  line-height: 1.2;
 }
 .fc-pop-cat {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: #4e4b44;
 }
 .fc-pop-cat i {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 4px;
 }
 .fc-pop u {
   margin-top: 4px;
-  color: var(--saffron-ink);
+  color: #0b5f54;
   font-weight: 700;
+}
+.leaflet-container {
+  font-family: var(--font-anek), system-ui, sans-serif;
 }
 
 @media print {

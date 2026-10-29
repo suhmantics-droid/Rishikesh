@@ -2,22 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FollowButton } from "@/components/Follow";
+import { Icon } from "@/components/Icon";
 import { listArtists } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Artists",
-  description: "Musicians, DJs, facilitators and teachers playing and leading in Rishikesh — follow the ones you love.",
+  description: "Musicians, DJs, facilitators and teachers playing and leading in Tapovan. Follow the ones you love.",
 };
 
 export default function ArtistsPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <p className="text-sm font-semibold text-saffron-ink">Directory</p>
-      <h1 className="font-display text-4xl font-semibold tracking-tight">Artists</h1>
-      <p className="mt-2 mb-8 max-w-xl text-ink-2">
-        Musicians, DJs, facilitators and teachers from the flyers. Follow someone and you&apos;ll hear the moment their next one goes up.
+    <div className="mx-auto max-w-5xl px-4 pt-3 pb-8 lg:px-12 lg:pt-6">
+      <Link href="/venues" className="inline-flex min-h-11 items-center gap-1 text-[16px] font-bold text-ink-2 hover:text-ink">
+        <Icon name="back" size={18} /> Places
+      </Link>
+      <h1 className="mt-1 text-[30px] leading-tight font-extrabold [font-stretch:88%] lg:text-[40px]">Artists</h1>
+      <p className="mt-1 mb-6 max-w-xl text-[16px] text-ink-2">
+        Musicians, DJs, facilitators and teachers from the flyers. Follow someone to hear when their next flyer goes up.
       </p>
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-paper-2" />}>
+      <Suspense fallback={<div className="h-96 animate-pulse bg-wall-2" />}>
         <List />
       </Suspense>
     </div>
@@ -27,42 +30,38 @@ export default function ArtistsPage() {
 async function List() {
   const showDemo = process.env.NODE_ENV !== "production";
   const artists = (await listArtists()).filter((a) => showDemo || !a.is_demo);
-  if (!artists.length) return <p className="rounded-2xl border border-dashed border-line p-6 text-muted">Artists appear here as flyers go up.</p>;
+  if (!artists.length)
+    return <p className="border-[1.5px] border-dashed border-line-strong px-4 py-4 text-[16px] text-ink-2">Artists appear here as their flyers go up.</p>;
   const on = artists.filter((a) => a.live_count > 0);
   const rest = artists.filter((a) => a.live_count === 0);
   const Row = ({ a }: { a: (typeof artists)[number] }) => (
-    <li className="flex items-center justify-between gap-3 border-b border-line py-3">
-      <div className="min-w-0">
-        <Link href={`/a/${a.slug}`} className="font-display text-lg font-semibold hover:underline">
-          {a.name}
-        </Link>
-        <p className="text-sm text-muted">{a.live_count ? `${a.live_count} upcoming` : "No flyers up right now"}</p>
-      </div>
+    <li className="flex items-center justify-between gap-3 bg-surface px-4 py-2.5 shadow-e1">
+      <Link href={`/a/${a.slug}`} className="flex min-h-11 min-w-0 flex-col justify-center">
+        <span className="text-[17px] font-bold">{a.name}</span>
+        <span className={`text-[15px] ${a.live_count ? "font-bold text-act-ink" : "text-muted"}`}>
+          {a.live_count ? `${a.live_count} flyer${a.live_count === 1 ? "" : "s"} up` : "No flyers up right now"}
+        </span>
+      </Link>
       <FollowButton kind="artist" target={a.slug} label={a.name} compact />
     </li>
   );
   return (
-    <div className="grid gap-10 sm:grid-cols-2">
-      {on.length ? (
-        <section>
-          <h2 className="mb-1 font-display text-2xl font-semibold">On soon</h2>
-          <ul>
-            {on.map((a) => (
-              <Row key={a.slug} a={a} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {rest.length ? (
-        <section>
-          <h2 className="mb-1 font-display text-2xl font-semibold">Everyone else</h2>
-          <ul>
-            {rest.map((a) => (
-              <Row key={a.slug} a={a} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+    <div className="grid gap-9 sm:grid-cols-2 sm:gap-6">
+      {[
+        ["On soon", on],
+        ["Everyone else", rest],
+      ].map(([title, list]) =>
+        (list as typeof artists).length ? (
+          <section key={title as string} className="flex flex-col gap-2">
+            <h2 className="text-[21px] font-extrabold">{title as string}</h2>
+            <ul className="flex flex-col gap-2">
+              {(list as typeof artists).map((a) => (
+                <Row key={a.slug} a={a} />
+              ))}
+            </ul>
+          </section>
+        ) : null,
+      )}
     </div>
   );
 }

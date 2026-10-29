@@ -35,7 +35,7 @@ export function extractUpload(uploadId: string): Promise<ExtractResult> {
 }
 
 async function readUpload(uploadId: string): Promise<ExtractResult> {
-  if (!(await aiEnabled())) return { fields: null, reason: "Auto-fill isn't switched on — fill in the details below." };
+  if (!(await aiEnabled())) return { fields: null, reason: "Auto-fill isn't switched on. Fill in the details below." };
   const cached = (await db().prepare("SELECT extracted_json FROM uploads WHERE id = ?").get(uploadId)) as { extracted_json: string | null } | undefined;
   if (!cached) return { fields: null, error: "Upload not found" };
   if (cached.extracted_json) return { fields: JSON.parse(cached.extracted_json) as FlyerFields };
@@ -47,10 +47,10 @@ async function readUpload(uploadId: string): Promise<ExtractResult> {
     await db().prepare("UPDATE uploads SET extracted_json = ? WHERE id = ?").run(JSON.stringify(fields), uploadId);
     return { fields };
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return { fields: null, reason: "Auto-fill is busy right now — fill in the details below." };
+    if (e instanceof Anthropic.RateLimitError) return { fields: null, reason: "Auto-fill is busy right now. Fill in the details below." };
     if (e instanceof Anthropic.APIError) console.error(`extract: API error ${e.status}`, e.message);
     else console.error("extract failed", e);
-    return { fields: null, reason: "We couldn't read this flyer automatically — fill in the details below." };
+    return { fields: null, reason: "We couldn't read this flyer automatically. Fill in the details below." };
   }
 }
 

@@ -10,13 +10,13 @@ const Body = z.object({ corners: z.tuple([pt, pt, pt, pt]) });
 /** Flattens and crops an uploaded flyer photo to the four corners the organiser dragged into place. */
 export async function POST(req: Request, ctx: RouteContext<"/api/uploads/[id]/straighten">) {
   if (!rateLimit(`straighten:${clientIp(req)}`, 60, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many tries — give it a minute." }, { status: 429 });
+    return Response.json({ error: "Too many tries. Give it a minute." }, { status: 429 });
   }
   const { id } = await ctx.params;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Drag the four corners onto the flyer." }, { status: 400 });
   const source = await readBestCopy(id);
-  if (!source) return Response.json({ error: "Upload not found — please upload the photo again." }, { status: 404 });
+  if (!source) return Response.json({ error: "Upload not found. Please upload the photo again." }, { status: 404 });
   try {
     const flat = await straighten(source, parsed.data.corners);
     const saved = await saveFlyer(flat, { parent: id });

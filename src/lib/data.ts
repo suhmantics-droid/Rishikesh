@@ -299,6 +299,11 @@ export async function queryWhatsOn(f: Filters, today: string, now: string) {
       (a.next.start_time ?? "99").localeCompare(b.next.start_time ?? "99"),
   );
 
+  return { today, from, to, agenda, wall, pins: pinsFrom(agenda) };
+}
+
+/** One pin per venue with a known spot, listing each flyer once at its first session. */
+export function pinsFrom(agenda: AgendaItem[]): MapPin[] {
   const pins = new Map<string, MapPin>();
   for (const item of agenda) {
     if (item.venue.lat == null || item.venue.lng == null) continue;
@@ -315,7 +320,7 @@ export async function queryWhatsOn(f: Filters, today: string, now: string) {
     pins.set(item.venue.slug, pin);
   }
 
-  return { today, from, to, agenda, wall, pins: [...pins.values()] };
+  return [...pins.values()];
 }
 
 export type EventDetail = {
@@ -340,6 +345,7 @@ export type EventDetail = {
     booking_url: string | null;
     organiser_name: string | null;
     organiser_email: string | null;
+    organiser_whatsapp: string | null;
     manage_token: string;
     published_at: string | null;
     featured: number;

@@ -4,15 +4,15 @@ import { clientIp, rateLimit } from "@/lib/util";
 
 export async function POST(req: Request) {
   if (!rateLimit(`listing:${clientIp(req)}`, 20, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many listings from this connection — try again later." }, { status: 429 });
+    return Response.json({ error: "Too many listings from this connection. Try again later." }, { status: 429 });
   }
   const parsed = ListingInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return Response.json({ error: `Check "${issue.path.join(".") || "form"}": ${issue.message}` }, { status: 400 });
   }
-  if (!parsed.data.organiser_email && !(await isAdmin())) {
-    return Response.json({ error: "Add your email — we send your private edit link there." }, { status: 400 });
+  if (!parsed.data.organiser_whatsapp && !parsed.data.organiser_email && !(await isAdmin())) {
+    return Response.json({ error: "Add your WhatsApp number, so we can tell you when it's checked." }, { status: 400 });
   }
   try {
     const { slug, manageToken } = await createListing(parsed.data);

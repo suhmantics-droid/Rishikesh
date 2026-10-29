@@ -38,15 +38,15 @@ export function MapLinkInput({ onPin, className = "" }: { onPin: (lat: number, l
               use();
             }
           }}
-          placeholder="…or paste a Google Maps link"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-2 py-1.5 text-sm"
+          placeholder="Or paste a Google Maps link"
+          className="min-h-12 min-w-0 flex-1 border-[1.5px] border-line-strong bg-surface px-3 text-[16px]"
           aria-label="Google Maps link or coordinates"
         />
-        <button type="button" onClick={use} disabled={busy || !text.trim()} className="shrink-0 rounded-lg border border-line bg-card px-3 text-sm font-bold disabled:opacity-50">
-          {busy ? "…" : "Use"}
+        <button type="button" onClick={use} disabled={busy || !text.trim()} className="min-h-12 shrink-0 border-[1.5px] border-ink bg-surface px-4 text-[16px] font-bold disabled:opacity-50">
+          {busy ? "Finding…" : "Use"}
         </button>
       </div>
-      {msg ? <p className={`mt-1 text-xs ${msg.ok ? "text-ganga" : "text-saffron-ink"}`}>{msg.text}</p> : null}
+      {msg ? <p className={`mt-1 text-[15px] ${msg.ok ? "text-act-ink" : "text-warn"}`}>{msg.text}</p> : null}
     </div>
   );
 }

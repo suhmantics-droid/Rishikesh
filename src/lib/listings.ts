@@ -66,6 +66,7 @@ export const ListingInput = z.object({
     .default([]),
   organiser_name: z.string().trim().max(80).nullish(),
   organiser_email: z.string().trim().email().max(120).nullish(),
+  organiser_whatsapp: z.string().trim().max(24).nullish(),
   ai_extracted: z.boolean().optional(),
 });
 export type ListingInputT = z.infer<typeof ListingInput>;
@@ -162,7 +163,7 @@ export class ListingError extends Error {}
 
 async function fields(input: ListingInputT, d: Db) {
   const upload = (await d.prepare("SELECT w, h FROM uploads WHERE id = ?").get(input.uploadId)) as { w: number; h: number } | undefined;
-  if (!upload) throw new ListingError("Flyer upload not found — please upload it again.");
+  if (!upload) throw new ListingError("Flyer upload not found. Please upload it again.");
   const priceMin = input.price_type === "paid" || input.price_type === "donation" ? (input.price_min ?? null) : null;
   const priceMax = input.price_type === "paid" && input.price_max && priceMin && input.price_max > priceMin ? input.price_max : null;
   const schedule: Schedule = {
@@ -190,6 +191,7 @@ async function fields(input: ListingInputT, d: Db) {
     links: JSON.stringify(input.links.map((l) => ({ kind: l.kind, url: safeUrl(l.url) })).filter((l) => l.url)),
     organiser_name: input.organiser_name || null,
     organiser_email: input.organiser_email?.toLowerCase() || null,
+    organiser_whatsapp: input.organiser_whatsapp || null,
   };
 }
 
@@ -209,10 +211,10 @@ export async function createListing(input: ListingInputT) {
       .prepare(
         `INSERT INTO events (slug, title, description, category, kind, schedule, flyer, flyer_w, flyer_h, venue_id, price_type, price_min,
            price_max, price_note, contact_phone, contact_instagram, booking_url, links, organiser_name, organiser_email,
-           manage_token, status, ai_extracted)
+           organiser_whatsapp, manage_token, status, ai_extracted)
          VALUES (@slug, @title, @description, @category, @kind, @schedule, @flyer, @flyer_w, @flyer_h, @venue_id, @price_type, @price_min,
            @price_max, @price_note, @contact_phone, @contact_instagram, @booking_url, @links, @organiser_name, @organiser_email,
-           @manage, 'pending_payment', @ai)`,
+           @organiser_whatsapp, @manage, 'pending_payment', @ai)`,
       )
       .run({ ...f, slug, manage, ai: input.ai_extracted ? 1 : 0 });
     const id = Number(r.lastInsertRowid);
@@ -230,7 +232,7 @@ export async function updateListing(eventId: number, input: ListingInputT) {
          flyer_h=@flyer_h, venue_id=@venue_id, price_type=@price_type, price_min=@price_min, price_max=@price_max,
          price_note=@price_note, contact_phone=@contact_phone, contact_instagram=@contact_instagram,
          booking_url=@booking_url, links=@links, organiser_name=@organiser_name, organiser_email=@organiser_email,
-         updated_at=datetime('now') WHERE id=@id`,
+         organiser_whatsapp=@organiser_whatsapp, updated_at=datetime('now') WHERE id=@id`,
     ).run({ ...f, id: eventId });
     await writeDatesAndArtists(eventId, input, d);
   });

@@ -44,6 +44,9 @@ const PATHS = {
   cancelled: `${C} M9 9l6 6 M15 9l-6 6`,
   info: `${C} M12 11v5 M12 8h.01`,
   more: "M5 12h.01 M12 12h.01 M19 12h.01",
+  cup: "M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z M16 11h2a2 2 0 0 1 0 4h-2 M8 3.5v2.5 M12 3.5v2.5",
+  lotus: "M12 19c-4.5 0-8.5-2.2-9-6.5 3.2-.2 6.4 1.3 9 4.5 2.6-3.2 5.8-4.7 9-4.5-.5 4.3-4.5 6.5-9 6.5z M12 17c-2.2-3-2.2-7.5 0-11.5 2.2 4 2.2 8.5 0 11.5z",
+  minus: "M5 12h14",
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -66,4 +69,10 @@ export function Icon({ name, size = 20, className = "", filled = false }: { name
       <path d={PATHS[name]} />
     </svg>
   );
+}
+
+/** The same icon as an SVG string, for markup built outside React (map markers). */
+export function iconSvg(name: IconName, size = 16) {
+  const dash = name === "place-approx" ? ' stroke-dasharray="2.6 2.4"' : "";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"${dash} aria-hidden="true"><path d="${PATHS[name]}"/></svg>`;
 }

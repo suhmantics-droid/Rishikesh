@@ -1,4 +1,5 @@
 import { getEventByToken } from "@/lib/data";
+import { flyerUrl } from "@/lib/util";
 import { ListingError, ListingInput, updateListing } from "@/lib/listings";
 
 // The manage token is the organiser's key: whoever has the link can edit the listing.
@@ -27,6 +28,14 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/listings/[token
     links,
     organiser_name: event.organiser_name,
     organiser_email: event.organiser_email,
+    organiser_whatsapp: event.organiser_whatsapp ?? null,
+    // For "My flyers" on the organiser's phone.
+    slug: event.slug,
+    status: event.status,
+    live_until: event.live_until,
+    is_live: d.isLive,
+    views: event.views,
+    thumb: event.flyer ? flyerUrl(event.flyer, "sm") : null,
   });
 }
 

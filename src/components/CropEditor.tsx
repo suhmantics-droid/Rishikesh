@@ -80,7 +80,7 @@ export function CropEditor({
                 dragging.current = i;
                 (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId);
               }}
-              className="absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[3px] border-white bg-[#e8672a]/80 shadow-lg active:cursor-grabbing"
+              className="absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-[3px] border-white bg-[#f2a33a]/85 shadow-lg active:cursor-grabbing"
               style={{ left: `${x * 100}%`, top: `${y * 100}%` }}
             />
           ))}
@@ -88,13 +88,13 @@ export function CropEditor({
       </div>
       {error ? <p className="mt-2 text-center text-sm font-semibold text-red-300">{error}</p> : null}
       <div className="mx-auto mt-3 flex w-full max-w-md gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-white/30 py-3 font-bold">
+        <button type="button" onClick={onCancel} className="min-h-12 flex-1 border-[1.5px] border-white/50 font-bold">
           Cancel
         </button>
-        <button type="button" onClick={() => setPts(DEFAULT)} className="rounded-xl border border-white/30 px-4 py-3 font-bold">
+        <button type="button" onClick={() => setPts(DEFAULT)} className="min-h-12 border-[1.5px] border-white/50 px-4 font-bold">
           Reset
         </button>
-        <button type="button" onClick={apply} disabled={busy} className="flex-1 rounded-xl bg-saffron py-3 font-extrabold text-white disabled:opacity-60">
+        <button type="button" onClick={apply} disabled={busy} className="min-h-12 flex-1 bg-now font-extrabold text-on-now disabled:opacity-60">
           {busy ? "Straightening…" : "Straighten"}
         </button>
       </div>

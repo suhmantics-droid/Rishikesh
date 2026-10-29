@@ -1,32 +1,46 @@
 import { formatDayLong } from "@/lib/dates";
 import { googleListingLink } from "@/lib/util";
+import { Icon } from "./Icon";
 
-/** Places we send people to: a small saffron seal. */
+/** WhatsOnTapovan's own pick: a small sandalwood seal. Never paid for. */
 export function RecommendedBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-saffron-soft px-2.5 py-0.5 text-xs font-bold text-saffron-ink">
-      ✦ Recommended
+    <span className="inline-flex min-h-8 items-center gap-1.5 border-[1.5px] border-sandal px-2.5 text-[14px] font-extrabold tracking-[0.04em] text-sandal uppercase">
+      <Icon name="recommended" size={16} /> Recommended
     </span>
   );
 }
 
-/** "★ 4.7 · 181 Google reviews", linking to the listing, with the date the numbers were copied. */
+/** "4.7 · 8,067 reviews", from Google, linking to the listing, with the date the numbers were copied. */
 export function GoogleRating({
   venue,
+  link = true,
+  className = "",
 }: {
   venue: { name: string; google_url: string | null; google_rating: number | null; google_reviews: number | null; google_checked: string | null };
+  link?: boolean;
+  className?: string;
 }) {
   if (!venue.google_rating) return null;
+  const body = (
+    <>
+      <Icon name="rating" size={16} className="text-sandal" filled />
+      <span className="font-bold">{venue.google_rating.toFixed(1)}</span>
+      {venue.google_reviews ? <span className="text-muted">· {venue.google_reviews.toLocaleString("en-IN")}</span> : null}
+      <span className="sr-only"> on Google{venue.google_reviews ? " reviews" : ""}</span>
+    </>
+  );
+  const cls = `inline-flex items-center gap-1 text-[15px] text-ink-2 ${className}`;
+  if (!link) return <span className={cls}>{body}</span>;
   return (
     <a
       href={googleListingLink(venue)}
       target="_blank"
       rel="noreferrer"
       title={venue.google_checked ? `On Google Maps, checked ${formatDayLong(venue.google_checked)}` : "On Google Maps"}
-      className="inline-flex items-center gap-1 text-xs font-semibold text-ink-2 hover:text-ink"
+      className={`${cls} hover:text-ink`}
     >
-      <span className="text-saffron">★</span> {venue.google_rating.toFixed(1)}
-      {venue.google_reviews ? <span className="text-muted">· {venue.google_reviews.toLocaleString("en-IN")} Google reviews</span> : null}
+      {body}
     </a>
   );
 }

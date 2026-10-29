@@ -8,7 +8,7 @@ import { SessionRow } from "@/components/SessionRow";
 import { WhenBar } from "@/components/WhenBar";
 import { type AgendaItem, type EventCard, getWhatsOn } from "@/lib/data";
 import { addDays, formatDate, formatTime, nowTimeIST } from "@/lib/dates";
-import { TONIGHT_FROM } from "@/lib/site";
+import { isTonight, nowOrSoon } from "@/lib/now";
 
 // The home wall is "now first": what's on now and in the next couple of hours, then tonight,
 // this week's one-off events, and tomorrow morning's practice. Everything else lives on /flyers.
@@ -38,19 +38,6 @@ async function LegacyLinks({ searchParams }: { searchParams: PageProps<"/">["sea
   return null;
 }
 
-const SOON_MINUTES = 120;
-const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-
-/** On now, or starting within the next two hours. */
-function nowOrSoon(o: AgendaItem, now: string) {
-  if (!o.occ.start_time) return false;
-  return toMin(o.occ.start_time) <= toMin(now) + SOON_MINUTES;
-}
-function isTonight(o: AgendaItem) {
-  const s = o.occ.start_time;
-  if (!s) return false;
-  return s >= TONIGHT_FROM || (!!o.occ.end_time && o.occ.end_time > TONIGHT_FROM);
-}
 /** One card per flyer, at its first session in the list. */
 function perFlyer(items: AgendaItem[]): EventCard[] {
   const seen = new Map<number, EventCard>();

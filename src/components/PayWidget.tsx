@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LISTING } from "@/lib/site";
 
 type StartResult =
   | { mode: "cash"; paymentId: number; amount: number; cash: { name: string | null; whatsapp: string | null } }
@@ -95,11 +96,11 @@ export function PayWidget({
         await loadRazorpay();
         const rz = new window.Razorpay!({
           ...p.razorpay,
-          theme: { color: "#e8672a" },
+          theme: { color: "#0b6b5e" },
           handler: (resp: Record<string, string>) => act(() => post("/api/pay/razorpay", resp), "paid"),
           modal: { ondismiss: () => setBusy(false) },
         });
-        rz.on("payment.failed", () => setError("Payment failed — no money was taken. Try again or use another UPI app."));
+        rz.on("payment.failed", () => setError("Payment failed. No money was taken. Try again or use another UPI app."));
         rz.open();
         return;
       }
@@ -116,19 +117,19 @@ export function PayWidget({
           type="button"
           disabled={busy}
           onClick={() => act(() => post("/api/pay/comp", { token, kind: "cash" }), "paid")}
-          className="w-full rounded-2xl bg-saffron px-5 py-4 text-lg font-extrabold text-white shadow-card disabled:opacity-60"
+          className="min-h-[52px] w-full bg-act px-5 text-[17px] font-bold text-on-act disabled:opacity-60"
         >
-          {busy ? "Publishing…" : `Cash received (${priceLabel}) — ${purpose === "renew" ? "renew" : "publish"} now`}
+          {busy ? "Publishing…" : `Checked and ${priceLabel} received: ${purpose === "renew" ? "renew" : "publish"} now`}
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => act(() => post("/api/pay/comp", { token, kind: "free" }), "paid")}
-          className="w-full rounded-xl border border-ink px-4 py-2.5 text-sm font-bold disabled:opacity-60"
+          className="min-h-12 w-full border-[1.5px] border-ink px-4 text-[16px] font-bold disabled:opacity-60"
         >
           {purpose === "renew" ? "Renew free" : "Publish free"} (seeding / comp)
         </button>
-        <p className="text-center text-xs text-muted">You&apos;re signed in as admin, so no payment step.</p>
+        <p className="text-center text-[14px] text-muted">You&apos;re signed in as admin, so there&apos;s no review step.</p>
         {error ? <ErrorText msg={error} /> : null}
       </div>
     );
@@ -136,34 +137,36 @@ export function PayWidget({
 
   return (
     <div className="flex flex-col gap-3">
-      {mode === "cash" ? <CashNote priceLabel={priceLabel} /> : null}
+      {mode === "cash" ? <CashNote priceLabel={priceLabel} renew={purpose === "renew"} /> : null}
 
       {!pay || pay.mode === "razorpay" ? (
         <button
           type="button"
           onClick={start}
           disabled={busy}
-          className="w-full rounded-2xl bg-saffron px-5 py-4 text-lg font-extrabold text-white shadow-card transition hover:brightness-105 disabled:opacity-60"
+          className="min-h-[52px] w-full bg-act px-5 text-[17px] font-bold text-on-act transition hover:brightness-110 disabled:opacity-60"
         >
           {busy
             ? "One moment…"
             : mode === "cash"
-              ? `Submit — I'll pay ${priceLabel} cash`
+              ? purpose === "renew"
+                ? "Ask to renew"
+                : "Send for review"
               : `Pay ${priceLabel} & ${purpose === "renew" ? "renew" : "publish"}`}
         </button>
       ) : null}
 
       {pay?.mode === "upi" ? (
-        <div className="rounded-2xl border border-line bg-card p-4">
-          <p className="font-bold">Pay {priceLabel} by UPI</p>
-          <p className="text-sm text-muted">Scan with GPay, PhonePe, Paytm or any UPI app.</p>
-          <div className="mx-auto my-3 w-52 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: pay.upi.qrSvg }} />
+        <div className="bg-surface p-4 shadow-e1">
+          <p className="text-[17px] font-bold">Pay {priceLabel} by UPI</p>
+          <p className="text-[15px] text-ink-2">Scan with GPay, PhonePe, Paytm or any UPI app.</p>
+          <div className="mx-auto my-3 w-52 bg-white p-2" dangerouslySetInnerHTML={{ __html: pay.upi.qrSvg }} />
           <div className="flex flex-col gap-1 text-center text-sm">
             <span>
               UPI ID: <b className="select-all">{pay.upi.vpa}</b>
             </span>
             <span className="text-muted">Note / reference: {pay.upi.ref}</span>
-            <a href={pay.upi.uri} className="mx-auto mt-2 rounded-full border border-line px-4 py-2 font-bold sm:hidden">
+            <a href={pay.upi.uri} className="mx-auto mt-2 inline-flex min-h-11 items-center rounded-full border-[1.5px] border-ink px-4 font-bold sm:hidden">
               Open my UPI app
             </a>
           </div>
@@ -174,36 +177,36 @@ export function PayWidget({
               onChange={(e) => setUtr(e.target.value)}
               inputMode="numeric"
               placeholder="e.g. 429876543210"
-              className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2.5"
+              className="mt-1 min-h-12 w-full border-[1.5px] border-line-strong bg-surface px-3 text-[16px]"
             />
           </label>
           <button
             type="button"
             disabled={busy || utr.trim().length < 6}
             onClick={() => act(() => post("/api/pay/manual", { token, paymentId: pay.paymentId, ref: utr }), "pending")}
-            className="mt-3 w-full rounded-xl bg-ink px-4 py-3 font-bold text-paper disabled:opacity-50"
+            className="mt-3 min-h-12 w-full bg-ink px-4 font-bold text-wall disabled:opacity-50"
           >
-            I&apos;ve paid — submit
+            I&apos;ve paid: send it
           </button>
-          <p className="mt-2 text-xs text-muted">We check UPI payments by hand, usually within a few hours. Your flyer goes live as soon as it&apos;s confirmed.</p>
+          <p className="mt-2 text-[14px] text-muted">We check UPI payments by hand, usually within a few hours. Your flyer goes live once it&apos;s confirmed.</p>
         </div>
       ) : null}
 
       {error ? <ErrorText msg={error} /> : null}
-      {mode === "razorpay" ? <p className="text-center text-xs text-muted">Secure payment · UPI, cards & netbanking</p> : null}
+      {mode === "razorpay" ? <p className="text-center text-[14px] text-muted">Secure payment: UPI, cards and netbanking</p> : null}
     </div>
   );
 }
 
-function CashNote({ priceLabel }: { priceLabel: string }) {
+function CashNote({ priceLabel, renew }: { priceLabel: string; renew: boolean }) {
   return (
-    <div className="rounded-2xl border border-line bg-card p-4 text-sm text-ink-2">
-      <p className="font-bold text-ink">Pay {priceLabel} in cash</p>
-      <p className="mt-1">Submit now and we&apos;ll be in touch to collect it. Your flyer goes live as soon as we&apos;ve received it — usually the same day.</p>
+    <div className="flex flex-col gap-1 bg-surface p-4 text-[16px] text-ink-2 shadow-e1">
+      <p className="text-[17px] font-bold text-ink">{priceLabel} for {LISTING.days / 7} {renew ? "more " : ""}weeks on the wall</p>
+      <p>{renew ? "Ask, and we'll message you on WhatsApp the same day. Pay when we renew it." : "Paid only after we've checked it. We'll tell you how on WhatsApp, the same day."} Nothing renews by itself.</p>
     </div>
   );
 }
 
 function ErrorText({ msg }: { msg: string }) {
-  return <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950 dark:text-red-200">{msg}</p>;
+  return <p className="bg-warn-soft p-3 text-[16px] font-semibold text-warn-soft-ink">{msg}</p>;
 }

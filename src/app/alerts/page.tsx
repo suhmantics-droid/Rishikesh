@@ -1,22 +1,20 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AlertsForm } from "@/components/AlertsForm";
+import { MineHeader } from "@/components/MineTabs";
 import { config } from "@/lib/config";
 import { listArtists, listVenues } from "@/lib/data";
 
 export const metadata: Metadata = {
-  title: "Alerts",
+  title: "Following",
   description: "Hear the moment your favourite musician, cafe or kind of event in Tapovan puts up a new flyer.",
 };
 
 export default function AlertsPage() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
-      <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Never hear about it the day after</h1>
-      <p className="mt-2 mb-6 text-ink-2">
-        Pick the musicians, cafes and vibes you love. The moment a new flyer for them goes up, we&apos;ll tell you.
-      </p>
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-paper-2" />}>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 pt-5 pb-8 lg:pt-8">
+      <MineHeader active="following">Choose what you&apos;d like to hear about. When a new flyer goes up for any of them, you&apos;ll know.</MineHeader>
+      <Suspense fallback={<div className="h-96 animate-pulse bg-wall-2" />}>
         <Picker />
       </Suspense>
     </div>

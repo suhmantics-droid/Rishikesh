@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: PageProps<"/e/[slug]">): Prom
 
 export default function EventPage({ params }: PageProps<"/e/[slug]">) {
   return (
-    <Suspense fallback={<div className="mx-auto h-[70vh] max-w-6xl animate-pulse px-4 py-6"><div className="h-full rounded-2xl bg-paper-2" /></div>}>
+    <Suspense fallback={<div className="mx-auto h-[70vh] max-w-6xl animate-pulse px-4 py-6"><div className="h-full bg-wall-2" /></div>}>
       <EventDetail params={params} />
     </Suspense>
   );

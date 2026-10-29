@@ -245,6 +245,7 @@ const MIGRATIONS: [table: string, column: string, def: string][] = [
   ["venues", "google_checked", "TEXT"],
   ["venues", "stay", "INTEGER NOT NULL DEFAULT 0"], // hostels, guesthouses: shown on the map as places to stay
   ["venues", "guide", "TEXT"], // 'eat' or 'wellness': in the guide (and on the map, zoomed in) even without a flyer
+  ["events", "organiser_whatsapp", "TEXT"], // private: how we tell the organiser it's checked. Never shown on the listing.
 ];
 
 // Changes whenever the schema, a migration or the starter venues change, so a cold start only

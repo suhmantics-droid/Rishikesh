@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "./Icon";
+
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useFollows } from "./Follow";
 
@@ -123,25 +125,29 @@ export function PushToggle({ compact = false }: { compact?: boolean }) {
   }
 
   if (state === "loading") return null;
-  if (state === "unsupported") return compact ? null : <p className="text-sm text-muted">This browser can&apos;t show notifications — use email alerts below.</p>;
+  if (state === "unsupported")
+    return compact ? null : <p className="text-[16px] text-ink-2">This browser can&apos;t show notifications. You can still see new flyers here under Following.</p>;
   if (state === "ios-install")
     return (
-      <p className="text-sm text-ink-2">
-        📲 On iPhone: tap <b>Share</b> → <b>Add to Home Screen</b>, open {compact ? "it" : "WhatsOnTapovan"} from your home screen, then turn on notifications.
+      <p className="text-[16px] leading-snug text-ink-2">
+        On iPhone: tap <b>Share</b>, then <b>Add to Home Screen</b>. Open {compact ? "it" : "WhatsOnTapovan"} from your home screen and turn on notifications there.
       </p>
     );
-  if (state === "denied") return <p className="text-sm text-muted">Notifications are blocked for this site in your browser settings.</p>;
+  if (state === "denied")
+    return <p className="text-[16px] text-ink-2">Notifications are off for this site in your browser settings. You can still see new flyers here under Following.</p>;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {state === "on" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-ganga px-3 py-1.5 text-[13px] font-bold text-on-ganga">🔔 Notifications on</span>
-          <span className="text-sm text-muted">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="inline-flex min-h-10 items-center gap-1.5 bg-act px-3 text-[15px] font-bold text-on-act">
+            <Icon name="check" size={18} /> Notifications on
+          </span>
+          <span className="text-[15px] text-ink-2">
             {follows.length ? `for ${follows.length} thing${follows.length === 1 ? "" : "s"} you follow` : "follow something to get notified"}
           </span>
           {!compact ? (
-            <button type="button" className="text-sm text-muted underline" onClick={disable}>
+            <button type="button" className="min-h-11 text-[15px] font-semibold text-ink-2 underline" onClick={disable}>
               Turn off
             </button>
           ) : null}
@@ -151,13 +157,14 @@ export function PushToggle({ compact = false }: { compact?: boolean }) {
           type="button"
           onClick={enable}
           disabled={state === "busy"}
-          className="self-start rounded-xl bg-ganga px-4 py-2.5 text-sm font-bold text-on-ganga disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center gap-2 self-start bg-act px-5 text-[16px] font-bold text-on-act disabled:opacity-60"
         >
-          {state === "busy" ? "Turning on…" : "🔔 Notify me on this phone"}
+          <Icon name="follow" size={18} />
+          {state === "busy" ? "Turning on…" : "Turn on notifications"}
         </button>
       )}
       {!compact ? (
-        <label className="flex items-center gap-2 text-sm text-ink-2">
+        <label className="flex min-h-11 items-center gap-3 text-[16px] text-ink-2">
           <input
             type="checkbox"
             checked={daily}
@@ -167,12 +174,12 @@ export function PushToggle({ compact = false }: { compact?: boolean }) {
                 localStorage.setItem("pinned:pushDaily", e.target.checked ? "1" : "0");
               } catch {}
             }}
-            className="h-4 w-4 accent-[var(--ganga)]"
+            className="h-5 w-5 accent-[var(--act)]"
           />
-          Also a morning notification of what&apos;s on today
+          Also a morning notification: what&apos;s on today
         </label>
       ) : null}
-      {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+      {error ? <p className="text-[15px] font-semibold text-warn">{error}</p> : null}
     </div>
   );
 }

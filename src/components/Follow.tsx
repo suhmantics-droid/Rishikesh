@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "./Icon";
 import { useSyncExternalStore } from "react";
 
 // Follows live in localStorage so anyone can tap "Follow" without signing up.
@@ -54,20 +55,21 @@ export function FollowButton({
     writeFollows(on ? follows.filter((f) => !(f.kind === kind && f.target === target)) : [...follows, { kind, target, label }]);
   }
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
       <button
         type="button"
         onClick={toggle}
         aria-pressed={on}
-        className={`rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${
-          on ? "border-ganga bg-ganga text-on-ganga" : "border-line bg-card text-ink-2 hover:border-ink-2"
+        className={`inline-flex items-center gap-1.5 border-[1.5px] font-bold ${compact || chip ? "min-h-11 px-3 text-[15px]" : "min-h-12 px-4 text-[16px]"} ${
+          on ? "border-ink bg-ink text-wall" : "border-ink bg-surface text-ink hover:bg-wall-2"
         }`}
       >
-        {chip ? `${on ? "✓" : "+"} ${label}` : on ? "✓ Following" : compact ? "+ Follow" : `+ Follow ${label}`}
+        <Icon name={on ? "check" : "follow"} size={18} />
+        {chip ? label : on ? "Following" : compact ? "Follow" : `Follow ${label}`}
       </button>
       {on && !compact && !chip ? (
-        <Link href="/alerts" className="text-[13px] font-semibold text-saffron-ink underline">
-          Get alerts
+        <Link href="/alerts" className="flex min-h-11 items-center text-[16px] font-bold text-act-ink underline">
+          Choose how to hear
         </Link>
       ) : null}
     </span>

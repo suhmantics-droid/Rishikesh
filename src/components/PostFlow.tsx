@@ -6,11 +6,13 @@ import type { FlyerFields } from "@/lib/extract";
 import { addDays, daysLabel, formatDayLong, formatTimeRange, WEEK_ORDER, WEEKDAY_SHORT } from "@/lib/dates";
 import { LINK_LABELS, type FlyerLink } from "@/lib/links";
 import { fitForUpload } from "@/lib/shrink";
-import { AREAS, CATEGORIES } from "@/lib/site";
+import { AREAS, CATEGORIES, SITE } from "@/lib/site";
 import type { Duplicate } from "@/lib/uploads";
 import { CropEditor, type Corners } from "./CropEditor";
 import { MapLinkInput } from "./MapLinkInput";
 import { LazyMapView } from "./MiniMap";
+import { Icon } from "./Icon";
+import { rememberListing } from "./MyFlyers";
 import { PayWidget } from "./PayWidget";
 
 type VenueOpt = { slug: string; name: string; area: string; is_demo: number };
@@ -40,6 +42,7 @@ type Form = {
   links: FlyerLink[]; // read from the flyer's QR codes
   organiser_name: string;
   organiser_email: string;
+  organiser_whatsapp: string;
 };
 
 const emptySession = (): SessionRow => ({ label: "", days: [], start_time: "", end_time: "" });
@@ -67,12 +70,17 @@ function emptyForm(today: string): Form {
     links: [],
     organiser_name: "",
     organiser_email: "",
+    organiser_whatsapp: "",
   };
 }
 
 const input =
-  "w-full rounded-xl border border-line bg-card px-3 py-2.5 text-[15px] outline-none placeholder:text-muted/70 focus:border-ink-2";
-const label = "block text-sm font-bold text-ink-2";
+  "min-h-12 w-full border-[1.5px] border-line-strong bg-surface px-3 py-2.5 text-[16px] outline-none placeholder:text-muted focus:border-ink";
+const label = "block text-[16px] font-bold";
+const section = "grid gap-3 bg-surface p-4 shadow-e1";
+const h2 = "text-[19px] font-extrabold";
+const seg = (on: boolean) => `min-h-11 px-2 text-[16px] font-bold ${on ? "bg-ink text-wall" : ""}`;
+const addLink = "inline-flex min-h-11 items-center gap-1 justify-self-start text-[16px] font-bold text-act-ink";
 
 export function PostFlow({
   venues,
@@ -156,6 +164,7 @@ export function PostFlow({
           links: d.links ?? [],
           organiser_name: d.organiser_name ?? "",
           organiser_email: d.organiser_email ?? "",
+          organiser_whatsapp: d.organiser_whatsapp ?? "",
         }));
       });
     return () => {
@@ -226,7 +235,7 @@ export function PostFlow({
 
   function applyAi(f: FlyerFields) {
     if (!f.is_event_flyer) {
-      setAiNote("That doesn't look like an event flyer to us — double-check the photo, or fill in the details yourself.");
+      setAiNote("That doesn't look like an event flyer to us. Double-check the photo, or fill in the details yourself.");
       return;
     }
     setAiFilled(true);
@@ -329,6 +338,7 @@ export function PostFlow({
       links: form.links,
       organiser_name: form.organiser_name || null,
       organiser_email: form.organiser_email || null,
+      organiser_whatsapp: form.organiser_whatsapp || form.contact_phone || null,
       ai_extracted: aiFilled,
     };
   }
@@ -346,10 +356,10 @@ export function PostFlow({
       if (form.newVenue.name.trim().length < 2) return "Add the venue's name.";
       if (form.newVenue.onRequest) {
         if (!form.contact_phone && !form.contact_instagram) return "Add a WhatsApp number or Instagram, so people can ask where it is.";
-      } else if (form.newVenue.lat == null) return "Tap the map to drop a pin, or tick “Flyer doesn't say where exactly”.";
+      } else if (form.newVenue.lat == null) return "Tap the map to drop a pin, or tick “The flyer doesn't say exactly where”.";
     }
     if (form.organiser_email && !/^\S+@\S+\.\S+$/.test(form.organiser_email)) return "That email doesn't look right.";
-    if (!form.organiser_email && !isAdmin) return "Add your email — we send your private edit link there.";
+    if (!(form.organiser_whatsapp || form.contact_phone) && !form.organiser_email && !isAdmin) return "Add your WhatsApp number, so we can tell you when it's checked.";
     return null;
   }
 
@@ -371,6 +381,7 @@ export function PostFlow({
         return;
       }
       setCreated(d);
+      rememberListing(d.manageToken, form.title);
       setStep("pay");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
@@ -383,40 +394,32 @@ export function PostFlow({
   // ---------- Step 1: upload ----------
   if (step === "upload") {
     return (
-      <div className="mx-auto max-w-xl">
+      <div className="mx-auto flex max-w-xl flex-col gap-4">
         <Steps step={1} />
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Pin your flyer</h1>
-        <p className="mt-2 text-ink-2">
-          Snap a photo of the poster or upload the image you share on WhatsApp.{" "}
-          {autoFill ? <>We&apos;ll read the date, time, venue and price for you.</> : <>Then add the date, time and place: about a minute.</>}
+        <h1 className="text-[30px] leading-tight font-extrabold [font-stretch:88%]">Pin your flyer</h1>
+        <p className="text-[17px] text-ink-2">
+          Snap the poster or upload the image you share on WhatsApp.{" "}
+          {autoFill ? <>We&apos;ll read the date, time, place and price for you.</> : <>Then add the date, time and place. About a minute.</>}
         </p>
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={reading}
-          className="mt-6 flex w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-line bg-card px-6 py-14 text-center transition hover:border-saffron"
+          className="flex w-full flex-col items-center justify-center gap-2 border-[1.5px] border-dashed border-ink bg-surface px-6 py-14 text-center hover:bg-slip"
         >
-          <span className="text-4xl">📸</span>
-          <span className="font-display text-xl font-semibold">{reading ? "Uploading…" : "Take a photo or choose an image"}</span>
-          <span className="text-sm text-muted">JPG, PNG or screenshot · up to 12 MB</span>
+          <Icon name="camera" size={36} />
+          <span className="text-[19px] font-extrabold">{reading ? "Uploading…" : "Take a photo or choose an image"}</span>
+          <span className="text-[15px] text-muted">From the camera or WhatsApp, up to 12 MB</span>
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-        />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
         {error ? <ErrorBox msg={error} /> : null}
         {isAdmin ? (
-          <p className="mt-4 rounded-xl bg-ganga-soft px-4 py-3 text-sm font-semibold text-ganga">
-            Admin mode: you can publish straight away and record cash received.
-          </p>
+          <p className="bg-act-soft px-4 py-3 text-[16px] font-semibold text-act-soft-ink">Admin mode: you can publish straight away and record the fee.</p>
         ) : owner.whatsapp ? (
-          <p className="mt-4 rounded-xl border border-line bg-card px-4 py-3 text-sm text-ink-2">
+          <p className="bg-surface px-4 py-3 text-[16px] text-ink-2 shadow-e1">
             Rather not fill in a form?{" "}
             <a
-              className="font-bold text-ink underline"
+              className="font-bold text-act-ink underline"
               href={`https://wa.me/${owner.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi! I'd like to put my event flyer on WhatsOnTapovan.")}`}
               target="_blank"
               rel="noreferrer"
@@ -426,47 +429,60 @@ export function PostFlow({
             and we&apos;ll put it up for you.
           </p>
         ) : null}
-        <ul className="mt-8 grid gap-3 text-sm text-ink-2">
-          <li>✅ {priceLabel} keeps your flyer on the map for {listingDays / 7} weeks</li>
-          <li>✅ Followers of your venue, artists or event type get {emailOn ? "an email or a phone notification" : "a phone notification"} the moment it goes live</li>
-          <li>✅ Edit any time, see how many people viewed it, renew in one tap</li>
+        <ul className="flex flex-col gap-2.5 text-[16px] text-ink-2">
+          <li className="flex gap-2">
+            <Icon name="check" size={20} className="mt-0.5 text-act-ink" /> A person checks it the same day and messages you on WhatsApp.
+          </li>
+          <li className="flex gap-2">
+            <Icon name="check" size={20} className="mt-0.5 text-act-ink" /> {priceLabel} for {listingDays / 7} weeks on the wall, the map and the agenda, paid after it&apos;s checked.
+          </li>
+          <li className="flex gap-2">
+            <Icon name="check" size={20} className="mt-0.5 text-act-ink" /> People following your venue, artists or kind of event hear {emailOn ? "by email or on their phone" : "on their phone"} when it goes up.
+          </li>
+          <li className="flex gap-2">
+            <Icon name="check" size={20} className="mt-0.5 text-act-ink" /> Edit any time and see how many people viewed it.
+          </li>
         </ul>
       </div>
     );
   }
 
-  // ---------- Step 3: pay ----------
+  // ---------- Step 3: check and send ----------
   if (step === "pay" && created) {
+    const venueName = form.venueSlug === "__new" ? form.newVenue.name : venues.find((v) => v.slug === form.venueSlug)?.name;
+    const when =
+      activeSessions(form).length
+        ? `${daysLabel(activeSessions(form).flatMap((x) => x.days))} · ${formatTimeRange(activeSessions(form)[0].start_time || null, activeSessions(form)[0].end_time || null) || "time not listed"}`
+        : form.dates
+            .filter((d) => d.date)
+            .slice(0, 2)
+            .map((d) => `${formatDayLong(d.date, today)} ${formatTimeRange(d.start_time || null, d.end_time || null)}`)
+            .join(" · ");
+    const price = form.price_type === "free" ? "Free" : form.price_type === "donation" ? "Donation" : form.price_type === "paid" && form.price_min ? `₹${form.price_min}` : "Price not listed";
+    const where = [venueName, form.venueSlug === "__new" && form.newVenue.onRequest ? "spot on request" : null].filter(Boolean).join(" · ");
     return (
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto flex max-w-md flex-col gap-4">
         <Steps step={3} />
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Almost pinned</h1>
-        <div className="my-5 flex gap-4 rounded-2xl border border-line bg-card p-3">
+        <h1 className="text-[30px] leading-tight font-extrabold [font-stretch:88%]">Check and send</h1>
+        <p className="-mt-2 text-[16px] text-ink-2">This is how it&apos;ll look on the wall.</p>
+        <div className="mx-auto w-56">
           {upload ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={upload.url} alt="" className="h-28 w-22 shrink-0 rounded-lg object-cover object-top" />
+            <img src={upload.url} alt="Your flyer" className="block w-full shadow-e1" />
           ) : null}
-          <div className="min-w-0">
-            <p className="font-bold">{form.title}</p>
-            <p className="text-sm text-muted">
-              {form.kind === "classes"
-                ? `Classes ${daysLabel(activeSessions(form).flatMap((x) => x.days))}`
-                : activeSessions(form).length
-                ? `Every ${daysLabel(activeSessions(form).flatMap((x) => x.days))}`
-                : form.dates
-                    .filter((d) => d.date)
-                    .slice(0, 2)
-                    .map((d) => `${formatDayLong(d.date, today)} ${formatTimeRange(d.start_time || null, d.end_time || null)}`)
-                    .join(" · ")}
-            </p>
-            <p className="text-sm text-muted">
-              {form.venueSlug === "__new" ? form.newVenue.name : venues.find((v) => v.slug === form.venueSlug)?.name}
-            </p>
-            <button type="button" className="mt-1 text-sm font-semibold underline" onClick={() => router.push(`/post?edit=${created.manageToken}`)}>
-              Edit details
-            </button>
-          </div>
+          <span className="slip relative -mt-3 ml-2 flex w-[calc(100%-1rem)] flex-col gap-0.5 bg-slip px-2.5 pt-2.5 pb-2.5 text-slip-ink shadow-e1">
+            <span className="tape" aria-hidden />
+            <span className="slip-time">{when || "Date not set"}</span>
+            <span className="slip-name">{form.title}</span>
+            <span className="slip-meta">{[price, where].filter(Boolean).join(" · ")}</span>
+          </span>
         </div>
+        <button type="button" className="inline-flex min-h-11 items-center gap-1 self-center text-[16px] font-bold text-act-ink underline" onClick={() => router.push(`/post?edit=${created.manageToken}`)}>
+          Edit details
+        </button>
+        <p className="text-[15px] text-muted">
+          {SITE.name} checks that the date, time and place match the flyer. It doesn&apos;t vet or recommend events.
+        </p>
         <PayWidget
           token={created.manageToken}
           purpose="new"
@@ -489,24 +505,24 @@ export function PostFlow({
         {!editToken ? <Steps step={2} /> : null}
         {upload ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={upload.url} alt="Your flyer" className="w-full rounded-2xl border border-line shadow-card max-lg:max-h-72 max-lg:object-contain" />
+          <img src={upload.url} alt="Your flyer" className="w-full shadow-e1 max-lg:max-h-72 max-lg:object-contain" />
         ) : (
-          <div className="aspect-[4/5] animate-pulse rounded-2xl bg-paper-2" />
+          <div className="aspect-[4/5] animate-pulse bg-wall-2" />
         )}
         {upload ? (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <button type="button" className="text-sm font-bold text-saffron-ink underline" onClick={() => setCropOpen(true)} disabled={reading}>
-              ✂️ Straighten &amp; crop
+            <button type="button" className="min-h-11 text-[16px] font-bold text-act-ink underline" onClick={() => setCropOpen(true)} disabled={reading}>
+              Straighten and crop
             </button>
             {!editToken ? (
-              <button type="button" className="text-sm font-semibold underline" onClick={() => fileRef.current?.click()}>
+              <button type="button" className="min-h-11 text-[16px] font-semibold underline" onClick={() => fileRef.current?.click()}>
                 Use a different photo
               </button>
             ) : null}
           </div>
         ) : null}
         {aiCorners && upload ? (
-          <div className="mt-3 rounded-xl bg-ganga-soft p-3 text-sm text-ganga">
+          <div className="mt-3 bg-act-soft p-3 text-[16px] text-act-soft-ink">
             <p className="font-semibold">Photo taken on a wall? We found the flyer&apos;s edges.</p>
             <button type="button" className="mt-1 font-bold underline" onClick={() => setCropOpen(true)}>
               Straighten it
@@ -519,17 +535,17 @@ export function PostFlow({
 
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">{editToken ? "Edit your listing" : "Check the details"}</h1>
+          <h1 className="text-[30px] leading-tight font-extrabold [font-stretch:88%]">{editToken ? "Edit your flyer" : "About it"}</h1>
           {reading ? (
-            <p className="mt-2 flex items-center gap-2 rounded-xl bg-ganga-soft px-3 py-2 text-sm font-semibold text-ganga">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-ganga border-t-transparent" /> Reading your flyer…
+            <p className="mt-2 flex items-center gap-2 bg-act-soft px-3 py-2 text-[16px] font-semibold text-act-soft-ink">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-act border-t-transparent" /> Reading your flyer…
             </p>
           ) : aiFilled ? (
-            <p className="mt-2 rounded-xl bg-ganga-soft px-3 py-2 text-sm font-semibold text-ganga">✨ Filled in from your flyer — give it a quick check.</p>
+            <p className="mt-2 bg-act-soft px-3 py-2 text-[16px] font-semibold text-act-soft-ink">Filled in from your flyer. Give it a quick check.</p>
           ) : null}
-          {aiNote ? <p className="mt-2 rounded-xl bg-saffron-soft px-3 py-2 text-sm text-saffron-ink">{aiNote}</p> : null}
+          {aiNote ? <p className="mt-2 bg-now-soft px-3 py-2 text-[16px]">{aiNote}</p> : null}
           {duplicates.length ? (
-            <div className="mt-2 rounded-xl border border-saffron/50 bg-saffron-soft/60 px-3 py-2 text-sm text-saffron-ink">
+            <div className="mt-2 border-[1.5px] border-warn bg-warn-soft px-3 py-2 text-[16px] text-warn-soft-ink">
               <p className="font-bold">Already on the site?</p>
               {duplicates.map((d) => (
                 <p key={d.slug}>
@@ -560,7 +576,8 @@ export function PostFlow({
                     key={c.key}
                     type="button"
                     onClick={() => set("category", c.key)}
-                    className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${form.category === c.key ? "border-ink bg-ink text-paper" : "border-line bg-card"}`}
+                    aria-pressed={form.category === c.key}
+                    className={`inline-flex min-h-11 items-center rounded-full border-[1.5px] border-ink px-3.5 text-[15px] font-semibold ${form.category === c.key ? "bg-ink text-wall" : "bg-surface"}`}
                   >
                     <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: c.color }} />
                     {c.label}
@@ -576,9 +593,9 @@ export function PostFlow({
             </div>
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-semibold">When</h2>
-            <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-card p-1 text-sm" role="radiogroup" aria-label="Kind of listing">
+          <section className={section}>
+            <h2 className={h2}>When</h2>
+            <div className="grid grid-cols-2 overflow-hidden border-[1.5px] border-ink" role="radiogroup" aria-label="Kind of listing">
               {(
                 [
                   ["event", "An event", "One date, a few, or weekly"],
@@ -591,10 +608,10 @@ export function PostFlow({
                   role="radio"
                   aria-checked={form.kind === k}
                   onClick={() => setForm((f) => ({ ...f, kind: k, sessions: k === "classes" && !f.sessions.length ? [emptySession()] : f.sessions }))}
-                  className={`rounded-lg px-2 py-2 text-left ${form.kind === k ? "bg-ink text-paper" : ""}`}
+                  className={`px-3 py-2 text-left ${form.kind === k ? "bg-ink text-wall" : ""}`}
                 >
-                  <span className="block font-bold">{l}</span>
-                  <span className={`block text-xs ${form.kind === k ? "opacity-80" : "text-muted"}`}>{hint}</span>
+                  <span className="block text-[16px] font-bold">{l}</span>
+                  <span className={`block text-[14px] ${form.kind === k ? "opacity-85" : "text-muted"}`}>{hint}</span>
                 </button>
               ))}
             </div>
@@ -603,38 +620,38 @@ export function PostFlow({
                 {form.dates.map((d, i) => (
                   <div key={i} className="grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2">
                     <div>
-                      {i === 0 ? <span className="text-xs font-semibold text-muted">Date</span> : null}
+                      {i === 0 ? <span className="text-[14px] font-semibold text-ink-2">Date</span> : null}
                       <input type="date" min={today} className={input} value={d.date} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))} />
                     </div>
                     <div>
-                      {i === 0 ? <span className="text-xs font-semibold text-muted">Starts</span> : null}
+                      {i === 0 ? <span className="text-[14px] font-semibold text-ink-2">Starts</span> : null}
                       <input type="time" className={input} value={d.start_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
                     </div>
                     <div>
-                      {i === 0 ? <span className="text-xs font-semibold text-muted">Ends</span> : null}
+                      {i === 0 ? <span className="text-[14px] font-semibold text-ink-2">Ends</span> : null}
                       <input type="time" className={input} value={d.end_time} onChange={(e) => set("dates", form.dates.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
                     </div>
-                    <button type="button" aria-label="Remove date" className="h-11 w-9 rounded-xl text-muted hover:bg-paper-2" onClick={() => set("dates", form.dates.filter((_, j) => j !== i))}>
-                      ✕
+                    <button type="button" aria-label="Remove date" className="flex h-12 w-11 items-center justify-center text-ink-2 hover:bg-wall-2" onClick={() => set("dates", form.dates.filter((_, j) => j !== i))}>
+                      <Icon name="close" size={20} />
                     </button>
                   </div>
                 ))}
                 <button
                   type="button"
-                  className="justify-self-start text-sm font-bold text-saffron-ink"
+                  className={addLink}
                   onClick={() => {
                     const last = form.dates[form.dates.length - 1];
                     set("dates", [...form.dates, { date: last ? addDays(last.date || today, 1) : today, start_time: last?.start_time ?? "", end_time: last?.end_time ?? "" }]);
                   }}
                 >
-                  + Add another date
+                  <Icon name="plus" size={18} /> Add another date
                 </button>
-                <label className="flex items-center gap-2 text-sm font-bold">
+                <label className="flex min-h-11 items-center gap-3 text-[16px] font-bold">
                   <input
                     type="checkbox"
                     checked={form.weeklyOn}
                     onChange={(e) => setForm((f) => ({ ...f, weeklyOn: e.target.checked, sessions: e.target.checked && !f.sessions.length ? [emptySession()] : f.sessions }))}
-                    className="h-4 w-4 accent-[var(--saffron)]"
+                    className="h-5 w-5 accent-[var(--act)]"
                   />
                   Repeats every week
                 </label>
@@ -644,15 +661,15 @@ export function PostFlow({
               <SessionsEditor sessions={form.sessions} onChange={(v) => set("sessions", v)} classes />
             )}
             {form.kind === "classes" || form.weeklyOn ? (
-              <label className="grid gap-1 text-xs font-semibold text-muted sm:grid-cols-[auto_1fr] sm:items-center sm:gap-3">
-                Runs until <span className="font-normal">(optional — leave empty to keep it going while it&apos;s listed)</span>
+              <label className="grid gap-1 text-[15px] font-semibold text-ink-2 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-3">
+                Runs until <span className="font-normal">(optional: leave empty to keep it going while it&apos;s up)</span>
                 <input type="date" min={today} className={`${input} sm:col-span-2 sm:max-w-56`} value={form.repeatUntil} onChange={(e) => set("repeatUntil", e.target.value)} />
               </label>
             ) : null}
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-semibold">Where</h2>
+          <section className={section}>
+            <h2 className={h2}>Where</h2>
             <select
               className={input}
               value={form.venueSlug}
@@ -662,7 +679,7 @@ export function PostFlow({
               }}
               aria-label="Venue"
             >
-              <option value="">Choose the venue…</option>
+              <option value="">Choose the place…</option>
               {venueGroups.map((g) => (
                 <optgroup key={g.key} label={g.label}>
                   {g.list.map((v) => (
@@ -673,7 +690,7 @@ export function PostFlow({
                   ))}
                 </optgroup>
               ))}
-              <option value="__new">+ It&apos;s somewhere else — add a venue</option>
+              <option value="__new">Somewhere else: add a place</option>
             </select>
             {form.venueSlug === "__new" ? (
               <div className="grid gap-3">
@@ -687,16 +704,16 @@ export function PostFlow({
                     ))}
                   </select>
                 </div>
-                <input className={input} placeholder="Directions / landmark (optional) — e.g. above the German Bakery" value={form.newVenue.address} onChange={(e) => set("newVenue", { ...form.newVenue, address: e.target.value })} />
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input type="checkbox" checked={form.newVenue.onRequest} onChange={(e) => set("newVenue", { ...form.newVenue, onRequest: e.target.checked })} />
-                  Flyer doesn&apos;t say where exactly: people message the organiser for the spot
+                <input className={input} placeholder="Landmark (optional), e.g. above the German Bakery" value={form.newVenue.address} onChange={(e) => set("newVenue", { ...form.newVenue, address: e.target.value })} />
+                <label className="flex min-h-11 items-start gap-3 text-[16px] font-semibold">
+                  <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[var(--act)]" checked={form.newVenue.onRequest} onChange={(e) => set("newVenue", { ...form.newVenue, onRequest: e.target.checked })} />
+                  The flyer doesn&apos;t say exactly where. People message the organiser for the spot.
                 </label>
                 {form.newVenue.onRequest ? null : (
                   <>
-                    <p className="text-sm font-semibold">{newVenuePin ? "📍 Pin dropped — tap again to move it." : "Tap the map where the venue is:"}</p>
+                    <p className="text-[16px] font-semibold">{newVenuePin ? "Pin dropped. Tap again to move it." : "Tap the map where it is, or paste a Google Maps link:"}</p>
                     <MapLinkInput onPin={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
-                    <div className="h-64 overflow-hidden rounded-xl border border-line">
+                    <div className="h-64 overflow-hidden border border-line">
                       <LazyMapView pins={[]} today={today} pick picked={newVenuePin} onPick={(lat, lng) => set("newVenue", { ...form.newVenue, lat, lng })} />
                     </div>
                   </>
@@ -705,35 +722,35 @@ export function PostFlow({
             ) : null}
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-semibold">Price</h2>
-            <div className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-card p-1 text-sm font-bold">
+          <section className={section}>
+            <h2 className={h2}>Price</h2>
+            <div className="grid grid-cols-4 overflow-hidden border-[1.5px] border-ink">
               {(
                 [
                   ["free", "Free"],
                   ["donation", "Donation"],
                   ["paid", "Paid"],
-                  ["unknown", "See flyer"],
+                  ["unknown", "Not on flyer"],
                 ] as const
               ).map(([k, l]) => (
-                <button key={k} type="button" onClick={() => set("price_type", k)} className={`rounded-lg py-2 ${form.price_type === k ? "bg-ink text-paper" : ""}`}>
+                <button key={k} type="button" onClick={() => set("price_type", k)} aria-pressed={form.price_type === k} className={seg(form.price_type === k)}>
                   {l}
                 </button>
               ))}
             </div>
             {form.price_type === "paid" || form.price_type === "donation" ? (
               <div className="grid grid-cols-3 gap-2">
-                <label className="text-xs font-semibold text-muted">
+                <label className="text-[14px] font-semibold text-ink-2">
                   {form.price_type === "donation" ? "Suggested ₹" : "From ₹"}
                   <input inputMode="numeric" className={input} value={form.price_min} onChange={(e) => set("price_min", e.target.value)} placeholder="500" />
                 </label>
                 {form.price_type === "paid" ? (
-                  <label className="text-xs font-semibold text-muted">
+                  <label className="text-[14px] font-semibold text-ink-2">
                     Up to ₹ <span className="font-normal">(optional)</span>
                     <input inputMode="numeric" className={input} value={form.price_max} onChange={(e) => set("price_max", e.target.value)} placeholder="800" />
                   </label>
                 ) : null}
-                <label className="text-xs font-semibold text-muted">
+                <label className="text-[14px] font-semibold text-ink-2">
                   Note
                   <input className={input} value={form.price_note} onChange={(e) => set("price_note", e.target.value)} placeholder="incl. cacao" />
                 </label>
@@ -741,15 +758,15 @@ export function PostFlow({
             ) : null}
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-semibold">Who&apos;s playing / leading</h2>
-            <p className="-mt-2 text-sm text-muted">People who follow these artists get an alert when your flyer goes live.</p>
+          <section className={section}>
+            <h2 className={h2}>Who&apos;s playing or leading</h2>
+            <p className="-mt-2 text-[15px] text-ink-2">People who follow them hear when your flyer goes up.</p>
             <div className="flex flex-wrap gap-2">
               {form.artists.map((a) => (
-                <span key={a} className="inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1 text-sm font-semibold text-paper">
+                <span key={a} className="inline-flex min-h-10 items-center gap-1 rounded-full bg-ink pr-1 pl-3.5 text-[15px] font-semibold text-wall">
                   {a}
-                  <button type="button" aria-label={`Remove ${a}`} onClick={() => set("artists", form.artists.filter((x) => x !== a))} className="opacity-70 hover:opacity-100">
-                    ✕
+                  <button type="button" aria-label={`Remove ${a}`} onClick={() => set("artists", form.artists.filter((x) => x !== a))} className="flex h-9 w-9 items-center justify-center opacity-80 hover:opacity-100">
+                    <Icon name="close" size={16} />
                   </button>
                 </span>
               ))}
@@ -771,7 +788,7 @@ export function PostFlow({
               />
               <button
                 type="button"
-                className="shrink-0 rounded-xl border border-line px-4 font-bold"
+                className="min-h-12 shrink-0 border-[1.5px] border-ink px-4 text-[16px] font-bold"
                 onClick={() => {
                   const v = artistDraft.trim();
                   if (v && !form.artists.includes(v)) set("artists", [...form.artists, v]);
@@ -783,24 +800,25 @@ export function PostFlow({
             </div>
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-line bg-card/60 p-4">
-            <h2 className="font-display text-lg font-semibold">How people reach you</h2>
+          <section className={section}>
+            <h2 className={h2}>How do people reach you?</h2>
+            <p className="-mt-2 text-[15px] text-ink-2">Shown on the listing.</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input className={input} inputMode="tel" placeholder="WhatsApp / phone" value={form.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} />
+              <input className={input} inputMode="tel" placeholder="WhatsApp or phone" value={form.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} />
               <input className={input} placeholder="Instagram handle" value={form.contact_instagram} onChange={(e) => set("contact_instagram", e.target.value)} />
               <input className={`${input} sm:col-span-2`} placeholder="Booking or info link (optional)" value={form.booking_url} onChange={(e) => set("booking_url", e.target.value)} />
             </div>
             {form.links.length ? (
               <div className="grid gap-2">
-                <p className="text-sm font-bold text-ink-2">From the QR codes on your flyer</p>
-                <p className="-mt-1.5 text-xs text-muted">Shown as buttons, since people can&apos;t scan a code on their own screen. Remove any that shouldn&apos;t be public.</p>
+                <p className="text-[16px] font-bold">From the QR codes on your flyer</p>
+                <p className="-mt-1.5 text-[15px] text-ink-2">Shown as buttons, since people can&apos;t scan a code on their own screen. Remove any that shouldn&apos;t be public.</p>
                 <ul className="grid gap-1.5">
                   {form.links.map((l) => (
-                    <li key={l.url} className="flex items-center gap-2 rounded-xl border border-line bg-card px-3 py-2 text-sm">
+                    <li key={l.url} className="flex min-h-12 items-center gap-2 border border-line bg-wall px-3 text-[15px]">
                       <span className="shrink-0 font-bold">{LINK_LABELS[l.kind]}</span>
                       <span className="min-w-0 flex-1 truncate text-muted">{l.url.replace(/^https?:\/\//, "")}</span>
-                      <button type="button" aria-label={`Remove ${LINK_LABELS[l.kind]}`} className="shrink-0 text-muted hover:text-ink" onClick={() => set("links", form.links.filter((x) => x.url !== l.url))}>
-                        ✕
+                      <button type="button" aria-label={`Remove ${LINK_LABELS[l.kind]}`} className="flex h-11 w-11 shrink-0 items-center justify-center text-ink-2 hover:text-ink" onClick={() => set("links", form.links.filter((x) => x.url !== l.url))}>
+                        <Icon name="close" size={18} />
                       </button>
                     </li>
                   ))}
@@ -809,11 +827,24 @@ export function PostFlow({
             ) : null}
           </section>
 
-          <section className="grid gap-3 rounded-2xl border border-saffron/40 bg-saffron-soft/40 p-4">
-            <h2 className="font-display text-lg font-semibold">You</h2>
+          <section className={`${section} border-l-4 border-act`}>
+            <h2 className={h2}>You</h2>
+            <label className="grid gap-1">
+              <span className={label}>
+                Your WhatsApp, for {SITE.name} only {isAdmin ? <span className="font-normal text-muted">(optional)</span> : null}
+              </span>
+              <input
+                className={input}
+                inputMode="tel"
+                placeholder={form.contact_phone ? `${form.contact_phone} (same as above)` : "e.g. 98531 81006"}
+                value={form.organiser_whatsapp}
+                onChange={(e) => set("organiser_whatsapp", e.target.value)}
+              />
+              <span className="text-[15px] text-ink-2">We&apos;ll message you here today: approved, or with a question. It&apos;s never shown on the listing.</span>
+            </label>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input className={input} placeholder="Your name or organisation (shown)" value={form.organiser_name} onChange={(e) => set("organiser_name", e.target.value)} />
-              <input className={input} type="email" inputMode="email" placeholder={isAdmin ? "Organiser email (optional)" : "Email (private — for your edit link)"} value={form.organiser_email} onChange={(e) => set("organiser_email", e.target.value)} />
+              <input className={input} placeholder="Your name or organisation (optional, shown)" value={form.organiser_name} onChange={(e) => set("organiser_name", e.target.value)} />
+              <input className={input} type="email" inputMode="email" placeholder="Email (optional, private)" value={form.organiser_email} onChange={(e) => set("organiser_email", e.target.value)} />
             </div>
           </section>
         </fieldset>
@@ -823,9 +854,9 @@ export function PostFlow({
           type="button"
           onClick={submit}
           disabled={busy || reading || !loaded}
-          className="sticky bottom-3 w-full rounded-2xl bg-saffron px-5 py-4 text-lg font-extrabold text-white shadow-card disabled:opacity-60"
+          className="sticky bottom-[calc(84px+env(safe-area-inset-bottom))] min-h-[52px] w-full bg-ink px-5 text-[17px] font-bold text-wall shadow-e2 disabled:opacity-60 lg:bottom-4"
         >
-          {busy ? "Saving…" : editToken ? "Save changes" : isAdmin ? "Continue to publish" : `Continue · ${priceLabel} to publish`}
+          {busy ? "Saving…" : editToken ? "Save changes" : isAdmin ? "Next: publish" : "Next: check and send"}
         </button>
       </div>
     </div>
@@ -855,12 +886,12 @@ function SessionsEditor({ sessions, onChange, classes = false }: { sessions: Ses
   return (
     <div className="grid gap-3">
       {sessions.map((x, i) => (
-        <div key={i} className="grid gap-2 rounded-xl bg-paper-2/60 p-3">
+        <div key={i} className="grid gap-2 bg-wall p-3">
           {classes ? (
             <div className="flex gap-2">
               <input className={input} placeholder="Class name, e.g. Hatha Flow" value={x.label} onChange={(e) => update(i, { label: e.target.value })} aria-label="Class name" />
-              <button type="button" aria-label="Remove class" className="h-11 w-9 shrink-0 rounded-xl text-muted hover:bg-paper-2" onClick={() => onChange(sessions.filter((_, j) => j !== i))}>
-                ✕
+              <button type="button" aria-label="Remove class" className="flex h-12 w-11 shrink-0 items-center justify-center text-ink-2 hover:bg-wall-2" onClick={() => onChange(sessions.filter((_, j) => j !== i))}>
+                <Icon name="close" size={20} />
               </button>
             </div>
           ) : null}
@@ -871,21 +902,21 @@ function SessionsEditor({ sessions, onChange, classes = false }: { sessions: Ses
                 type="button"
                 aria-pressed={x.days.includes(d)}
                 onClick={() => update(i, { days: x.days.includes(d) ? x.days.filter((y) => y !== d) : [...x.days, d].sort() })}
-                className={`h-9 w-11 rounded-lg text-sm font-bold ${x.days.includes(d) ? "bg-ink text-paper" : "border border-line bg-card"}`}
+                className={`h-11 w-11 text-[15px] font-bold ${x.days.includes(d) ? "bg-ink text-wall" : "border-[1.5px] border-line-strong bg-surface"}`}
               >
                 {WEEKDAY_SHORT[d]}
               </button>
             ))}
-            <button type="button" onClick={() => update(i, { days: x.days.length === 7 ? [] : [0, 1, 2, 3, 4, 5, 6] })} className="h-9 rounded-lg border border-line bg-card px-2.5 text-sm font-bold">
+            <button type="button" onClick={() => update(i, { days: x.days.length === 7 ? [] : [0, 1, 2, 3, 4, 5, 6] })} className="h-11 border-[1.5px] border-ink bg-surface px-3 text-[15px] font-bold">
               {x.days.length === 7 ? "Clear" : "Daily"}
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs font-semibold text-muted">
+            <label className="text-[14px] font-semibold text-ink-2">
               Starts
               <input type="time" className={input} value={x.start_time} onChange={(e) => update(i, { start_time: e.target.value })} />
             </label>
-            <label className="text-xs font-semibold text-muted">
+            <label className="text-[14px] font-semibold text-ink-2">
               Ends
               <input type="time" className={input} value={x.end_time} onChange={(e) => update(i, { end_time: e.target.value })} />
             </label>
@@ -894,10 +925,10 @@ function SessionsEditor({ sessions, onChange, classes = false }: { sessions: Ses
       ))}
       <button
         type="button"
-        className="justify-self-start text-sm font-bold text-saffron-ink"
+        className={addLink}
         onClick={() => onChange([...sessions, { ...emptySession(), days: sessions[sessions.length - 1]?.days ?? [] }])}
       >
-        {classes ? "+ Add a class" : "+ Add another weekly time"}
+        <Icon name="plus" size={18} /> {classes ? "Add a class" : "Add another weekly time"}
       </button>
     </div>
   );
@@ -905,18 +936,17 @@ function SessionsEditor({ sessions, onChange, classes = false }: { sessions: Ses
 
 function Steps({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <ol className="mb-4 flex gap-2 text-xs font-bold text-muted">
-      {["Flyer", "Details", "Pay & publish"].map((s, i) => (
-        <li key={s} className={`flex items-center gap-1.5 ${i + 1 === step ? "text-ink" : ""}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full ${i + 1 <= step ? "bg-saffron text-white" : "bg-paper-2"}`}>{i + 1}</span>
-          {s}
-          {i < 2 ? <span className="mx-1 opacity-40">—</span> : null}
-        </li>
-      ))}
-    </ol>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13px] font-extrabold tracking-[0.08em] text-muted uppercase">Step {step} of 3</span>
+      <ol className="flex gap-1.5" aria-label={`Step ${step} of 3: ${["Flyer", "About it", "Check and send"][step - 1]}`}>
+        {[1, 2, 3].map((i) => (
+          <li key={i} className={`h-1.5 flex-1 ${i <= step ? "bg-ink" : "bg-line"}`} aria-hidden />
+        ))}
+      </ol>
+    </div>
   );
 }
 
 function ErrorBox({ msg }: { msg: string }) {
-  return <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950 dark:text-red-200">{msg}</p>;
+  return <p role="alert" className="mt-3 bg-warn-soft p-3 text-[16px] font-semibold text-warn-soft-ink">{msg}</p>;
 }

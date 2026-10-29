@@ -189,7 +189,7 @@ export async function sendPlanReminders(now = { date: todayIST(), time: nowTimeI
     if (until < -15) continue; // missed it (server was down): don't nag after the start
     const ok = await deliver(r, {
       title: until > 0 ? `Starting soon: ${r.title}` : `Starting now: ${r.title}`,
-      body: `${formatTime(r.start_time)} at ${r.venue}${until > 0 ? ` — in about ${until >= 55 ? "an hour" : `${until} minutes`}` : ""}`,
+      body: `${formatTime(r.start_time)} at ${r.venue}${until > 0 ? `, in about ${until >= 55 ? "an hour" : `${until} minutes`}` : ""}`,
       url: `/e/${r.slug}`,
       image: flyerUrl(r.flyer, "sm") ?? undefined,
       tag: `reminder-${r.event_id}`,

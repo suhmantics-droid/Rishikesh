@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
+import { MineHeader } from "@/components/MineTabs";
 import { PlanList } from "@/components/Plan";
 
 export const metadata: Metadata = { title: "My plan", robots: { index: false } };
 
 export default function PlanPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      <h1 className="font-display text-4xl font-semibold tracking-tight">My plan</h1>
-      <p className="mt-2 mb-6 text-ink-2">The flyers you&apos;ve saved, day by day. Kept on this phone — no account needed.</p>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 pt-5 pb-8 lg:pt-8">
+      <MineHeader active="plan">What you&apos;ve saved, day by day. Kept on this phone, no account needed.</MineHeader>
       <PlanList />
     </div>
   );

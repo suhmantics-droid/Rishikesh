@@ -94,8 +94,8 @@ async function remind(slug: string, on: boolean): Promise<{ date: string; start_
   return res?.ok ? ((await res.json()) as { at: { date: string; start_time: string } | null }).at : null;
 }
 
-/** ☆ Add to my plan — also the flyer's public "interested" count. */
-export function PlanButton({ slug, eventId, initial }: { slug: string; eventId: number; initial: number }) {
+/** Save to my plan, which is also the flyer's public "interested" count. */
+export function PlanButton({ slug, eventId, initial, compact = false }: { slug: string; eventId: number; initial: number; compact?: boolean }) {
   const plan = usePlan();
   const saved = plan.includes(slug);
   const [count, setCount] = useState(initial);
@@ -123,6 +123,19 @@ export function PlanButton({ slug, eventId, initial }: { slug: string; eventId: 
     const at = await remind(slug, true);
     setNote(at ? `We'll remind you before it starts (${formatDayLong(at.date).split(" · ")[0]} ${formatTimeRange(at.start_time)}).` : "Saved to your plan.");
   }
+
+  if (compact)
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={saved}
+        className={`inline-flex min-h-12 items-center justify-center gap-1.5 border-[1.5px] px-3 text-[16px] font-bold ${saved ? "border-ink bg-ink text-wall" : "border-ink bg-surface"}`}
+      >
+        <Icon name="save" filled={saved} size={18} />
+        {saved ? "Saved" : "Save"}
+      </button>
+    );
 
   return (
     <div className="flex flex-col items-stretch gap-1.5">
@@ -156,7 +169,7 @@ export function PlanLink() {
   if (!n) return null;
   return (
     <Link href="/plan" className="rounded-full px-2 py-2 whitespace-nowrap text-ink-2 hover:bg-paper-2 sm:px-3" aria-label={`My plan, ${n} saved`}>
-      ★ <span className="text-saffron-ink">{n}</span>
+      <Icon name="save" size={18} /> <span>{n}</span>
     </Link>
   );
 }
@@ -201,67 +214,66 @@ export function PlanList() {
 
   if (!plan.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-line bg-card/60 p-8 text-center">
-        <p className="font-display text-xl font-semibold">Nothing saved yet</p>
-        <p className="mt-1 text-sm text-muted">Tap ☆ Add to my plan on any flyer and it lands here, day by day.</p>
-        <Link href="/" className="mt-4 inline-block rounded-full bg-saffron px-4 py-2 text-sm font-bold text-white">
-          Browse the flyers
+      <div className="flex flex-col items-start gap-2 border-[1.5px] border-dashed border-line-strong px-4 py-4">
+        <span className="text-[17px] font-bold">Nothing saved yet</span>
+        <span className="text-[16px] text-ink-2">Tap Save on any flyer and it lands here, day by day.</span>
+        <Link href="/" className="mt-1 inline-flex min-h-12 items-center rounded-full bg-ink px-5 text-[16px] font-bold text-wall">
+          Go to the wall
         </Link>
       </div>
     );
   }
-  if (!data || data.key !== key) return <div className="h-64 animate-pulse rounded-2xl bg-paper-2" />;
+  if (!data || data.key !== key) return <div className="h-64 animate-pulse bg-wall-2" />;
 
   const today = todayIST();
   const days = new Map<string, Item[]>();
   for (const i of data.items) days.set(i.date, [...(days.get(i.date) ?? []), i]);
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-7">
       {[...days.entries()].map(([date, list]) => (
-        <section key={date}>
-          <h2 className="mb-2 font-display text-lg font-semibold">{formatDayLong(date, today)}</h2>
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-card">
+        <section key={date} className="flex flex-col gap-2">
+          <h2 className="text-[19px] font-extrabold">{formatDayLong(date, today)}</h2>
+          <ul className="flex flex-col gap-2">
             {list.map((i) => (
-              <li key={`${i.slug}-${i.date}-${i.start_time}`} className="flex items-center gap-3 p-3">
-                <Link href={`/e/${i.slug}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="w-16 shrink-0 text-right font-display text-[15px] font-semibold">{formatTimeRange(i.start_time) || "—"}</span>
-                  {i.thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={i.thumb} alt="" loading="lazy" className="h-14 w-11 shrink-0 rounded-md object-cover object-top" />
-                  ) : null}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-bold">{i.label ?? i.title}</span>
-                    <span className="block truncate text-[13px] text-muted">
+              <li key={`${i.slug}-${i.date}-${i.start_time}`} className="flex items-stretch bg-surface shadow-e1">
+                <Link href={`/e/${i.slug}`} className="grid min-w-0 flex-1 grid-cols-[76px_1fr] items-start gap-3 px-3 py-2.5 hover:bg-slip">
+                  <span className="flex flex-col items-start gap-1">
+                    <span className="slip-time text-[17px]">{formatTimeRange(i.start_time) || "Time n/a"}</span>
+                    <LiveBadge date={i.date} start={i.start_time} end={i.end_time} />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="slip-name">{i.label ?? i.title}</span>
+                    <span className="text-[15px] leading-snug text-ink-2">
                       {i.label ? `${i.title} · ` : ""}
                       {i.venue}
                       {i.price ? ` · ${i.price}` : ""}
                     </span>
-                    <WalkTime lat={i.lat} lng={i.lng} className="text-[12px] font-semibold text-ganga" />
+                    <WalkTime lat={i.lat} lng={i.lng} className="text-[15px] font-semibold text-act-ink" />
                   </span>
-                  <LiveBadge date={i.date} start={i.start_time} end={i.end_time} />
                 </Link>
                 <button
                   type="button"
                   aria-label={`Remove ${i.title} from my plan`}
-                  className="shrink-0 px-1 text-muted hover:text-ink"
+                  className="flex w-12 shrink-0 items-center justify-center text-ink-2 hover:text-ink"
                   onClick={() => {
                     write(read().filter((s) => s !== i.slug));
                     void remind(i.slug, false);
                   }}
                 >
-                  ✕
+                  <Icon name="close" size={20} />
                 </button>
               </li>
             ))}
           </ul>
         </section>
       ))}
-      <div className="rounded-2xl border border-line bg-card p-4">
-        <p className="text-sm font-bold">Get a reminder before each one</p>
-        <p className="mb-3 text-sm text-muted">Turn on notifications, then add flyers to your plan — we&apos;ll nudge you about an hour before they start.</p>
+      <div className="flex flex-col gap-2 bg-surface p-4 shadow-e1">
+        <p className="text-[17px] font-bold">A reminder before each one</p>
+        <p className="text-[16px] text-ink-2">Turn on notifications and this phone gets a nudge about an hour before anything you&apos;ve saved.</p>
         <PushToggle compact />
       </div>
       <CalendarSubscribe plan={plan} />
+      <p className="text-[15px] text-muted">Kept on this phone. If you clear your browser data, the plan goes too. A calendar copy stays.</p>
     </div>
   );
 }
@@ -277,47 +289,50 @@ function CalendarSubscribe({ plan }: { plan: string[] }) {
   const host = typeof window === "undefined" ? "" : window.location.host;
   const https = token ? `https://${host}/plan/${token}/calendar` : "";
   const webcal = token ? `webcal://${host}/plan/${token}/calendar` : "";
-  const chip = "inline-flex items-center gap-1 rounded-full border border-line bg-paper px-3 py-1.5 text-[13px] font-bold";
+  const btn = "inline-flex min-h-12 items-center justify-center gap-2 border-[1.5px] border-ink bg-surface px-4 text-[16px] font-bold";
   return (
-    <div className="rounded-2xl border border-line bg-card p-4">
-      <p className="text-sm font-bold">📅 My plan in my calendar</p>
+    <div className="flex flex-col gap-2 bg-surface p-4 shadow-e1">
+      <p className="flex items-center gap-2 text-[17px] font-bold">
+        <Icon name="calendar" size={20} /> Put your plan in your calendar
+      </p>
       {!token ? (
         <>
-          <p className="mb-3 text-sm text-muted">Add it once; anything you save here shows up in your calendar by itself.</p>
+          <p className="text-[16px] text-ink-2">One link keeps Google or Apple Calendar in step with this list. Anything you save here shows up there.</p>
           <button
             type="button"
             disabled={busy}
-            className="rounded-full bg-ganga px-4 py-2 text-sm font-bold text-on-ganga disabled:opacity-60"
+            className="inline-flex min-h-12 items-center justify-center self-start bg-act px-5 text-[16px] font-bold text-on-act disabled:opacity-60"
             onClick={async () => {
               setBusy(true);
               setToken(await saveCalendar(null, plan));
               setBusy(false);
             }}
           >
-            {busy ? "Making your link…" : "Put my plan in my calendar"}
+            {busy ? "Making your link…" : "Make my calendar link"}
           </button>
         </>
       ) : (
         <>
-          <p className="mb-3 text-sm text-muted">Pick your calendar. It checks for changes every few hours. The link is private: share it only with people you want to see your plan.</p>
-          <div className="flex flex-wrap gap-2">
-            <a className={chip} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noreferrer">
-              Google Calendar ↗
+          <p className="text-[16px] text-ink-2">Pick your calendar. It asks once, then checks for changes every few hours.</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <a className={`${btn} border-act bg-act text-on-act`} href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`} target="_blank" rel="noreferrer">
+              Google Calendar
             </a>
-            <a className={chip} href={webcal}>
-              Apple / iPhone
+            <a className={btn} href={webcal}>
+              Apple Calendar
             </a>
             <button
               type="button"
-              className={chip}
+              className={btn}
               onClick={async () => {
                 await navigator.clipboard?.writeText(https).catch(() => {});
                 setCopied(true);
               }}
             >
-              {copied ? "Copied ✓" : "Copy link (Outlook, others)"}
+              {copied ? "Link copied" : "Copy link"}
             </button>
           </div>
+          <p className="text-[15px] text-muted">Anyone with this link sees your plan. Don&apos;t share it.</p>
         </>
       )}
     </div>
