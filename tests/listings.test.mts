@@ -188,6 +188,97 @@ test("a class timetable becomes named sessions, and events lead the wall", async
   assert.ok(last.d > addDays(today, 48), `timetable should run past day 48, ends ${last.d}`);
 });
 
+type SessionRow = { id: number; label: string | null; days: string; start_time: string | null };
+const sessionsOf = async (eventId: number) =>
+  (await db().prepare("SELECT id, label, days, start_time FROM sessions WHERE event_id = ? ORDER BY position").all(eventId)) as SessionRow[];
+const datesOf = async (eventId: number) =>
+  (await db().prepare("SELECT date, start_time, end_time, label, session_id FROM event_dates WHERE event_id = ? ORDER BY date, start_time, label").all(eventId)) as {
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    label: string | null;
+    session_id: number | null;
+  }[];
+const weekdayOf = (date: string) => new Date(date + "T00:00:00Z").getUTCDay();
+
+test("each timetable class is a slot with its own id, kept through an edit", async () => {
+  const input = (sessions: unknown[]) =>
+    listing({ title: "Slot studio", category: "yoga", kind: "classes", dates: [], venue: { slug: "aavya" }, sessions });
+  const id = (await createListing(
+    input([
+      { days: [1, 3], start_time: "08:00", end_time: "09:30", label: "Hatha" },
+      { days: [5], start_time: "18:00", end_time: "19:00", label: "Kirtan" },
+      { days: [2], start_time: "16:00", end_time: "17:00", label: "Yin" },
+    ]),
+  )).id;
+  const [hatha, kirtan, yin] = await sessionsOf(id);
+  assert.deepEqual([hatha.label, kirtan.label, yin.label], ["Hatha", "Kirtan", "Yin"]);
+
+  // Every dated session points at its slot, on one of the slot's days.
+  const dates = await datesOf(id);
+  assert.ok(dates.length > 0 && dates.every((d) => d.session_id));
+  const byId = new Map((await sessionsOf(id)).map((s) => [s.id, s]));
+  assert.ok(dates.every((d) => (JSON.parse(byId.get(d.session_id!)!.days) as number[]).includes(weekdayOf(d.date))));
+
+  // Hatha gains a day, Yin moves to 5pm, Kirtan goes, Pranayama is new: Hatha and Yin keep their ids.
+  const { updateListing } = await import("../src/lib/listings");
+  await updateListing(
+    id,
+    input([
+      { days: [1, 3, 5], start_time: "08:00", end_time: "09:30", label: "Hatha" },
+      { days: [2], start_time: "17:00", end_time: "18:00", label: "Yin" },
+      { days: [6], start_time: "07:00", end_time: "08:00", label: "Pranayama" },
+    ]),
+  );
+  const after = await sessionsOf(id);
+  assert.equal(after.length, 3);
+  assert.equal(after[0].id, hatha.id);
+  assert.deepEqual(JSON.parse(after[0].days), [1, 3, 5]);
+  assert.equal(after[1].id, yin.id);
+  assert.equal(after[1].start_time, "17:00");
+  assert.ok(![hatha.id, kirtan.id, yin.id].includes(after[2].id));
+  assert.ok(!(await datesOf(id)).some((d) => d.session_id === kirtan.id));
+});
+
+test("a timetable saved before slots existed survives the migration with the same dates", async () => {
+  const { migrateSessions } = await import("../src/lib/db");
+  const id = (await createListing(
+    listing({
+      title: "Old timetable",
+      category: "yoga",
+      kind: "classes",
+      dates: [],
+      venue: { slug: "aavya" },
+      sessions: [
+        { days: [1, 2, 4], start_time: "07:00", end_time: "08:15", label: "Kundalini" },
+        { days: [0, 6], start_time: "10:00", end_time: null, label: null },
+      ],
+    }),
+  )).id;
+  const unlinked = (rows: Awaited<ReturnType<typeof datesOf>>) => rows.map(({ date, start_time, end_time, label }) => ({ date, start_time, end_time, label }));
+  const before = unlinked(await datesOf(id));
+  // As it was before this release: no slot rows, dates not linked.
+  await db().prepare("DELETE FROM sessions WHERE event_id = ?").run(id);
+  await db().prepare("UPDATE event_dates SET session_id = NULL WHERE event_id = ?").run(id);
+
+  await migrateSessions();
+  const slots = await sessionsOf(id);
+  assert.equal(slots.length, 2);
+  const after = await datesOf(id);
+  assert.deepEqual(
+    unlinked(after),
+    before,
+    "the dates themselves don't change",
+  );
+  assert.ok(after.every((d) => d.session_id), "every date is linked to its slot");
+  assert.ok(after.filter((d) => d.label === "Kundalini").every((d) => d.session_id === slots[0].id));
+  assert.ok(after.filter((d) => d.label === null).every((d) => d.session_id === slots[1].id));
+
+  // Running it again changes nothing.
+  await migrateSessions();
+  assert.equal((await sessionsOf(id)).length, 2);
+});
+
 test("a timetable needs at least one class", async () => {
   await assert.rejects(async () => await createListing(listing({ title: "Empty timetable", kind: "classes", dates: [], sessions: [] })), /Add at least one class/);
 });

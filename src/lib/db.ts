@@ -85,6 +85,28 @@ CREATE TABLE IF NOT EXISTS event_dates (
 CREATE INDEX IF NOT EXISTS event_dates_date ON event_dates(date);
 CREATE INDEX IF NOT EXISTS event_dates_event ON event_dates(event_id);
 
+-- One class on a timetable (a "slot"): repeats on set weekdays at a set time. Each dated session in
+-- event_dates points back to it (session_id), so a class can be saved and linked on its own. Kept in step
+-- with events.schedule whenever the dates are rebuilt. Empty fields mean the flyer doesn't say.
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0, -- order on the timetable
+  label TEXT, -- the class name
+  days TEXT NOT NULL, -- JSON weekdays, 0 = Sunday
+  start_time TEXT,
+  end_time TEXT,
+  teacher_id INTEGER REFERENCES artists(id),
+  style TEXT,
+  level TEXT,
+  price_type TEXT, -- null: the timetable's own price applies
+  price_min INTEGER,
+  booking_kind TEXT, -- 'walk_in' or 'prebook'; null: the timetable's, else "Ask the studio"
+  booking_contact TEXT,
+  until TEXT
+);
+CREATE INDEX IF NOT EXISTS sessions_event ON sessions(event_id);
+
 CREATE TABLE IF NOT EXISTS event_artists (
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   artist_id INTEGER NOT NULL REFERENCES artists(id) ON DELETE CASCADE,
@@ -247,6 +269,7 @@ const MIGRATIONS: [table: string, column: string, def: string][] = [
   ["venues", "guide", "TEXT"], // 'eat' or 'wellness': in the guide (and on the map, zoomed in) even without a flyer
   ["events", "organiser_whatsapp", "TEXT"],
   ["events", "review_note", "TEXT"], // the question we asked the organiser when a flyer needs changes // private: how we tell the organiser it's checked. Never shown on the listing.
+  ["event_dates", "session_id", "INTEGER"], // the timetable class (sessions.id) a dated session comes from
 ];
 
 // Changes whenever the schema, a migration or the starter venues change, so a cold start only
@@ -369,6 +392,8 @@ async function setUp(client: Client, local: boolean) {
     if (!columns.has(table)) columns.set(table, new Set(plain(await client.execute(`PRAGMA table_info(${table})`)).map((c) => String(c.name))));
     if (!columns.get(table)!.has(column)) await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
   }
+  await client.execute("CREATE INDEX IF NOT EXISTS event_dates_session ON event_dates(session_id)");
+  await backfillSessions(client);
   // Starter venues: added if missing, never overwritten (pins may have been corrected in Admin).
   await client.batch(
     VENUE_SEED.map((v) => ({
@@ -434,6 +459,52 @@ async function setUp(client: Client, local: boolean) {
   await client.execute({ sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('_SCHEMA_VERSION', ?)", args: [SCHEMA_VERSION] });
 }
 
+/**
+ * Timetables saved before sessions had their own table: each weekly session becomes a row, and the dates
+ * already made from it point back to it. Once per timetable; the JSON schedule and the dates stay as they are.
+ */
+async function backfillSessions(client: Client) {
+  const events = plain(
+    await client.execute(
+      `SELECT id, schedule FROM events WHERE schedule LIKE '%"days"%' AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.event_id = events.id)`,
+    ),
+  );
+  for (const e of events) {
+    let s: { sessions?: { days?: number[]; start_time?: string | null; end_time?: string | null; label?: string | null }[]; until?: string | null };
+    try {
+      s = JSON.parse(String(e.schedule));
+    } catch {
+      continue;
+    }
+    const tx = await client.transaction("write");
+    try {
+      for (const [position, x] of (s.sessions ?? []).entries()) {
+        if (!x.days?.length) continue;
+        const r = await tx.execute({
+          sql: "INSERT INTO sessions (event_id, position, label, days, start_time, end_time, until) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          args: [Number(e.id), position, x.label ?? null, JSON.stringify(x.days), x.start_time ?? null, x.end_time ?? null, s.until ?? null],
+        });
+        await tx.execute({
+          sql: `UPDATE event_dates SET session_id = ? WHERE event_id = ? AND session_id IS NULL AND start_time IS ? AND label IS ?
+                  AND CAST(strftime('%w', date) AS INTEGER) IN (${x.days.map(() => "?").join(",")})`,
+          args: [Number(r.lastInsertRowid), Number(e.id), x.start_time ?? null, x.label ?? null, ...x.days],
+        });
+      }
+      await tx.commit();
+    } catch (err) {
+      await tx.rollback().catch(() => {});
+      throw err;
+    } finally {
+      tx.close();
+    }
+  }
+}
+
+/** The one-off move of timetable sessions into their own table. Setup runs it after a schema change; tests call it. */
+export async function migrateSessions() {
+  await backfillSessions((await connection()).client);
+}
+
 type Connection = { client: Client; ready: Promise<void> };
 
 function connect(): Connection {
@@ -477,6 +548,7 @@ export function db(): Db {
 export async function deleteOrphans() {
   await db().exec(`
     DELETE FROM event_dates WHERE event_id NOT IN (SELECT id FROM events);
+    DELETE FROM sessions WHERE event_id NOT IN (SELECT id FROM events);
     DELETE FROM event_artists WHERE event_id NOT IN (SELECT id FROM events) OR artist_id NOT IN (SELECT id FROM artists);
     DELETE FROM payments WHERE event_id NOT IN (SELECT id FROM events);
     DELETE FROM reports WHERE event_id NOT IN (SELECT id FROM events);

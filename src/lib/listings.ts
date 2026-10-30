@@ -77,7 +77,8 @@ export type Schedule = {
   sessions: SessionT[];
   until: string | null;
 };
-export type OccurrenceRow = { date: string; start_time: string | null; end_time: string | null; label: string | null };
+/** `session`: which of the schedule's weekly sessions it comes from (its index), if any. */
+export type OccurrenceRow = { date: string; start_time: string | null; end_time: string | null; label: string | null; session?: number };
 
 export const MAX_OCCURRENCES = 600;
 
@@ -88,8 +89,8 @@ export function buildOccurrences(s: Schedule, today: string, horizon: string): O
   if (s.sessions.length) {
     for (let d = today; d <= end; d = addDays(d, 1)) {
       const wd = weekday(d);
-      for (const x of s.sessions) {
-        if (x.days.includes(wd)) all.push({ date: d, start_time: x.start_time, end_time: x.end_time, label: x.label });
+      for (const [i, x] of s.sessions.entries()) {
+        if (x.days.includes(wd)) all.push({ date: d, start_time: x.start_time, end_time: x.end_time, label: x.label, session: i });
       }
     }
   }
@@ -115,6 +116,40 @@ export function parseSchedule(json: string | null | undefined): Schedule | null 
   }
 }
 
+/**
+ * Keeps the sessions table in step with the schedule, so each timetable class has an id people can save.
+ * A class keeps its id while its name and start time stay the same, or (if it moved) just its name; classes
+ * no longer on the timetable are dropped. Returns the ids in the schedule's order.
+ */
+async function syncSessions(eventId: number, s: Schedule, d: Db): Promise<number[]> {
+  const old = (await d.prepare("SELECT id, label, start_time FROM sessions WHERE event_id = ? ORDER BY position, id").all(eventId)) as {
+    id: number;
+    label: string | null;
+    start_time: string | null;
+  }[];
+  const take = (match: (o: (typeof old)[number]) => boolean) => {
+    const i = old.findIndex(match);
+    return i < 0 ? null : old.splice(i, 1)[0].id;
+  };
+  const ids: number[] = [];
+  for (const [position, x] of s.sessions.entries()) {
+    const label = x.label ?? null;
+    const values = [position, label, JSON.stringify(x.days), x.start_time, x.end_time, s.until];
+    const id = take((o) => o.label === label && o.start_time === x.start_time) ?? (label ? take((o) => o.label === label) : null);
+    if (id) {
+      await d.prepare("UPDATE sessions SET position = ?, label = ?, days = ?, start_time = ?, end_time = ?, until = ? WHERE id = ?").run(...values, id);
+      ids.push(id);
+    } else {
+      const r = await d
+        .prepare("INSERT INTO sessions (position, label, days, start_time, end_time, until, event_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(...values, eventId);
+      ids.push(r.lastInsertRowid);
+    }
+  }
+  for (const o of old) await d.prepare("DELETE FROM sessions WHERE id = ?").run(o.id);
+  return ids;
+}
+
 /** Rebuilds a listing's dates from its schedule, through to the end of its paid period. */
 export async function writeOccurrences(eventId: number, d: Db = db()) {
   const e = (await d.prepare("SELECT schedule, live_until, kind FROM events WHERE id = ?").get(eventId)) as
@@ -122,6 +157,7 @@ export async function writeOccurrences(eventId: number, d: Db = db()) {
     | undefined;
   const schedule = parseSchedule(e?.schedule);
   if (!e || !schedule) return 0;
+  const sessionIds = await syncSessions(eventId, schedule, d);
   const today = todayIST();
   const horizon = e.live_until && e.live_until >= today ? e.live_until : addDays(today, LISTING.days - 1);
   const occ = buildOccurrences(schedule, today, horizon);
@@ -129,8 +165,8 @@ export async function writeOccurrences(eventId: number, d: Db = db()) {
     throw new ListingError(e.kind === "classes" ? "Add at least one class: its days and start time." : "Add at least one upcoming date.");
   }
   await d.prepare("DELETE FROM event_dates WHERE event_id = ?").run(eventId);
-  const ins = d.prepare("INSERT INTO event_dates (event_id, date, start_time, end_time, label) VALUES (?, ?, ?, ?, ?)");
-  for (const o of occ) await ins.run(eventId, o.date, o.start_time, o.end_time, o.label);
+  const ins = d.prepare("INSERT INTO event_dates (event_id, date, start_time, end_time, label, session_id) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const o of occ) await ins.run(eventId, o.date, o.start_time, o.end_time, o.label, o.session === undefined ? null : sessionIds[o.session]);
   return occ.length;
 }
 
